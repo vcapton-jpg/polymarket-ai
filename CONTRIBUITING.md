@@ -4,6 +4,8 @@
 
 Le projet est structuré de la façon suivante :
 
+```
+
 prediction_markets/
 │
 ├── app/
@@ -61,6 +63,8 @@ prediction_markets/
 ├── poetry.lock                      
 ├── .env.example                     
 └── .gitignore
+
+```
 
 ### Règles sur les branches :
 
