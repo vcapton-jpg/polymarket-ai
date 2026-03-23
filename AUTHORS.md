@@ -1,4 +1,4 @@
 # Sprint 1
 
-- ABBRUZZESE Emmanuel <elhermite0@gmail.com>
+- ABBRUZZESE Emmanuel <emmanuel.lhermite@etu.u-paris.fr>
 - CAPTON Vadim <>
