@@ -1,24 +1,36 @@
-image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+image : ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
-variables:
-  UV_CACHE_DIR: .uv-cache  # met le cache dans le projet pour GitLab
-
-cache:
-  key:
-    files:
-      - uv.lock          # le cache est invalidé si le lockfile change
-  paths:
-    - .uv-cache/
-
-stages:          
+stages:
+  - lint
   - test
-  - lint  
   - build
+  - deploy
 
-before_script:
-  - uv sync --frozen   # installe exactement ce qui est dans uv.lock
+default:
+  before_script:
+    - uv sync --extra dev --locked
 
+lint:
+  stage: lint
+  script:
+    - ruff check
+    - ruff format --check
 
-jobs : 
-  lint
-  runs-on : 
+test:
+  stage: test
+  script:
+    - pytest
+
+check :
+  stage : build
+  script : 
+    - python -c "import app.api.main"
+
+docker-build :
+  stage: deploy
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script: [] 
+  script:
+    - docker build -t prediction-markets:latest .
