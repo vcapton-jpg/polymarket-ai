@@ -1,4 +1,4 @@
-app = FatsAPI() # permet de au Dicker de cibler app
+# app = FatsAPI() => permet de au Dicker de cibler app
 
 
 # partie --host 0.0.0.0  => écoute sur toutes les interfaces réseau, pas seulement localhost

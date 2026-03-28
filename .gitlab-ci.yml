@@ -13,18 +13,18 @@ default:
 lint:
   stage: lint
   script:
-    - ruff check
-    - ruff format --check
+    - uv run ruff check .
+    - uv run ruff format --check .
 
 test:
   stage: test
   script:
-    - pytest
+    - uv run pytest
 
 check :
   stage : build
   script : 
-    - python -c "import app.api.main"
+    - uv run python -c "import app.api.main"
 
 docker-build :
   stage: deploy
