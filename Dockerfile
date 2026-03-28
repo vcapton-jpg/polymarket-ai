@@ -14,7 +14,8 @@ COPY pyproject.toml uv.lock ./
 # --no-install-project permet de récupérer seulement les dépendances et pas le code source
 # --no-editable permet de ne pas être en mode edit et aisi faire une vrai copie de /app/
 # --locked permet de dire à uv de ne pas mettre à jour automatiquement le uv.lock 
-RUN uv sync --no-install-project --no-editable --locked
+# --no-dev permet de ne pas embarquer en prod les dépendances optionnelles
+RUN uv sync --no-install-project --no-editable --locked --no-dev
 
 #étape run
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim 
