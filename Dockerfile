@@ -41,7 +41,7 @@ RUN chown -R appuser:appuser .
 USER appuser
 
 # Compile le bytecode engendrer par python
-RUN uv compile-bytecode
+RUN uv run python -m compileall .
 
 # RUN chmod -R 555 ou 444(read only) /app à voir dans le futur si on le met en fonction de si celery et Fastapi ont besoin d'écrire des fichiers dans /app
 
