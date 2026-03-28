@@ -1,0 +1,15 @@
+# Ce que Docker ne copie dans l'image lorsqu'on fait une commande COPY
+
+# Pour des raisons de sécurité
+.env    
+# Pour ne pas copier tout l'historique des gits car trés lourd et inutile    
+.git/
+# Pour reconstruire le venv dans le builder
+.ven/
+# Les tests ne tournent pas en prod donc inutile
+tests/
+# Ce régénère automatiquement
+*.pyc
+# Doc du repo donc inutile pour le builder
+*.md
+ 
