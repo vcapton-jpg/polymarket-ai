@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, AsyncMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+
 # Base de données SQLite en mémoire pour les tests
 @pytest.fixture
 def db_session():
@@ -12,18 +13,24 @@ def db_session():
     yield session
     session.close()
 
+
 # Mock OpenAI sans appel réseau
 @pytest.fixture
 def mock_openai():
     mock = MagicMock()
-    mock.chat.completions.create = AsyncMock(return_value=MagicMock(
-        choices=[MagicMock(
-            message=MagicMock(
-                content='{"summary": "Test summary", "impact": "high"}'
-            )
-        )]
-    ))
+    mock.chat.completions.create = AsyncMock(
+        return_value=MagicMock(
+            choices=[
+                MagicMock(
+                    message=MagicMock(
+                        content='{"summary": "Test summary", "impact": "high"}'
+                    )
+                )
+            ]
+        )
+    )
     return mock
+
 
 # Objet Market de test
 @pytest.fixture
@@ -39,6 +46,7 @@ def sample_market():
         "spread": 0.10,
     }
 
+
 # Objet News de test
 @pytest.fixture
 def sample_news():
@@ -51,6 +59,7 @@ def sample_news():
         "source_weight": 1.0,
         "language": "en",
     }
+
 
 # Objet EventFromNews de test
 @pytest.fixture
