@@ -31,6 +31,9 @@ COPY --from=builder /app/.venv /app/.venv
 # Récupère le code source 
 COPY app ./app
 
+# Compile le bytecode engendrer par python
+RUN uv run python -m compileall .
+
 # Ajoute l'utilisater appuser au groupe des utilisateur
 RUN useradd -ms /bin/bash appuser
 
@@ -40,8 +43,6 @@ RUN chown -R appuser:appuser .
 # Bascule sur appuser
 USER appuser
 
-# Compile le bytecode engendrer par python
-RUN uv run python -m compileall .
 
 # RUN chmod -R 555 ou 444(read only) /app à voir dans le futur si on le met en fonction de si celery et Fastapi ont besoin d'écrire des fichiers dans /app
 
