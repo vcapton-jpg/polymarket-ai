@@ -1,0 +1,25 @@
+# Ce que Docker ne copie dans l'image lorsqu'on fait une commande COPY
+
+# Pour des raisons de sécurité
+.env    
+
+# Pour ne pas copier tout l'historique des gits car trés lourd et inutile    
+.git/
+
+# Pour reconstruire le venv dans le builder
+.ven/
+
+# Car l'entrainement ne tourn pas en prod donc on inclut pas train_lightgbm.py
+# De plus LightGBM ne seras lancés qu'au bout de 1000 signaux labellisés 
+# les dépendances ML sont lourdes 
+ml/
+
+# Les tests ne tournent pas en prod donc inutile
+tests/
+
+# Ce régénère automatiquement
+*.pyc
+
+# Doc du repo donc inutile pour le builder
+*.md
+ 
