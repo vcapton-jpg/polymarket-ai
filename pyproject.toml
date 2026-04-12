@@ -1,24 +1,56 @@
 [project]
-name = "prediction-markets"
+name = "signal"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 
 dependencies = [
-    "alembic",
-    "fastapi",
-    "openai",
-    "pgvector",
-    "psycopg[binary,pool]",
-    "sqlalchemy[asyncio]",
-    "uvicorn[standard]",
-    "apscheduler",        
-    "pydantic-settings",  
+    "alembic>=1.15.0",
+    "fastapi>=0.115.0",
+    "openai>=1.50.0",
+    "pgvector>=0.2.0",
+    "psycopg[binary,pool]>=3.2.0",
+    "asyncpg>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.35",
+    "uvicorn[standard]>=0.32.0",
+    "apscheduler>=3.10.0",
+    "pydantic-settings>=2.5.0",
+    "feedparser>=6.0.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.3.0",
+    "rank-bm25>=0.2.0",
+    "celery>=5.4.0",
+    "redis>=5.2.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "tenacity>=8.3.0",
+    "websockets>=14.0.0",
+    "python-dateutil>=2.9.0",
+    "scikit-learn>=1.6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "pytest-cov>=6.0.0",
     "ruff>=0.15.8",
+    "httpx>=0.28.0",
+    "mock>=5.1.0",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "PT"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["unit: unit tests", "integration: integration tests"]
 
