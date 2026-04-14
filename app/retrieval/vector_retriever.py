@@ -1,50 +1,43 @@
-"""Vector retriever using pgvector."""
+"""Vector retriever using pgvector cosine distance."""
 
 import logging
 from typing import Optional
 
-import numpy as np
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 
-class VectorRetriever:
-    """Retriever using vector similarity search."""
+MIN_COSINE_SIMILARITY = 0.45
 
-    def __init__(self, db: AsyncSession):
-        """Initialize the vector retriever.
 
-        Args:
-            db: Database session.
-        """
-        self.db = db
+async def search_markets_by_embedding(
+    session: AsyncSession,
+    event_embedding: list[float],
+    limit: int = 20,
+    event_bucket: Optional[str] = None,
+) -> list[dict]:
+    """Search for active, non-closed markets with the closest embeddings.
 
-    async def search_similar_markets(
-        self,
-        event_embedding: list[float],
-        limit: int = 10,
-    ) -> list[dict]:
-        """Search for similar markets using vector similarity.
+    Bucket filter is intentionally removed — the full market corpus is searched
+    to avoid hiding niche markets behind noisy bucket classification.
+    """
+    if event_embedding is None:
+        return []
 
-        Args:
-            event_embedding: Event embedding vector.
-            limit: Maximum number of results.
+    embedding_str = "[" + ",".join(str(x) for x in event_embedding) + "]"
 
-        Returns:
-            List of market dictionaries with similarity scores.
-        """
-        if not event_embedding:
-            return []
+    params: dict = {
+        "embedding": embedding_str,
+        "limit": limit,
+        "min_sim": MIN_COSINE_SIMILARITY,
+    }
 
-        # Convert embedding to string format for PostgreSQL
-        embedding_str = "[" + ",".join(str(x) for x in event_embedding) + "]"
-
-        try:
-            query = text("""
+    try:
+        result = await session.execute(
+            text("""
                 SELECT
-                    id,
                     market_id,
                     question,
                     category,
@@ -53,48 +46,40 @@ class VectorRetriever:
                     volume_24h,
                     best_bid,
                     best_ask,
-                    1 - (embedding <=> :embedding::vector) AS similarity
+                    spread,
+                    last_trade_price,
+                    market_retrieval_text,
+                    1 - (embedding <=> cast(:embedding as vector)) AS cosine_score
                 FROM markets
                 WHERE embedding IS NOT NULL
-                ORDER BY embedding <=> :embedding::vector
+                  AND active = true
+                  AND closed = false
+                  AND 1 - (embedding <=> cast(:embedding as vector)) >= :min_sim
+                ORDER BY embedding <=> cast(:embedding as vector)
                 LIMIT :limit
-            """)
+            """),
+            params,
+        )
 
-            result = await self.db.execute(
-                query,
-                {"embedding": embedding_str, "limit": limit},
-            )
+        rows = result.fetchall()
+        return [
+            {
+                "market_id": r[0],
+                "question": r[1],
+                "category": r[2],
+                "end_date": r[3],
+                "liquidity": r[4],
+                "volume_24h": r[5],
+                "best_bid": r[6],
+                "best_ask": r[7],
+                "spread": r[8],
+                "last_trade_price": r[9],
+                "market_retrieval_text": r[10],
+                "cosine_score": float(r[11]) if r[11] else 0.0,
+            }
+            for r in rows
+        ]
 
-            rows = result.fetchall()
-
-            return [
-                {
-                    "id": row[0],
-                    "market_id": row[1],
-                    "question": row[2],
-                    "category": row[3],
-                    "end_date": row[4],
-                    "liquidity": row[5],
-                    "volume_24h": row[6],
-                    "best_bid": row[7],
-                    "best_ask": row[8],
-                    "cosine_similarity": row[9],
-                }
-                for row in rows
-            ]
-
-        except Exception as e:
-            logger.error(f"Vector search error: {e}")
-            return []
-
-
-def create_vector_retriever(db: AsyncSession) -> VectorRetriever:
-    """Create a vector retriever instance.
-
-    Args:
-        db: Database session.
-
-    Returns:
-        Configured VectorRetriever.
-    """
-    return VectorRetriever(db)
+    except Exception as e:
+        logger.error("Vector search failed: %s", e)
+        return []

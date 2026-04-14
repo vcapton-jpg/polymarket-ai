@@ -1,156 +1,159 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import { Link } from "react-router-dom"
-import { formatDistanceToNow } from "date-fns"
-import { Filter, SortAsc, TrendingUp, TrendingDown } from "lucide-react"
-import "./Dashboard.css"
+import { motion } from "framer-motion"
+import { ArrowUpRight, Crosshair, TrendingUp, Trophy, Target, Wallet, Zap } from "lucide-react"
+import { MetricCard } from "../components/ui/MetricCard"
+import { SignalCard } from "../components/signals/SignalCard"
+import { LiveIndicator } from "../components/signals/LiveIndicator"
+import { EmptyState } from "../components/ui/EmptyState"
+import { SkeletonCard } from "../components/ui/Skeleton"
+import { useSignals } from "../hooks/useSignals"
+import { useDashboardKpis } from "../hooks/useAnalytics"
+import { useWebSocket } from "../hooks/useWebSocket"
+import { mergeSignalsDedupe } from "../lib/utils"
 
-interface Signal {
-  id: number
-  direction: "YES" | "NO"
-  question: string
-  score: number
-  confidence_label: string
-  urgency_label: string
-  tradability_label: string
-  market_price_at_signal: number
-  signal_date: string
-  bucket: string
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+}
+const fadeUp = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 }
 
-function Dashboard() {
-  const [signals, setSignals] = useState<Signal[]>([])
-  const [filters, setFilters] = useState({
-    bucket: "",
-    minScore: 0,
-    direction: "",
+export default function Dashboard() {
+  const { data: signalsData, isLoading: loadingSignals } = useSignals({
+    limit: 8,
+    refetchInterval: 12_000,
+    refetchOnWindowFocus: true,
   })
-  const [sort, setSort] = useState("newest")
-  const [loading, setLoading] = useState(true)
-  const [connected, setConnected] = useState(false)
+  const { data: kpis } = useDashboardKpis({ refetchInterval: 30_000 })
+  const { connected, liveSignals } = useWebSocket()
 
-  useEffect(() => {
-    // Fetch signals
-    fetchSignals()
+  const allSignals = mergeSignalsDedupe(
+    liveSignals,
+    signalsData?.signals ?? [],
+    8,
+  )
 
-    // WebSocket connection
-    const ws = new WebSocket("ws://localhost:8000/ws/signals")
-
-    ws.onopen = () => setConnected(true)
-    ws.onclose = () => setConnected(false)
-    ws.onmessage = (event) => {
-      const signal = JSON.parse(event.data)
-      setSignals((prev) => [signal, ...prev])
-    }
-
-    return () => ws.close()
-  }, [])
-
-  const fetchSignals = async () => {
-    try {
-      const response = await fetch("/api/signals?limit=20")
-      const data = await response.json()
-      setSignals(data.signals || [])
-    } catch (error) {
-      console.error("Failed to fetch signals:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "#10B981"
-    if (score >= 60) return "#3B82F6"
-    return "#F59E0B"
-  }
+  const [lastUpdate] = useState(() => new Date())
 
   return (
-    <div className="dashboard">
-      <div className="dashboard-header">
-        <h1>Signal Feed</h1>
-        <div className={`connection-status ${connected ? "connected" : ""}`}>
-          {connected ? "Live" : "Connecting..."}
+    <div className="max-w-[1080px] mx-auto">
+      {/* ─── Header ─── */}
+      <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <Crosshair size={20} className="text-accent" />
+            <h1 className="text-xl md:text-2xl font-bold text-txt-primary tracking-tight">
+              Signal
+            </h1>
+          </div>
+          <p className="text-sm text-txt-muted">
+            AI-powered prediction market intelligence
+          </p>
         </div>
+        <LiveIndicator connected={connected} lastUpdate={lastUpdate} />
       </div>
 
-      <div className="filters">
-        <select
-          value={filters.bucket}
-          onChange={(e) => setFilters({ ...filters, bucket: e.target.value })}
-          className="filter-select"
-        >
-          <option value="">All buckets</option>
-          <option value="politics">Politics</option>
-          <option value="geopolitics">Geopolitics</option>
-          <option value="economics">Economics</option>
-          <option value="crypto">Crypto</option>
-          <option value="sports">Sports</option>
-          <option value="science">Science</option>
-        </select>
+      {/* ─── Portfolio KPIs ─── */}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
+        {[
+          {
+            label: "Signals Today",
+            value: kpis ? String(kpis.signals_today) : "--",
+            sub: kpis ? `${kpis.total_signals} total` : "Loading...",
+            icon: <Zap size={16} />,
+            mono: true,
+          },
+          {
+            label: "Win Rate",
+            value: kpis?.win_rate != null ? `${kpis.win_rate.toFixed(1)}%` : "--",
+            sub: kpis?.resolved_signals
+              ? `${kpis.wins}W / ${kpis.losses}L (${kpis.resolved_signals} resolved)`
+              : "Pending first resolved signal",
+            icon: <Trophy size={16} />,
+            mono: true,
+          },
+          {
+            label: "Avg Score",
+            value: kpis?.avg_score != null ? kpis.avg_score.toFixed(1) : "--",
+            sub: "Across all signals",
+            icon: <Target size={16} />,
+            mono: true,
+          },
+          {
+            label: kpis?.streak_type === "win" ? "Win Streak" : kpis?.streak_type === "loss" ? "Loss Streak" : "Streak",
+            value: kpis?.streak ? `${kpis.streak}${kpis.streak_type === "win" ? "W" : "L"}` : "--",
+            sub: kpis?.best_signal ? `Best: #${kpis.best_signal.signal_id} (${kpis.best_signal.score})` : "Tracking since launch",
+            icon: <TrendingUp size={16} />,
+            mono: true,
+          },
+        ].map((kpiItem) => (
+          <motion.div key={kpiItem.label} variants={fadeUp}>
+            <MetricCard {...kpiItem} />
+          </motion.div>
+        ))}
+      </motion.div>
 
-        <select
-          value={filters.minScore}
-          onChange={(e) => setFilters({ ...filters, minScore: Number(e.target.value) })}
-          className="filter-select"
-        >
-          <option value={0}>All scores</option>
-          <option value={60}>Score 60+</option>
-          <option value={80}>Score 80+</option>
-        </select>
+      {/* ─── Live Signal Feed ─── */}
+      <section>
+        <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
+          <div>
+            <h2 className="text-base font-semibold text-txt-primary mb-1">
+              Live Signal Feed
+            </h2>
+            <p className="text-xs text-txt-muted max-w-md leading-relaxed">
+              Each signal = breaking news + matching Polymarket contract.
+              Score = conviction. Market says = current YES probability.
+            </p>
+          </div>
+          <Link to="/opportunities" className="no-underline shrink-0">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-md bg-surface-card shadow-card text-txt-secondary hover:text-accent transition-colors"
+            >
+              View all
+              <ArrowUpRight size={14} />
+            </button>
+          </Link>
+        </div>
 
-        <select
-          value={filters.direction}
-          onChange={(e) => setFilters({ ...filters, direction: e.target.value })}
-          className="filter-select"
-        >
-          <option value="">All directions</option>
-          <option value="YES">Buy YES</option>
-          <option value="NO">Buy NO</option>
-        </select>
-
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="filter-select"
-        >
-          <option value="newest">Newest first</option>
-          <option value="score">Highest score</option>
-          <option value="resolution">Fastest resolution</option>
-        </select>
-      </div>
-
-      <div className="signals-list">
-        {loading ? (
-          <div className="loading">Loading signals...</div>
-        ) : signals.length === 0 ? (
-          <div className="empty">No signals yet. New signals will appear here.</div>
+        {loadingSignals ? (
+          <div className="flex flex-col gap-3">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : allSignals.length === 0 ? (
+          <EmptyState
+            title="No signals in the feed yet"
+            message="When breaking news maps to a liquid Polymarket contract, signals appear here automatically."
+          />
         ) : (
-          signals.map((signal) => (
-            <Link to={`/signal/${signal.id}`} key={signal.id} className="signal-card">
-              <div className="signal-card-header">
-                <span className={`direction-badge ${signal.direction === "YES" ? "buy-yes" : "buy-no"}`}>
-                  {signal.direction === "YES" ? "🟢 BUY YES" : "🔴 BUY NO"}
-                </span>
-                <span className="score" style={{ color: getScoreColor(signal.score) }}>
-                  {signal.score}/100
-                </span>
-              </div>
-              <p className="signal-question">{signal.question}</p>
-              <div className="signal-meta">
-                <span className="bucket">{signal.bucket}</span>
-                <span>Confidence: {signal.confidence_label}</span>
-                <span>Urgency: {signal.urgency_label}</span>
-                <span>Tradability: {signal.tradability_label}</span>
-              </div>
-              <div className="signal-footer">
-                <span>Price: ${signal.market_price_at_signal?.toFixed(2)}</span>
-                <span>{formatDistanceToNow(new Date(signal.signal_date), { addSuffix: true })}</span>
-              </div>
-            </Link>
-          ))
+          <motion.div
+            className="flex flex-col gap-3"
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+          >
+            {allSignals.map((s, i) => (
+              <motion.div key={s.id} variants={fadeUp}>
+                <SignalCard
+                  signal={s}
+                  showLive={i === 0 && liveSignals.length > 0}
+                  isNew={liveSignals.some((ls) => ls.id === s.id) && i < 3}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
         )}
-      </div>
+      </section>
     </div>
   )
 }
-
-export default Dashboard

@@ -1,4 +1,4 @@
-"""Core configuration settings for Signal platform."""
+"""Core configuration — all settings from Blueprint V4."""
 
 from functools import lru_cache
 from typing import Optional
@@ -8,104 +8,130 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
 
-    # Database
+    # ── Database ──────────────────────────────────────────────────────────
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@db:5432/signal",
-        description="Async PostgreSQL connection URL",
     )
     database_url_sync: str = Field(
-        default="postgresql://postgres:postgres@db:5432/signal",
-        description="Sync PostgreSQL connection URL",
+        default="postgresql+psycopg://postgres:postgres@db:5432/signal",
     )
 
-    # Redis
-    redis_url: str = Field(
-        default="redis://redis:6379/0",
-        description="Redis connection URL for Celery",
-    )
+    # ── Redis ─────────────────────────────────────────────────────────────
+    redis_url: str = Field(default="redis://redis:6379/0")
 
-    # OpenAI
-    openai_api_key: Optional[str] = Field(
-        default=None,
-        description="OpenAI API key for LLM operations",
-    )
+    # ── OpenAI ────────────────────────────────────────────────────────────
+    openai_api_key: Optional[str] = Field(default=None)
+    openai_embedding_model: str = Field(default="text-embedding-3-small")
+    openai_llm_model: str = Field(default="gpt-4o-mini")
+    openai_impact_model: str = Field(default="gpt-4o")
 
-    # Telegram
-    telegram_bot_token: Optional[str] = Field(
-        default=None,
-        description="Telegram bot token for notifications",
-    )
-    telegram_chat_id: Optional[str] = Field(
-        default=None,
-        description="Telegram chat ID for notifications",
-    )
+    # ── World News API ────────────────────────────────────────────────────
+    worldnews_api_key: Optional[str] = Field(default=None)
+    worldnews_poll_interval_seconds: int = Field(default=120)
 
-    # World News API
-    worldnews_api_key: Optional[str] = Field(
-        default=None,
-        description="World News API key",
-    )
+    # ── Telegram (kept for optional alerts) ───────────────────────────────
+    telegram_bot_token: Optional[str] = Field(default=None)
+    telegram_chat_id: Optional[str] = Field(default=None)
 
-    # Environment
-    env: str = Field(
-        default="development",
-        description="Environment: development, staging, production",
-    )
+    # ── Auth / Security ──────────────────────────────────────────────────
+    signal_api_key: Optional[str] = Field(default=None)
 
-    # Signal Configuration
-    signal_score_threshold: int = Field(
-        default=60,
-        description="Minimum score to generate a signal",
-    )
-    llm_cost_alert_eur: float = Field(
-        default=30.0,
-        description="Alert threshold for daily LLM costs in EUR",
-    )
-    tier1_lag_alert_seconds: int = Field(
-        default=180,
-        description="Alert threshold for Tier 1 source lag",
-    )
+    # ── Push Notifications (VAPID) ────────────────────────────────────
+    vapid_private_key: Optional[str] = Field(default=None)
+    vapid_public_key: Optional[str] = Field(default=None)
+    vapid_email: str = Field(default="admin@signal.app")
 
-    # Retrieval Configuration
-    top_k_markets: int = Field(
-        default=10,
-        description="Number of top markets to retrieve per event",
-    )
+    # ── Polymarket Builder ─────────────────────────────────────────────
+    builder_api_key: Optional[str] = Field(default=None)
+    builder_api_secret: Optional[str] = Field(default=None)
+    builder_api_passphrase: Optional[str] = Field(default=None)
+    builder_private_key: Optional[str] = Field(default=None)
+    polygon_chain_id: int = Field(default=137)
 
-    # Clustering Configuration
-    clustering_cosine_threshold: float = Field(
-        default=0.82,
-        description="Cosine similarity threshold for clustering",
-    )
-    clustering_time_window_minutes: int = Field(
-        default=60,
-        description="Time window in minutes for clustering",
-    )
+    # ── Stripe ─────────────────────────────────────────────────────────
+    stripe_secret_key: Optional[str] = Field(default=None)
+    stripe_webhook_secret: Optional[str] = Field(default=None)
+    stripe_price_pro: Optional[str] = Field(default=None)
+    stripe_price_enterprise: Optional[str] = Field(default=None)
 
-    # Application
+    # ── Environment ───────────────────────────────────────────────────────
+    env: str = Field(default="development")
+
+    # ── Ingestion intervals (seconds) ─────────────────────────────────────
+    rss_poll_interval_seconds: int = Field(default=90)
+    x_poll_interval_seconds: int = Field(default=60)
+    market_refresh_interval_seconds: int = Field(default=900)
+    market_percentile_interval_seconds: int = Field(default=86400)
+
+    # ── Signal thresholds ─────────────────────────────────────────────────
+    signal_score_threshold: int = Field(default=55)
+    hard_exclusion_spread: float = Field(default=0.15)
+    hard_exclusion_ambiguity: float = Field(default=0.80)
+    hard_exclusion_min_specificity: float = Field(default=0.4)
+    # BUY_YES / BUY_NO only if YES implied prob is in this band.
+    # Outside: the market is essentially resolved — no edge, confusing UX.
+    signal_tradeable_yes_min: float = Field(default=0.05)
+    signal_tradeable_yes_max: float = Field(default=0.95)
+    # Minimum cosine similarity between event embedding and market embedding.
+    # Below this, the semantic link is too weak — the match is generic/tangential.
+    signal_min_cosine_score: float = Field(default=0.52)
+
+    # ── LLM cost guardrails ───────────────────────────────────────────────
+    llm_cost_alert_usd: float = Field(default=30.0)
+
+    # ── Ingestion health ──────────────────────────────────────────────────
+    tier1_lag_alert_seconds: int = Field(default=180)
+
+    # ── Retrieval ─────────────────────────────────────────────────────────
+    top_k_markets: int = Field(default=10)
+    rrf_k: int = Field(default=60)
+    llm_impact_max_candidates: int = Field(default=3)
+
+    # ── Clustering ────────────────────────────────────────────────────────
+    clustering_cosine_threshold: float = Field(default=0.75)
+    clustering_time_window_minutes: int = Field(default=120)
+    clustering_simhash_threshold: float = Field(default=0.15)
+    min_articles_per_event: int = Field(default=1)
+
+    # ── Processing / latency ────────────────────────────────────────────────
+    min_word_count: int = Field(default=50)
+    min_title_words: int = Field(default=5)
+    article_freshness_hours: int = Field(default=12)
+    embedding_batch_size: int = Field(default=100)
+    rss_max_article_age_hours: float = Field(default=24.0)
+    # Beat intervals — backfill only; fast-path handles real-time flow
+    embedding_batch_interval_seconds: int = Field(default=120)
+    build_events_interval_seconds: int = Field(default=300)
+    signal_event_max_age_hours: float = Field(default=6.0)
+    signal_dedupe_window_hours: float = Field(default=72.0)
+
+    # ── Event LLM (cluster ≥ min_articles) ───────────────────────────────
+    event_llm_summarize: bool = Field(default=True)
+
+    # ── 𝕏-scraper inbox (https://fmoncomble.github.io/X-scraper/) ───────
+    x_scraper_inbox_dir: str = Field(default="data/x_scraper_inbox")
+    x_scraper_processed_dir: str = Field(default="data/x_scraper_processed")
+    x_scraper_inbox_interval_seconds: int = Field(default=120)
+
+    # ── Application ───────────────────────────────────────────────────────
     app_name: str = "Signal"
     app_version: str = "0.1.0"
 
     @property
     def is_production(self) -> bool:
-        """Check if running in production."""
         return self.env.lower() == "production"
 
     @property
     def is_development(self) -> bool:
-        """Check if running in development."""
         return self.env.lower() == "development"
 
 
 @lru_cache
 def get_settings() -> Settings:
-    """Get cached settings instance."""
     return Settings()

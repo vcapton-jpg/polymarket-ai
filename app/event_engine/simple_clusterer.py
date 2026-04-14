@@ -1,7 +1,7 @@
 """Simple clustering for event detection."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import numpy as np
@@ -11,6 +11,10 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
 
 # Default clustering parameters
 DEFAULT_COSINE_THRESHOLD = 0.82
@@ -109,7 +113,7 @@ class SimpleClusterer:
         # Sort by date
         sorted_articles = sorted(
             articles,
-            key=lambda a: a.get("ingestion_date", datetime.utcnow()),
+            key=lambda a: a.get("ingestion_date", _now_utc()),
         )
 
         clusters = []
@@ -126,19 +130,20 @@ class SimpleClusterer:
             cluster = [article]
             used_indices.add(i)
 
-            # Find similar articles
-            target_date = article.get("ingestion_date", datetime.utcnow())
+            target_date = article.get("ingestion_date", _now_utc())
             candidate_embeddings = []
             candidate_dates = []
             candidate_articles = []
 
+            candidate_sorted_indices: list[int] = []
             for j, other in enumerate(sorted_articles):
                 if j in used_indices:
                     continue
                 if other.get("embedding"):
                     candidate_embeddings.append(other["embedding"])
-                    candidate_dates.append(other.get("ingestion_date", datetime.utcnow()))
+                    candidate_dates.append(other.get("ingestion_date", _now_utc()))
                     candidate_articles.append(other)
+                    candidate_sorted_indices.append(j)
 
             if candidate_embeddings:
                 similar = self.find_similar_articles(
@@ -150,7 +155,7 @@ class SimpleClusterer:
 
                 for idx in similar:
                     cluster.append(candidate_articles[idx])
-                    used_indices.add(idx)
+                    used_indices.add(candidate_sorted_indices[idx])
 
             clusters.append(cluster)
 

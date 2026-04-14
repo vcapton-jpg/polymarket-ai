@@ -1,125 +1,75 @@
-"""Event builder for creating events from news clusters."""
+"""Event builder — creates Event rows from article clusters."""
 
-import json
 import logging
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, timezone
 from typing import Optional
 
 from app.db.models import Event, EventNewsLink
-from app.processing.bucket_classifier import create_bucket_classifier
 
 logger = logging.getLogger(__name__)
 
 
-class EventBuilder:
-    """Builder for creating events from news clusters."""
+def build_event_from_cluster(
+    articles: list[dict],
+) -> tuple[Event, list[int]]:
+    """Build an Event from a cluster of news_clean dicts.
 
-    def __init__(self):
-        """Initialize the event builder."""
-        self.bucket_classifier = create_bucket_classifier()
+    Each dict must have:
+        clean_id, title, clean_text, bucket, source_name,
+        publish_date (or ingestion_date), entities (list[dict])
 
-    def build_event_retrieval_text(
-        self,
-        title: str,
-        summary: Optional[str],
-        key_entities: dict,
-    ) -> str:
-        """Build retrieval text for an event.
-
-        Args:
-            title: Event title.
-            summary: Event summary.
-            key_entities: Key entities extracted from news.
-
-        Returns:
-            Retrieval text.
-        """
-        parts = [title]
-
-        if summary:
-            parts.append(summary)
-
-        # Add key entities
-        if key_entities:
-            for entity_type, entities in key_entities.items():
-                if entities:
-                    parts.extend(entities[:3])  # Add top 3 per type
-
-        return " ".join(parts)
-
-    def determine_bucket(self, title: str, content: str) -> str:
-        """Determine the topic bucket.
-
-        Args:
-            title: Article title.
-            content: Article content.
-
-        Returns:
-            Topic bucket.
-        """
-        text = f"{title} {content[:500]}"
-        return self.bucket_classifier.predict(text)
-
-    async def create_event(
-        self,
-        cluster: list[dict],
-    ) -> Event:
-        """Create an event from a cluster of articles.
-
-        Args:
-            cluster: List of article dictionaries.
-
-        Returns:
-            Created Event instance.
-        """
-        if not cluster:
-            raise ValueError("Cannot create event from empty cluster")
-
-        # Get primary article (most recent)
-        primary = max(cluster, key=lambda a: a.get("ingestion_date", datetime.min))
-
-        # Build title from primary article
-        title = primary.get("title", "Untitled Event")
-
-        # Build summary (first 200 chars of content)
-        content = primary.get("content", "")
-        summary = content[:200] if content else None
-
-        # Extract key entities
-        key_entities = primary.get("key_entities") or {
-            "persons": [],
-            "locations": [],
-            "organizations": [],
-            "events": [],
-        }
-
-        # Determine bucket
-        bucket = self.determine_bucket(title, content)
-
-        # Build retrieval text
-        event_retrieval_text = self.build_event_retrieval_text(
-            title, summary, key_entities
-        )
-
-        # Create event
-        event = Event(
-            title=title,
-            summary=summary,
-            key_entities=json.dumps(key_entities),
-            bucket=bucket,
-            source_count=len(cluster),
-            created_at=datetime.utcnow(),
-            event_retrieval_text=event_retrieval_text,
-            embedding_computed=False,
-        )
-
-        return event
-
-
-def create_event_builder() -> EventBuilder:
-    """Create an event builder instance.
-
-    Returns:
-        Configured EventBuilder.
+    Returns (Event instance, list of clean_ids for EventNewsLink).
     """
-    return EventBuilder()
+    if not articles:
+        raise ValueError("Empty cluster")
+
+    primary = max(
+        articles,
+        key=lambda a: a.get("publish_date") or a.get("ingestion_date") or datetime.min,
+    )
+
+    event_title = primary.get("title", "Untitled Event")
+
+    texts = [a.get("clean_text", "")[:300] for a in articles]
+    event_summary = " | ".join(texts)[:600]
+
+    all_entities: list[str] = []
+    for a in articles:
+        for ent in a.get("entities", []):
+            all_entities.append(ent.get("entity_value", ""))
+    key_entities = [e for e, _ in Counter(all_entities).most_common(10) if e]
+
+    buckets = [a.get("bucket") for a in articles if a.get("bucket")]
+    bucket = Counter(buckets).most_common(1)[0][0] if buckets else "other"
+
+    sources = {a.get("source_name") for a in articles if a.get("source_name")}
+
+    dates = [
+        a.get("publish_date") or a.get("ingestion_date")
+        for a in articles
+        if a.get("publish_date") or a.get("ingestion_date")
+    ]
+    first_seen = min(dates) if dates else datetime.now(timezone.utc)
+    last_seen = max(dates) if dates else datetime.now(timezone.utc)
+
+    retrieval_parts = [event_title, event_summary[:300]]
+    retrieval_parts.extend(key_entities[:5])
+    event_retrieval_text = " ".join(retrieval_parts)
+
+    event = Event(
+        event_title=event_title,
+        event_summary=event_summary,
+        event_retrieval_text=event_retrieval_text,
+        key_entities=key_entities,
+        event_type=None,
+        bucket=bucket,
+        articles_count=len(articles),
+        unique_sources_count=len(sources),
+        first_seen=first_seen,
+        last_seen=last_seen,
+        processing_status="pending",
+    )
+
+    clean_ids = [a["clean_id"] for a in articles if a.get("clean_id")]
+    return event, clean_ids

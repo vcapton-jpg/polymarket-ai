@@ -1,0 +1,18 @@
+{
+  "name": "Signal — Prediction Market Intelligence",
+  "short_name": "Signal",
+  "description": "Real-time prediction market signals powered by AI",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A0E1A",
+  "theme_color": "#0A0E1A",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

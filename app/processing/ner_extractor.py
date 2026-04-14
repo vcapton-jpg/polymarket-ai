@@ -1,6 +1,5 @@
 """Named Entity Recognition extractor."""
 
-import json
 import logging
 from typing import Optional
 

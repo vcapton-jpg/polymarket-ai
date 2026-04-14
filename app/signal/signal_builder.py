@@ -1,109 +1,267 @@
-"""Signal builder for creating trading signals."""
+"""Signal builder — creates Signal rows from scored event-market pairs."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.models import Signal, SignalOutcome
+from app.db.models import Signal
 from app.scoring.feature_builder import create_feature_builder
 from app.scoring.heuristic_scorer import create_heuristic_scorer
 
 logger = logging.getLogger(__name__)
 
+MIN_SIGNAL_STRENGTH = 45
+
+
+def _build_score_explanation(
+    score: int, strength: int, trade_q: int,
+    features: dict, llm_analysis: Optional[dict],
+) -> str:
+    parts = []
+    if score >= 90:
+        parts.append("Exceptional signal — multiple strong factors align.")
+    elif score >= 75:
+        parts.append("Strong signal with high conviction.")
+    elif score >= 60:
+        parts.append("Moderate signal worth monitoring.")
+    else:
+        parts.append("Weak signal — low conviction.")
+
+    if llm_analysis:
+        imp = llm_analysis.get("impact_strength")
+        conf = llm_analysis.get("llm_confidence")
+        if imp is not None:
+            parts.append(f"LLM impact strength: {float(imp):.2f}.")
+        if conf is not None:
+            parts.append(f"LLM confidence: {float(conf):.2f}.")
+    fr = features.get("freshness", 0)
+    if fr >= 0.9:
+        parts.append("Breaking news (< 1h old).")
+    elif fr >= 0.7:
+        parts.append("Recent news (< 24h old).")
+    conf_f = features.get("confirmation", 0)
+    if conf_f >= 0.85:
+        parts.append("Multiple independent sources confirm.")
+    liq = features.get("liquidity", 0)
+    if liq >= 0.6:
+        parts.append("Good market liquidity for execution.")
+    elif liq < 0.3:
+        parts.append("Low liquidity — execution risk.")
+    return " ".join(parts)
+
+
+def _estimate_window(market_data: dict) -> Optional[str]:
+    end_date = market_data.get("end_date")
+    if not end_date:
+        return None
+    if isinstance(end_date, str):
+        try:
+            end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=timezone.utc)
+    hours_left = (end_date - datetime.now(timezone.utc)).total_seconds() / 3600
+    if hours_left <= 0:
+        return "Resolving now"
+    if hours_left <= 24:
+        return "< 24 hours"
+    if hours_left <= 168:
+        return "< 1 week"
+    if hours_left <= 720:
+        return "< 1 month"
+    return "> 1 month"
+
+
+def _yes_probability_explanation(direction: str, price: Optional[float]) -> Optional[str]:
+    if price is None:
+        return None
+    pct = round(float(price) * 100, 1)
+    d = (direction or "").upper()
+    if d in ("BUY_YES", "YES"):
+        if pct < 30:
+            return f"Market says {pct}% YES — contrarian bet that this happens. High upside if correct."
+        elif pct < 70:
+            return f"Market says {pct}% YES — balanced odds. Signal sees upside above consensus."
+        else:
+            return f"Market says {pct}% YES — market already expects this. Limited remaining upside."
+    elif d in ("BUY_NO", "NO"):
+        no_pct = round(100 - pct, 1)
+        if no_pct < 30:
+            return f"Market says {pct}% YES — betting against consensus. High risk, high reward."
+        elif no_pct < 70:
+            return f"Market says {pct}% YES — signal sees it resolving NO. Moderate opportunity."
+        else:
+            return f"Market says {pct}% YES — NO side is favored. Signal aligns with consensus."
+    return f"Market currently at {pct}% YES implied probability."
+
 
 class SignalBuilder:
-    """Builder for creating signals."""
-
     def __init__(self):
-        """Initialize the signal builder."""
         self.feature_builder = create_feature_builder()
         self.scorer = create_heuristic_scorer()
 
-    async def build_signal(
+    def build_signal(
         self,
         event_id: int,
-        market_id: int,
+        market_id: str,
         event_data: dict,
         market_data: dict,
-        llm_analysis: dict | None = None,
-    ) -> Signal:
-        """Build a signal from event and market data.
+        llm_analysis: Optional[dict] = None,
+        cosine_score: Optional[float] = None,
+    ) -> Optional[Signal]:
+        """Build a Signal from event/market data + optional LLM analysis.
 
-        Args:
-            event_id: Event ID.
-            market_id: Market ID.
-            event_data: Event data.
-            market_data: Market data.
-            llm_analysis: Optional LLM analysis.
-
-        Returns:
-            Signal instance.
+        Returns None if the score is below threshold or hard-exclusion applies.
         """
-        # Build features
+        from app.core.config import get_settings
+        settings = get_settings()
+
+        _eid = f"e{event_id}/m{market_id[:12]}"
+
+        if cosine_score is not None and cosine_score < settings.signal_min_cosine_score:
+            logger.info(
+                "[%s] REJECT cosine %.3f < %.2f",
+                _eid, cosine_score, settings.signal_min_cosine_score,
+            )
+            return None
+
+        spread = market_data.get("spread")
+        if spread is not None and float(spread) > settings.hard_exclusion_spread:
+            logger.info("[%s] REJECT spread %.4f > %.2f", _eid, spread, settings.hard_exclusion_spread)
+            return None
+
+        if llm_analysis:
+            direction = (llm_analysis.get("impact_direction") or "").upper()
+            if direction in ("NEUTRAL", "UNCLEAR", ""):
+                logger.info("[%s] REJECT direction=%s", _eid, direction)
+                return None
+
+            ambiguity = llm_analysis.get("ambiguity_score")
+            if ambiguity is not None and float(ambiguity) > settings.hard_exclusion_ambiguity:
+                logger.info("[%s] REJECT ambiguity %.2f > %.2f", _eid, float(ambiguity), settings.hard_exclusion_ambiguity)
+                return None
+
+            specificity = llm_analysis.get("specificity_score")
+            if specificity is not None and float(specificity) < settings.hard_exclusion_min_specificity:
+                logger.info("[%s] REJECT specificity %.2f < %.2f", _eid, float(specificity), settings.hard_exclusion_min_specificity)
+                return None
+
+            strength = llm_analysis.get("impact_strength")
+            if strength is None or float(strength) == 0:
+                logger.info("[%s] REJECT no impact_strength", _eid)
+                return None
+
+            yes_p = market_data.get("last_trade_price")
+            if yes_p is not None and direction in ("BUY_YES", "BUY_NO"):
+                y = float(yes_p)
+                lo = settings.signal_tradeable_yes_min
+                hi = settings.signal_tradeable_yes_max
+                if y < lo or y > hi:
+                    logger.info(
+                        "[%s] REJECT price %.4f outside band [%.2f, %.2f] dir=%s",
+                        _eid, y, lo, hi, direction,
+                    )
+                    return None
+        else:
+            logger.info("[%s] REJECT no LLM analysis", _eid)
+            return None
+
+        ref_dt = (
+            event_data.get("last_seen")
+            or event_data.get("first_seen")
+            or datetime.now(timezone.utc)
+        )
+
+        source_count = event_data.get("unique_sources_count", 1)
+
         features = {
-            "freshness": self.feature_builder.build_freshness_factor(
-                event_data.get("created_at")
-            ),
+            "freshness": self.feature_builder.build_freshness_factor(ref_dt),
             "source_weight": self.feature_builder.build_source_weight(
                 event_data.get("source_weight", 0.5)
             ),
             "confirmation": self.feature_builder.build_confirmation_factor(
-                event_data.get("source_count", 1)
+                source_count,
+                source_tier=event_data.get("source_tier", 2),
             ),
             "liquidity": self.feature_builder.build_liquidity_factor(
                 market_data.get("liquidity")
             ),
             "spread": self.feature_builder.build_spread_penalty(
-                market_data.get("spread")
+                spread
             ),
             "time_to_resolution": self.feature_builder.build_time_to_resolution_factor(
                 market_data.get("end_date")
             ),
         }
 
-        # Get LLM impact score
-        llm_impact_score = llm_analysis.get("llm_impact_score") if llm_analysis else None
-
-        # Compute score
-        score = self.scorer.compute_score(features, llm_impact_score)
-
-        # Determine direction
-        direction = "YES"
+        llm_combined = None
         if llm_analysis:
-            direction = llm_analysis.get("llm_direction", "YES")
+            raw_strength = llm_analysis.get("impact_strength")
+            conf = llm_analysis.get("llm_confidence")
+            if raw_strength is not None and conf is not None:
+                llm_combined = float(raw_strength) * 0.65 + float(conf) * 0.35
 
-        # Derive labels
+        scores = self.scorer.compute_score(features, llm_combined)
+        signal_score = scores["signal_score"]
+        signal_strength = scores["signal_strength"]
+        trade_quality = scores["trade_quality"]
+
+        below_threshold = False
+        if signal_strength < MIN_SIGNAL_STRENGTH:
+            logger.info(
+                "[%s] BELOW_THRESHOLD signal_strength %d < %d (still logging)",
+                _eid, signal_strength, MIN_SIGNAL_STRENGTH,
+            )
+            below_threshold = True
+
+        if signal_score < settings.signal_score_threshold:
+            logger.info("[%s] BELOW_THRESHOLD score %d < threshold %d (still logging)", _eid, signal_score, settings.signal_score_threshold)
+            below_threshold = True
+
+        direction = "YES"
+        if llm_analysis and llm_analysis.get("impact_direction"):
+            direction = llm_analysis["impact_direction"]
+
         confidence_label = self.scorer.derive_confidence_label(
-            score, event_data.get("source_count", 1)
+            signal_score, source_count,
         )
         urgency_label = self.scorer.derive_urgency_label(
-            score, features.get("time_to_resolution", 0.5)
+            signal_score, features["time_to_resolution"]
         )
         tradability_label = self.scorer.derive_tradability_label(
-            features.get("liquidity", 0.5), features.get("spread", 1.0)
+            features["liquidity"], features["spread"]
         )
 
-        # Create signal
-        signal = Signal(
+        score_label = "exceptional" if signal_score >= 90 else "strong" if signal_score >= 75 else "moderate" if signal_score >= 60 else "monitoring"
+        score_explanation = _build_score_explanation(
+            signal_score, signal_strength, trade_quality, features, llm_analysis,
+        )
+        window_estimate = _estimate_window(market_data)
+        yes_prob_explanation = _yes_probability_explanation(
+            direction, market_data.get("last_trade_price"),
+        )
+
+        sig = Signal(
             event_id=event_id,
             market_id=market_id,
-            score=score,
+            signal_score=signal_score,
+            signal_strength=signal_strength,
+            trade_quality=trade_quality,
             direction=direction,
             confidence_label=confidence_label,
             urgency_label=urgency_label,
             tradability_label=tradability_label,
-            market_price_at_signal=market_data.get("best_bid"),
-            signal_date=datetime.utcnow(),
+            market_price_at_signal=market_data.get("last_trade_price"),
+            cosine_score=cosine_score,
         )
-
-        return signal
+        sig._score_label = score_label
+        sig._score_explanation = score_explanation
+        sig._window_estimate = window_estimate
+        sig._yes_probability_explanation = yes_prob_explanation
+        sig._below_threshold = below_threshold
+        return sig
 
 
 def create_signal_builder() -> SignalBuilder:
-    """Create a signal builder.
-
-    Returns:
-        Configured SignalBuilder.
-    """
     return SignalBuilder()

@@ -1,122 +1,89 @@
-"""CLob client for real-time market prices."""
+"""CLOB API client — microstructure enrichment (bid/ask/spread/last_trade)."""
 
-import json
 import logging
 from typing import Optional
 
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
-# CLob API base URL
-CLOB_BASE_URL = "https://clob-api.polymarket.com"
+CLOB_BASE_URL = "https://clob.polymarket.com"
 
 
 class ClobClient:
-    """Client for Polymarket CLOB API."""
-
     def __init__(self):
-        """Initialize the CLOB client."""
-        self._session: Optional[httpx.AsyncClient] = None
+        self._client: Optional[httpx.AsyncClient] = None
 
-    async def _get_session(self) -> httpx.AsyncClient:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.is_closed:
-            self._session = httpx.AsyncClient(timeout=30.0)
-        return self._session
-
-    async def close(self) -> None:
-        """Close the HTTP session."""
-        if self._session and not self._session.is_closed:
-            await self._session.aclose()
-
-    async def get_order_book(
-        self,
-        market_id: str,
-    ) -> Optional[dict]:
-        """Get order book for a market.
-
-        Args:
-            market_id: Market ID.
-
-        Returns:
-            Order book dictionary.
-        """
-        try:
-            session = await self._get_session()
-
-            response = await session.get(
-                f"{CLOB_BASE_URL}/orderbooks/{market_id}",
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                base_url=CLOB_BASE_URL,
+                timeout=15.0,
+                headers={"Accept": "application/json"},
             )
+        return self._client
 
-            if response.status_code == 200:
-                return response.json()
+    async def close(self):
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
-        except Exception as e:
-            logger.error(f"Error fetching order book: {e}")
-
-        return None
-
-    async def get_best_prices(
-        self,
-        market_id: str,
-    ) -> Optional[dict]:
-        """Get best bid and ask for a market.
-
-        Args:
-            market_id: Market ID.
-
-        Returns:
-            Dictionary with best_bid, best_ask, spread.
-        """
-        order_book = await self.get_order_book(market_id)
-
-        if not order_book:
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(min=1, max=5))
+    async def get_market(self, condition_id: str) -> Optional[dict]:
+        """GET /markets/{condition_id} on CLOB — returns accepting_orders, tokens, etc."""
+        client = await self._get_client()
+        resp = await client.get(f"/markets/{condition_id}")
+        if resp.status_code == 404:
             return None
+        resp.raise_for_status()
+        return resp.json()
 
-        bids = order_book.get("bids", [])
-        asks = order_book.get("asks", [])
+    async def enrich_market(self, condition_id: str) -> dict:
+        """Fetch CLOB data and return microstructure fields."""
+        data = await self.get_market(condition_id)
+        if not data:
+            return {}
 
-        best_bid = float(bids[0]["price"]) if bids else None
-        best_ask = float(asks[0]["price"]) if asks else None
+        tokens = data.get("tokens", [])
+        best_bid = None
+        best_ask = None
+        last_trade_price = None
+
+        for token in tokens:
+            outcome = (token.get("outcome") or "").upper()
+            if outcome == "YES":
+                best_bid = _to_float(token.get("price"))
+                last_trade_price = best_bid
+            elif outcome == "NO":
+                best_ask = 1.0 - _to_float(token.get("price", 0))
 
         spread = None
-        if best_bid and best_ask:
-            spread = best_ask - best_bid
+        if best_bid is not None and best_ask is not None:
+            spread = round(best_ask - best_bid, 4)
 
         return {
             "best_bid": best_bid,
             "best_ask": best_ask,
-            "spread": spread,
+            "spread": spread if spread and spread >= 0 else None,
+            "last_trade_price": last_trade_price,
+            "accepting_orders": data.get("accepting_orders", True),
         }
 
-    async def get_price(self, market_id: str, side: str = "YES") -> Optional[float]:
-        """Get price for a side.
-
-        Args:
-            market_id: Market ID.
-            side: "YES" or "NO".
-
-        Returns:
-            Price or None.
-        """
-        order_book = await self.get_order_book(market_id)
-
-        if not order_book:
+    async def get_price_yes(self, condition_id: str) -> Optional[float]:
+        """Quick helper: get current YES probability."""
+        data = await self.get_market(condition_id)
+        if not data:
             return None
-
-        if side == "YES":
-            prices = order_book.get("bids", [])
-        else:
-            prices = order_book.get("asks", [])
-
-        return float(prices[0]["price"]) if prices else None
+        for token in data.get("tokens", []):
+            if (token.get("outcome") or "").upper() == "YES":
+                return _to_float(token.get("price"))
+        return None
 
 
-def create_clob_client() -> ClobClient:
-    """Create a CLOB client.
-
-    Returns:
-        Configured ClobClient.
-    """
-    return ClobClient()
+def _to_float(val) -> Optional[float]:
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None

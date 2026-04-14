@@ -1,108 +1,115 @@
-"""Gamma API client for Polymarket markets."""
+"""Gamma API client — fetch all active markets via the events endpoint."""
 
-import json
 import logging
-from datetime import datetime
 from typing import Optional
 
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
-# Gamma API base URL
 GAMMA_BASE_URL = "https://gamma-api.polymarket.com"
+PAGE_SIZE = 100
 
 
 class GammaClient:
-    """Client for Polymarket Gamma API."""
-
     def __init__(self):
-        """Initialize the Gamma client."""
-        self._session: Optional[httpx.AsyncClient] = None
+        self._client: Optional[httpx.AsyncClient] = None
 
-    async def _get_session(self) -> httpx.AsyncClient:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.is_closed:
-            self._session = httpx.AsyncClient(timeout=30.0)
-        return self._session
-
-    async def close(self) -> None:
-        """Close the HTTP session."""
-        if self._session and not self._session.is_closed:
-            await self._session.aclose()
-
-    async def fetch_markets(self, limit: int = 100) -> list[dict]:
-        """Fetch active markets.
-
-        Args:
-            limit: Maximum number of markets.
-
-        Returns:
-            List of market dictionaries.
-        """
-        markets = []
-
-        try:
-            session = await self._get_session()
-
-            response = await session.get(
-                f"{GAMMA_BASE_URL}/markets",
-                params={"closed": False, "limit": limit},
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                base_url=GAMMA_BASE_URL,
+                timeout=30.0,
+                headers={"Accept": "application/json"},
             )
+        return self._client
 
-            if response.status_code == 200:
-                data = response.json()
-                markets_raw = data.get("data", []) if isinstance(data, dict) else data
+    async def close(self):
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
 
-                for market in markets_raw:
-                    markets.append(
-                        {
-                            "market_id": market.get("conditionId"),
-                            "question": market.get("question"),
-                            "description": market.get("description"),
-                            "groupItemId": market.get("groupItemId"),
-                            "volume": market.get("volume"),
-                            "volume24hr": market.get("volume24hr"),
-                            "liquidity": market.get("liquidity"),
-                            "active": market.get("active"),
-                            "closed": market.get("closed"),
-                            "endDate": market.get("endDate"),
-                            "createdAt": market.get("createdAt"),
-                        }
-                    )
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8))
+    async def _get(self, path: str, params: dict) -> list | dict:
+        client = await self._get_client()
+        resp = await client.get(path, params=params)
+        resp.raise_for_status()
+        return resp.json()
 
-        except Exception as e:
-            logger.error(f"Error fetching markets: {e}")
+    async def fetch_all_active_markets(self) -> list[dict]:
+        """Paginate through /events?active=true&closed=false and flatten markets."""
+        all_markets: list[dict] = []
+        offset = 0
 
-        return markets
+        while True:
+            data = await self._get("/events", params={
+                "active": "true",
+                "closed": "false",
+                "limit": PAGE_SIZE,
+                "offset": offset,
+            })
 
-    async def fetch_market_by_id(self, market_id: str) -> Optional[dict]:
-        """Fetch a specific market.
+            events = data if isinstance(data, list) else data.get("data", [])
+            if not events:
+                break
 
-        Args:
-            market_id: Market ID.
+            for event in events:
+                raw_markets = event.get("markets", [])
+                for m in raw_markets:
+                    parsed = self._parse_market(m, event)
+                    if parsed:
+                        all_markets.append(parsed)
 
-        Returns:
-            Market dictionary or None.
-        """
-        try:
-            session = await self._get_session()
+            if len(events) < PAGE_SIZE:
+                break
+            offset += PAGE_SIZE
 
-            response = await session.get(f"{GAMMA_BASE_URL}/markets/{market_id}")
+        logger.info("Gamma: fetched %d active markets", len(all_markets))
+        return all_markets
 
-            if response.status_code == 200:
-                return response.json()
+    @staticmethod
+    def _parse_market(m: dict, event: dict) -> Optional[dict]:
+        condition_id = m.get("conditionId")
+        question = m.get("question") or m.get("groupItemTitle")
+        if not condition_id or not question:
+            return None
 
-        except Exception as e:
-            logger.error(f"Error fetching market {market_id}: {e}")
+        tokens = m.get("clobTokenIds") or m.get("clob_token_ids")
+        clob_token_ids = None
+        if isinstance(tokens, list) and len(tokens) >= 2:
+            clob_token_ids = {"yes": tokens[0], "no": tokens[1]}
+        elif isinstance(tokens, dict):
+            clob_token_ids = tokens
 
+        tags_raw = event.get("tags") or m.get("tags")
+        tags = None
+        if isinstance(tags_raw, list):
+            tags = [t.get("label") if isinstance(t, dict) else str(t) for t in tags_raw]
+        elif isinstance(tags_raw, str):
+            tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+        return {
+            "market_id": condition_id,
+            "question": question,
+            "description": (m.get("description") or event.get("description") or "")[:2000],
+            "category": event.get("category") or (tags[0] if tags else None),
+            "tags": tags,
+            "end_date": m.get("endDate") or event.get("endDate"),
+            "active": m.get("active", True),
+            "closed": m.get("closed", False),
+            "accepting_orders": m.get("acceptingOrders", True),
+            "volume": _to_float(m.get("volume")),
+            "volume_24h": _to_float(m.get("volume24hr")),
+            "liquidity": _to_float(m.get("liquidity")),
+            "last_trade_price": _to_float(m.get("lastTradePrice")),
+            "clob_token_ids": clob_token_ids,
+        }
+
+
+def _to_float(val) -> Optional[float]:
+    if val is None:
         return None
-
-
-def create_gamma_client() -> GammaClient:
-    """Create a Gamma client.
-
-    Returns:
-        Configured GammaClient.
-    """
-    return GammaClient()
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None

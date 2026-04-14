@@ -1,134 +1,131 @@
-"""RSS scraper for news ingestion."""
+"""Async RSS fetcher — handles standard RSS feeds and X/Twitter via RSSHub.
+
+Pulls source URLs from sources_registry (DB), not from hardcoded lists.
+Both 'rss' and 'x_rss' source types use feedparser under the hood.
+"""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import feedparser
+import httpx
 from bs4 import BeautifulSoup
 from dateutil import parser as date_parser
-from tenacity import retry, stop_after_attempt, wait_exponential
-
-from app.core.config import get_settings
-from app.ingestion.sources_registry import get_source_weight
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
-# Default RSS feeds configuration
-DEFAULT_RSS_FEEDS = [
-    {"name": "Reuters", "url": "https://www.reutersagency.com/feed/", "tier": 1},
-    {"name": "AP", "url": "https://feeds.ap.org/news/rss", "tier": 1},
-    {"name": "AFP", "url": "https://www.afp.com/rss", "tier": 1},
-    {"name": "BBC", "url": "http://feeds.bbci.co.uk/news/world/rss.xml", "tier": 1},
-    {"name": "Guardian", "url": "https://www.theguardian.com/world/rss", "tier": 1},
-]
+FETCH_TIMEOUT = 20.0
 
 
-class RSSScraper:
-    """Scraper for RSS feeds."""
+async def fetch_feed(url: str) -> list[dict]:
+    """Fetch and parse a single RSS feed URL.
 
-    def __init__(self, feeds: Optional[list[dict]] = None):
-        """Initialize the RSS scraper.
-
-        Args:
-            feeds: List of feed configurations. Uses defaults if not provided.
-        """
-        self.feeds = feeds or DEFAULT_RSS_FEEDS
-
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-    def fetch_feed(self, url: str) -> list[dict]:
-        """Fetch and parse an RSS feed.
-
-        Args:
-            url: URL of the RSS feed.
-
-        Returns:
-            List of parsed articles.
-
-        Raises:
-            Exception: If the feed cannot be fetched.
-        """
-        try:
-            feed = feedparser.parse(url)
-            articles = []
-
-            for entry in feed.entries:
-                # Parse publication date
-                published_date = None
-                if hasattr(entry, "published"):
-                    try:
-                        published_date = date_parser.parse(entry.published)
-                    except Exception:
-                        pass
-
-                # Extract content
-                content = ""
-                if hasattr(entry, "summary"):
-                    content = entry.summary
-                elif hasattr(entry, "description"):
-                    content = entry.description
-
-                # Strip HTML from content
-                if content:
-                    soup = BeautifulSoup(content, "lxml")
-                    content = soup.get_text(strip=True)
-
-                article = {
-                    "url": entry.get("link", ""),
-                    "title": entry.get("title", ""),
-                    "content": content,
-                    "published_date": published_date,
-                }
-
-                if article["url"] and article["title"]:
-                    articles.append(article)
-
-            logger.info(f"Fetched {len(articles)} articles from {url}")
-            return articles
-
-        except Exception as e:
-            logger.error(f"Error fetching feed {url}: {e}")
-            raise
-
-    def fetch_all(self) -> list[dict]:
-        """Fetch all configured RSS feeds.
-
-        Returns:
-            List of all articles from all feeds.
-        """
-        all_articles = []
-
-        for feed_config in self.feeds:
-            try:
-                articles = self.fetch_feed(feed_config["url"])
-                for article in articles:
-                    article["source"] = feed_config["name"]
-                    article["source_tier"] = feed_config["tier"]
-                    source_info = get_source_weight(feed_config["name"])
-                    article["source_weight"] = source_info["weight"] if source_info else 1.0
-                    article["ingestion_date"] = datetime.utcnow()
-
-                    # Calculate ingestion lag
-                    if article.get("published_date"):
-                        lag = (
-                            article["ingestion_date"] - article["published_date"]
-                        ).total_seconds()
-                        article["ingestion_lag_seconds"] = lag
-
-                all_articles.extend(articles)
-            except Exception as e:
-                logger.error(f"Error fetching feed {feed_config['name']}: {e}")
-                continue
-
-        logger.info(f"Total articles fetched: {len(all_articles)}")
-        return all_articles
-
-
-def create_rss_scraper() -> RSSScraper:
-    """Create an RSS scraper with default feeds.
-
-    Returns:
-        Configured RSSScraper instance.
+    Returns a list of raw article dicts with keys:
+        url, title, text, publish_date
     """
-    return RSSScraper()
+    try:
+        async with httpx.AsyncClient(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": "PolymarketSignalBot/1.0"})
+            resp.raise_for_status()
+            raw_xml = resp.text
+    except Exception as e:
+        logger.warning("HTTP error fetching %s: %s", url, e)
+        return []
+
+    feed = feedparser.parse(raw_xml)
+    articles: list[dict] = []
+
+    for entry in feed.entries:
+        link = entry.get("link", "").strip()
+        title = entry.get("title", "").strip()
+        if not link or not title:
+            continue
+
+        content = _extract_content(entry)
+        publish_date = _parse_publish_date(entry)
+
+        articles.append({
+            "url": link,
+            "title": title,
+            "text": content,
+            "publish_date": publish_date,
+        })
+
+    return articles
+
+
+async def fetch_sources(sources: list[dict]) -> list[dict]:
+    """Fetch articles from multiple source dicts (from sources_registry).
+
+    Each source dict has: source_name, source_type, url, tier, weight.
+    Returns enriched article dicts ready for DB insertion.
+    """
+    now = datetime.now(timezone.utc)
+    all_articles: list[dict] = []
+
+    for src in sources:
+        try:
+            raw = await fetch_feed(src["url"])
+            for article in raw:
+                lag = None
+                if article["publish_date"]:
+                    lag = int((now - article["publish_date"]).total_seconds())
+                    if lag < 0:
+                        lag = 0
+
+                all_articles.append({
+                    "url": article["url"],
+                    "title": article["title"],
+                    "text": article["text"],
+                    "source_name": src["source_name"],
+                    "source_tier": src["tier"],
+                    "source_weight": src["weight"],
+                    "publish_date": article["publish_date"],
+                    "ingestion_lag_seconds": lag,
+                })
+
+            logger.info(
+                "Fetched %d articles from %s (%s)",
+                len(raw), src["source_name"], src["source_type"],
+            )
+        except Exception as e:
+            logger.error("Error fetching %s: %s", src["source_name"], e)
+
+    logger.info("Total articles fetched from %d sources: %d", len(sources), len(all_articles))
+    return all_articles
+
+
+# ── helpers ───────────────────────────────────────────────────────────────
+
+
+def _extract_content(entry) -> str:
+    """Pull the best text from a feedparser entry."""
+    content = ""
+    if hasattr(entry, "content") and entry.content:
+        content = entry.content[0].get("value", "")
+    elif hasattr(entry, "summary"):
+        content = entry.summary
+    elif hasattr(entry, "description"):
+        content = entry.description
+
+    if content:
+        soup = BeautifulSoup(content, "lxml")
+        content = soup.get_text(separator=" ", strip=True)
+
+    return content
+
+
+def _parse_publish_date(entry) -> Optional[datetime]:
+    """Parse publish date from a feedparser entry, returning timezone-aware UTC."""
+    for field in ("published", "updated", "created"):
+        raw = getattr(entry, field, None)
+        if raw:
+            try:
+                dt = date_parser.parse(raw)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except (ValueError, OverflowError):
+                continue
+    return None

@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -9,10 +7,10 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: signal
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: ["postgres", "-c", "max_connections=200"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -35,53 +33,190 @@ services:
   app:
     build: .
     container_name: signal-app
-    command: uvicorn app.api.routes:app --host 0.0.0.0 --port 8000
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "8001:8000"
+    env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
-      DATABASE_URL_SYNC: postgresql://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
       REDIS_URL: redis://redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
-      WORLDNEWS_API_KEY: ${WORLDNEWS_API_KEY}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - ./app:/app/app
+      - ./prompts:/app/prompts
+      - ./alembic:/app/alembic
+
+  # ── Worker: ingestion (RSS, World News, X-scraper inbox) ─────────
+  worker-ingestion:
+    build: .
+    container_name: signal-worker-ingestion
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q ingestion -n ingestion@%h
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./prompts:/app/prompts
+      - ./data/x_scraper_inbox:/app/data/x_scraper_inbox
+      - ./data/x_scraper_processed:/app/data/x_scraper_processed
+
+  # ── Worker: pipeline (process_article + embed + backfill) ─────────
+  worker-pipeline:
+    build: .
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q pipeline -n pipeline@%h
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1536M
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+      - ./prompts:/app/prompts
+
+  # ── Worker: scoring (fast-path events + hybrid search + LLM + signals) ──
+  worker-scoring:
+    build: .
+    container_name: signal-worker-scoring
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q scoring -n scoring@%h
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+      - ./prompts:/app/prompts
+
+  # ── Worker: markets (CLOB enrichment, isolated) ──────────────────
+  worker-markets:
+    build: .
+    container_name: signal-worker-markets
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q markets -n markets@%h
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
     volumes:
       - ./app:/app/app
 
-  worker:
+  # ── Worker: outcomes (price captures, resolutions) ────────────────
+  worker-outcomes:
     build: .
-    container_name: signal-worker
-    command: celery -A app.workers.celery_app worker --loglevel=info
+    container_name: signal-worker-outcomes
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q default -n outcomes@%h
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
-      DATABASE_URL_SYNC: postgresql://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
       REDIS_URL: redis://redis:6379/0
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     volumes:
       - ./app:/app/app
+
+  # ── Worker: trading + risk + reports (default queue) ──────────────
+  worker-trading:
+    build: .
+    container_name: signal-worker-trading
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q trading -n trading@%h
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+      - ./prompts:/app/prompts
 
   beat:
     build: .
     container_name: signal-beat
     command: celery -A app.workers.celery_app beat --loglevel=info
+    env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
-      DATABASE_URL_SYNC: postgresql://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
       REDIS_URL: redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
 
   frontend:
     build:
@@ -91,7 +226,9 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

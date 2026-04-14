@@ -1,108 +1,102 @@
-"""Hybrid search combining vector and BM25."""
+"""Hybrid search — BM25 + pgvector cosine + RRF fusion + entity boost."""
 
 import logging
+import re
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.retrieval.bm25_index import create_bm25_index
-from app.retrieval.vector_retriever import create_vector_retriever
+from app.core.config import get_settings
+from app.retrieval.bm25_index import BM25Index
+from app.retrieval.vector_retriever import search_markets_by_embedding
 
 logger = logging.getLogger(__name__)
 
-# RRF constant
-RRF_K = 60
+ENTITY_BOOST_PER_MATCH = 0.5
 
 
-class HybridSearch:
-    """Hybrid search using RRF fusion."""
-
-    def __init__(self, db: AsyncSession):
-        """Initialize hybrid search.
-
-        Args:
-            db: Database session.
-        """
-        self.db = db
-        self.vector_retriever = create_vector_retriever(db)
-        self.bm25_index = create_bm25_index()
-
-    async def search_markets(
-        self,
-        event_embedding: list[float],
-        event_text: str,
-        limit: int = 10,
-        db_session: Optional[AsyncSession] = None,
-    ) -> list[dict]:
-        """Search for markets using hybrid search.
-
-        Args:
-            event_embedding: Event embedding.
-            event_text: Event text for BM25.
-            limit: Maximum results.
-            db_session: Database session (optional, uses self.db if not provided).
-
-        Returns:
-            List of market candidates with scores.
-        """
-        results = []
-
-        # Get vector results
-        vector_results = await self.vector_retriever.search_similar_markets(
-            event_embedding,
-            limit=limit * 2,
-        )
-
-        # Build BM25 index from vector results
-        if vector_results:
-            self.bm25_index.build_index(vector_results, "question")
-            bm25_results = self.bm25_index.search(event_text, limit=limit * 2)
-
-            # Merge rankings
-            vector_ranks = {r["market_id"]: i for i, r in enumerate(vector_results)}
-            bm25_ranks = {
-                r["market_id"]: r["bm25_rank"]
-                for r in bm25_results
-                if "market_id" in r
-            }
-
-            # RRF fusion
-            for doc in vector_results + bm25_results:
-                if "market_id" not in doc:
-                    continue
-
-                market_id = doc["market_id"]
-                vec_rank = vector_ranks.get(market_id, limit)
-                bm_rank = bm25_ranks.get(market_id, limit)
-
-                # RRF score
-                rrf_score = (1 / (RRF_K + vec_rank + 1)) + (
-                    1 / (RRF_K + bm_rank + 1)
-                )
-
-                if market_id in [r.get("market_id") for r in results]:
-                    # Update existing
-                    for r in results:
-                        if r.get("market_id") == market_id:
-                            r["rrf_score"] = max(rrf_score, r.get("rrf_score", 0))
-                            break
-                else:
-                    doc["rrf_score"] = rrf_score
-                    results.append(doc)
-
-            # Sort by RRF score
-            results.sort(key=lambda r: r.get("rrf_score", 0), reverse=True)
-
-        return results[:limit]
+def _count_entity_matches(question: str, entities: list[str]) -> int:
+    """Count how many event entities appear in a market question (case-insensitive)."""
+    if not question or not entities:
+        return 0
+    q_lower = question.lower()
+    matches = 0
+    for ent in entities:
+        if len(ent) < 2:
+            continue
+        if re.search(r"\b" + re.escape(ent.lower()) + r"\b", q_lower):
+            matches += 1
+    return matches
 
 
-async def create_hybrid_search(db: AsyncSession) -> HybridSearch:
-    """Create a hybrid search instance.
+async def hybrid_search_markets(
+    session: AsyncSession,
+    event_embedding: list[float],
+    event_text: str,
+    top_k: Optional[int] = None,
+    event_bucket: Optional[str] = None,
+    event_entities: Optional[list[str]] = None,
+) -> list[dict]:
+    """Run hybrid search: vector retrieval → BM25 re-rank → RRF fusion → entity boost."""
+    settings = get_settings()
+    k = top_k or settings.top_k_markets
+    rrf_k = settings.rrf_k
 
-    Args:
-        db: Database session.
+    vector_results = await search_markets_by_embedding(
+        session, event_embedding, limit=k * 3,
+    )
 
-    Returns:
-        Configured HybridSearch.
-    """
-    return HybridSearch(db)
+    if not vector_results:
+        logger.info("Hybrid search: no markets above cosine similarity threshold")
+        return []
+
+    bm25 = BM25Index()
+    bm25.build_index(vector_results, text_field="market_retrieval_text")
+    bm25_results = bm25.search(event_text, limit=k * 3)
+
+    vec_rank = {r["market_id"]: i for i, r in enumerate(vector_results)}
+    bm25_rank = {}
+    bm25_score_map = {}
+    for r in bm25_results:
+        mid = r.get("market_id")
+        if mid:
+            bm25_rank[mid] = r.get("bm25_rank", len(bm25_results)) - 1
+            bm25_score_map[mid] = r.get("bm25_score", 0.0)
+
+    all_ids = set(vec_rank.keys()) | set(bm25_rank.keys())
+    fused: list[dict] = []
+
+    market_map = {r["market_id"]: r for r in vector_results}
+
+    entities = event_entities or []
+
+    for mid in all_ids:
+        vr = vec_rank.get(mid, k * 3)
+        br = bm25_rank.get(mid, k * 3)
+        rrf_score = (1.0 / (rrf_k + vr + 1)) + (1.0 / (rrf_k + br + 1))
+
+        entry = market_map.get(mid, {}).copy()
+        entry["market_id"] = mid
+        entry["bm25_score"] = bm25_score_map.get(mid, 0.0)
+
+        if entities:
+            question = entry.get("question") or ""
+            matches = _count_entity_matches(question, entities)
+            if matches > 0:
+                rrf_score += matches * ENTITY_BOOST_PER_MATCH
+                entry["entity_matches"] = matches
+
+        entry["rrf_score"] = round(rrf_score, 6)
+        fused.append(entry)
+
+    fused.sort(key=lambda x: x["rrf_score"], reverse=True)
+
+    for i, entry in enumerate(fused[:k]):
+        entry["rank"] = i + 1
+
+    entity_boosted = sum(1 for e in fused[:k] if e.get("entity_matches", 0) > 0)
+    logger.info(
+        "Hybrid search: %d candidates → top %d (%d entity-boosted)",
+        len(fused), k, entity_boosted,
+    )
+    return fused[:k]

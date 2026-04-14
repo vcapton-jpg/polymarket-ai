@@ -1,29 +1,31 @@
-"""Database module for Signal platform."""
+"""Database module."""
 
-from app.db.database import get_db_session, engine, async_session_factory
+from app.db.database import async_session_factory, engine, get_db_session
 from app.db.models import (
-    Base,
-    SourceRegistry,
-    News,
     ArticleEntity,
-    Market,
+    Base,
     Event,
-    EventNewsLink,
+    EventMarketAnalysis,
     EventMarketCandidate,
     EventMarketFeatures,
-    EventMarketAnalysis,
+    EventNewsLink,
     LLMCostLog,
+    Market,
+    News,
+    NewsClean,
     Signal,
     SignalOutcome,
+    SourceRegistry,
 )
 
 __all__ = [
-    "get_db_session",
-    "engine",
     "async_session_factory",
+    "engine",
+    "get_db_session",
     "Base",
     "SourceRegistry",
     "News",
+    "NewsClean",
     "ArticleEntity",
     "Market",
     "Event",

@@ -1,53 +1,54 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { useState, useEffect } from "react"
-import Landing from "./pages/Landing"
-import Dashboard from "./pages/Dashboard"
-import SignalDetail from "./pages/SignalDetail"
-import Analytics from "./pages/Analytics"
-import Settings from "./pages/Settings"
+import { Routes, Route } from "react-router-dom"
+import { AppLayout } from "./components/layout/AppLayout"
+import { lazy, Suspense } from "react"
+import { Skeleton } from "./components/ui/Skeleton"
 
+const Landing = lazy(() => import("./pages/Landing"))
+const Dashboard = lazy(() => import("./pages/Dashboard"))
+const Opportunities = lazy(() => import("./pages/Opportunities"))
+const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"))
+const Markets = lazy(() => import("./pages/Markets"))
+const Performance = lazy(() => import("./pages/Performance"))
+const Learn = lazy(() => import("./pages/Learn"))
+const TrackRecord = lazy(() => import("./pages/TrackRecord"))
+const Settings = lazy(() => import("./pages/Settings"))
+const Portfolio = lazy(() => import("./pages/Portfolio"))
+const Agents = lazy(() => import("./pages/Agents"))
+const Pricing = lazy(() => import("./pages/Pricing"))
+const Briefs = lazy(() => import("./pages/Briefs"))
+const AgentWorkspace = lazy(() => import("./pages/AgentWorkspace"))
 
-function App() {
-  const [darkMode, setDarkMode] = useState(true)
-
-  useEffect(() => {
-    const saved = localStorage.getItem("darkMode")
-    if (saved !== null) {
-      setDarkMode(saved === "true")
-    }
-  }, [])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode)
-    localStorage.setItem("darkMode", String(darkMode))
-  }, [darkMode])
-
+function PageLoader() {
   return (
-    <BrowserRouter>
-      <div className="app">
-        <nav className="nav">
-          <div className="nav-content">
-            <a href="/" className="logo">Signal</a>
-            <div className="nav-links">
-              <a href="/dashboard">Dashboard</a>
-              <a href="/analytics">Analytics</a>
-              <a href="/settings">Settings</a>
-              <button onClick={() => setDarkMode(!darkMode)} className="theme-toggle">
-                {darkMode ? "☀️" : "🌙"}
-              </button>
-            </div>
-          </div>
-        </nav>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/signal/:id" element={<SignalDetail />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<Settings />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <div className="py-8 flex flex-col gap-4">
+      <Skeleton height={32} width="40%" />
+      <Skeleton height={200} />
+      <Skeleton height={120} />
+    </div>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/opportunity/:id" element={<OpportunityDetail />} />
+          <Route path="/markets" element={<Markets />} />
+          <Route path="/performance" element={<Performance />} />
+          <Route path="/learn" element={<Learn />} />
+          <Route path="/track-record" element={<TrackRecord />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/briefs" element={<Briefs />} />
+          <Route path="/workspace" element={<AgentWorkspace />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </Suspense>
+  )
+}
