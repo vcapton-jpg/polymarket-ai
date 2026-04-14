@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { api } from "./api"
+import { TOKEN_KEY } from "./authStorage"
 
 interface AuthUser {
   id: number
@@ -18,8 +19,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-
-const TOKEN_KEY = "presage-token"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)

@@ -1,7 +1,7 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: presage-db
+    container_name: foresight-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: presage-redis
+    container_name: foresight-redis
     ports:
       - "6379:6379"
     volumes:
@@ -32,7 +32,7 @@ services:
 
   app:
     build: .
-    container_name: presage-app
+    container_name: foresight-app
     command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8001:8000"
@@ -60,7 +60,7 @@ services:
   # ── Worker: ingestion (RSS, World News, X-scraper inbox) ─────────
   worker-ingestion:
     build: .
-    container_name: presage-worker-ingestion
+    container_name: foresight-worker-ingestion
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q ingestion -n ingestion@%h
     deploy:
       resources:
@@ -111,7 +111,7 @@ services:
   # ── Worker: scoring (fast-path events + hybrid search + LLM + signals) ──
   worker-scoring:
     build: .
-    container_name: presage-worker-scoring
+    container_name: foresight-worker-scoring
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q scoring -n scoring@%h
     deploy:
       resources:
@@ -135,7 +135,7 @@ services:
   # ── Worker: markets (CLOB enrichment, isolated) ──────────────────
   worker-markets:
     build: .
-    container_name: presage-worker-markets
+    container_name: foresight-worker-markets
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q markets -n markets@%h
     deploy:
       resources:
@@ -158,7 +158,7 @@ services:
   # ── Worker: outcomes (price captures, resolutions) ────────────────
   worker-outcomes:
     build: .
-    container_name: presage-worker-outcomes
+    container_name: foresight-worker-outcomes
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q default -n outcomes@%h
     deploy:
       resources:
@@ -181,7 +181,7 @@ services:
   # ── Worker: trading + risk + reports (default queue) ──────────────
   worker-trading:
     build: .
-    container_name: presage-worker-trading
+    container_name: foresight-worker-trading
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q trading -n trading@%h
     deploy:
       resources:
@@ -204,7 +204,7 @@ services:
 
   beat:
     build: .
-    container_name: presage-beat
+    container_name: foresight-beat
     command: celery -A app.workers.celery_app beat --loglevel=info
     env_file: .env
     environment:
@@ -222,7 +222,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: presage-frontend
+    container_name: foresight-frontend
     ports:
       - "3000:80"
     depends_on:

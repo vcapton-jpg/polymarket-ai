@@ -1,7 +1,7 @@
 {
-  "name": "Presage — Intelligence Marches Predictifs",
-  "short_name": "Presage",
-  "description": "Signaux en temps reel sur les marches predictifs, alimentes par l'IA",
+  "name": "Foresight — Prediction market intelligence",
+  "short_name": "Foresight",
+  "description": "Deep analysis and explainable signals for prediction markets",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",

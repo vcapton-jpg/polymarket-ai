@@ -5,6 +5,7 @@ import { Check, Zap, Crown, Building2, ExternalLink, Loader2 } from "lucide-reac
 import { PageHeader } from "../components/layout/PageHeader"
 import { Card } from "../components/ui/Card"
 import { cn } from "../lib/utils"
+import { TOKEN_KEY } from "../lib/authStorage"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -71,7 +72,7 @@ export default function Pricing() {
   const handleUpgrade = async (plan: string) => {
     setLoadingPlan(plan)
     try {
-      const token = localStorage.getItem("presage-token")
+      const token = localStorage.getItem(TOKEN_KEY)
       const res = await fetch(`/api/subscriptions/checkout?plan=${plan}`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -91,7 +92,7 @@ export default function Pricing() {
 
   const handleManage = async () => {
     try {
-      const token = localStorage.getItem("presage-token")
+      const token = localStorage.getItem(TOKEN_KEY)
       const res = await fetch("/api/subscriptions/portal", {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},

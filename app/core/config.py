@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # ── Push Notifications (VAPID) ────────────────────────────────────
     vapid_private_key: Optional[str] = Field(default=None)
     vapid_public_key: Optional[str] = Field(default=None)
-    vapid_email: str = Field(default="admin@presage.market")
+    vapid_email: str = Field(default="hello@getforesight.io")
 
     # ── Polymarket Builder ─────────────────────────────────────────────
     builder_api_key: Optional[str] = Field(default=None)
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
 
     # ── Environment ───────────────────────────────────────────────────────
     env: str = Field(default="development")
-    app_base_url: str = Field(default="https://presage.market")
+    app_base_url: str = Field(default="https://getforesight.io")
 
     # ── Ingestion intervals (seconds) ─────────────────────────────────────
     rss_poll_interval_seconds: int = Field(default=90)
@@ -127,7 +127,7 @@ class Settings(BaseSettings):
     x_scraper_inbox_interval_seconds: int = Field(default=120)
 
     # ── Application ───────────────────────────────────────────────────────
-    app_name: str = "Presage"
+    app_name: str = "Foresight"
     app_version: str = "1.0.0"
 
     @property

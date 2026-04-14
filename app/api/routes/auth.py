@@ -6,7 +6,7 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,9 +29,14 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 7
 
 
-class AuthRequest(BaseModel):
+class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
 
 
 class AuthResponse(BaseModel):
@@ -92,7 +97,7 @@ async def get_current_user(
 
 
 @router.post("/register", response_model=AuthResponse)
-async def register(body: AuthRequest, db: AsyncSession = Depends(get_db_session)):
+async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db_session)):
     result = await db.execute(select(UserProfile).where(UserProfile.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -113,7 +118,7 @@ async def register(body: AuthRequest, db: AsyncSession = Depends(get_db_session)
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(body: AuthRequest, db: AsyncSession = Depends(get_db_session)):
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db_session)):
     result = await db.execute(select(UserProfile).where(UserProfile.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not user.password_hash or not _verify_password(body.password, user.password_hash):

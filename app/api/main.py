@@ -18,7 +18,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("Signal API started — tables ready")
+    logger.info("Foresight API started — tables ready")
     yield
     await engine.dispose()
 

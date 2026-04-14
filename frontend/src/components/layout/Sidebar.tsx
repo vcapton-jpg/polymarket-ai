@@ -47,7 +47,7 @@ export function Sidebar() {
     >
       <NavLink to="/" className="flex items-center gap-2.5 px-2 pb-6 no-underline">
         <Triangle size={20} strokeWidth={1.75} className="text-accent fill-accent/20" />
-        <span className="text-lg font-bold tracking-tight text-txt-primary">Presage</span>
+        <span className="text-lg font-bold tracking-tight text-txt-primary">Foresight</span>
       </NavLink>
 
       <nav className="flex flex-col gap-1 flex-1">

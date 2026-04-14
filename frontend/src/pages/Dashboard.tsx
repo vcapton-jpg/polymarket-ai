@@ -46,7 +46,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 mb-1">
             <Triangle size={18} className="text-accent fill-accent/20" />
             <h1 className="text-xl md:text-2xl font-bold text-txt-primary tracking-tight">
-              Presage
+              Foresight
             </h1>
           </div>
           <p className="text-sm text-txt-muted">

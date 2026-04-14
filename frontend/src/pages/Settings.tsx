@@ -8,6 +8,7 @@ import { BUCKETS, SCORE_TIERS } from "../lib/constants"
 import { cn } from "../lib/utils"
 import { usePushNotifications } from "../hooks/usePushNotifications"
 import { useAuth } from "../lib/auth"
+import { PREFS_KEY } from "../lib/authStorage"
 
 interface Prefs {
   telegramChatId: string
@@ -23,7 +24,7 @@ export default function Settings() {
   const navigate = useNavigate()
   const [prefs, setPrefs] = useState<Prefs>(() => {
     try {
-      const stored = localStorage.getItem("presage-prefs")
+      const stored = localStorage.getItem(PREFS_KEY)
       if (stored) return { ...{
         telegramChatId: "",
         minScoreNotif: 60,
@@ -45,7 +46,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
 
   const handleSave = () => {
-    localStorage.setItem("presage-prefs", JSON.stringify(prefs))
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -83,7 +84,7 @@ export default function Settings() {
               className="w-full"
             />
             <p className="text-[11px] text-txt-muted mt-1">
-              Message @PresageBot on Telegram to get your Chat ID
+              Message @ForesightBot on Telegram to get your Chat ID
             </p>
           </div>
 
@@ -213,7 +214,7 @@ export default function Settings() {
         <Card className="p-5">
           <div className="flex items-center gap-3 mb-5">
             <Info size={18} className="text-accent" />
-            <h3 className="text-sm font-semibold text-txt-primary">About Presage</h3>
+            <h3 className="text-sm font-semibold text-txt-primary">About Foresight</h3>
           </div>
 
           <div className="space-y-4 text-sm">

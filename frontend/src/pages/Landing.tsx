@@ -9,12 +9,13 @@ import {
   TrendingUp,
   Radio,
   Eye,
-  Clock,
+  Brain,
   Check,
   Star,
   Crown,
   Building2,
   ChevronRight,
+  Bell,
 } from "lucide-react"
 
 const fadeUp = {
@@ -44,22 +45,22 @@ export default function Landing() {
         <div className="max-w-[1200px] mx-auto px-6 h-16 flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <Triangle size={20} strokeWidth={1.8} className="text-accent fill-accent/20" />
-            <span className="text-lg font-bold tracking-tight text-txt-primary">Presage</span>
+            <span className="text-lg font-bold tracking-tight text-txt-primary">Foresight</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            <a href="#how" className="text-sm text-txt-muted hover:text-txt-primary transition-colors no-underline">Comment ca marche</a>
-            <a href="#features" className="text-sm text-txt-muted hover:text-txt-primary transition-colors no-underline">Fonctionnalites</a>
-            <a href="#pricing" className="text-sm text-txt-muted hover:text-txt-primary transition-colors no-underline">Tarifs</a>
+            <a href="#how" className="text-sm text-txt-muted hover:text-txt-primary transition-colors no-underline">How it works</a>
+            <a href="#features" className="text-sm text-txt-muted hover:text-txt-primary transition-colors no-underline">Features</a>
+            <a href="#pricing" className="text-sm text-txt-muted hover:text-txt-primary transition-colors no-underline">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => nav("/auth")} className="text-sm font-medium text-txt-muted hover:text-txt-primary transition-colors bg-transparent border-none cursor-pointer">
-              Connexion
+              Sign in
             </button>
             <button
               onClick={() => nav("/auth")}
               className="px-4 py-2 rounded-lg bg-accent text-surface-0 text-sm font-semibold hover:brightness-110 transition-all cursor-pointer border-none"
             >
-              Commencer gratuitement
+              Start free
             </button>
           </div>
         </div>
@@ -80,7 +81,7 @@ export default function Landing() {
           <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={0}>
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/8 border border-accent/15 text-accent text-xs font-semibold mb-8">
               <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-live" />
-              Intelligence en temps reel sur les marches predictifs
+              Research-grade analysis for prediction markets
             </span>
           </motion.div>
 
@@ -88,10 +89,10 @@ export default function Landing() {
             initial="hidden" animate="visible" variants={fadeUp} custom={1}
             className="text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] font-extrabold leading-[1.08] tracking-tight text-txt-primary mb-6"
           >
-            Voyez les marches
+            Trade with
             <br />
             <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
-              avant qu'ils ne bougent
+              clarity and conviction
             </span>
           </motion.h1>
 
@@ -99,7 +100,7 @@ export default function Landing() {
             initial="hidden" animate="visible" variants={fadeUp} custom={2}
             className="text-lg md:text-xl text-txt-muted leading-relaxed mb-10 max-w-[580px] mx-auto"
           >
-            Presage detecte les evenements qui font bouger Polymarket en moins de 60 secondes. Score de conviction, explication, probabilite — tout ce qu'il faut pour trader avec un avantage reel.
+            Foresight links breaking news to the right Polymarket contracts using semantic retrieval, impact models, and market microstructure — then scores every opportunity with plain-English reasoning. Speed matters, but depth wins.
           </motion.p>
 
           <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={3} className="flex gap-4 justify-center flex-wrap">
@@ -107,7 +108,7 @@ export default function Landing() {
               onClick={() => nav("/auth")}
               className="group px-7 py-3.5 rounded-xl bg-accent text-surface-0 text-base font-bold hover:brightness-110 transition-all cursor-pointer border-none flex items-center gap-2 shadow-[0_0_24px_rgba(245,158,11,0.2)]"
             >
-              Commencer gratuitement
+              Start free
               <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
             <button
@@ -117,7 +118,7 @@ export default function Landing() {
               className="px-7 py-3.5 rounded-xl bg-surface-card text-txt-secondary text-base font-semibold hover:text-accent transition-all cursor-pointer shadow-card"
               style={{ border: "1px solid rgba(255,255,255,0.08)" }}
             >
-              Decouvrir comment
+              See how it works
             </button>
           </motion.div>
 
@@ -126,7 +127,7 @@ export default function Landing() {
             <div className="flex items-center gap-1">
               {[1,2,3,4,5].map(i => <Star key={i} size={14} className="text-accent fill-accent" />)}
             </div>
-            <span className="text-sm text-txt-muted">Utilise par <span className="text-txt-primary font-semibold">500+</span> traders sur Polymarket</span>
+            <span className="text-sm text-txt-muted">Trusted by <span className="text-txt-primary font-semibold">500+</span> active traders</span>
           </motion.div>
         </div>
       </motion.section>
@@ -144,29 +145,29 @@ export default function Landing() {
           >
             <div className="flex items-center gap-2 mb-4">
               <span className="w-2 h-2 rounded-full bg-success animate-pulse-live" />
-              <span className="text-[11px] font-bold text-success uppercase tracking-widest">Signal en direct</span>
+              <span className="text-[11px] font-bold text-success uppercase tracking-widest">Live signal</span>
             </div>
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-1">
-                <p className="text-xs text-txt-muted mb-1 font-mono">Reuters &middot; il y a 3 min</p>
-                <h3 className="text-lg font-bold text-txt-primary mb-3">La Fed signale une acceleration des baisses de taux apres les derniers chiffres d'inflation</h3>
+                <p className="text-xs text-txt-muted mb-1 font-mono">Reuters · 3 min ago</p>
+                <h3 className="text-lg font-bold text-txt-primary mb-3">Fed officials signal faster rate cuts after latest inflation data</h3>
                 <p className="text-sm text-txt-secondary leading-relaxed">
-                  "Les rapports de la Fed indiquent une position plus accommodante que prevu. Le marche ne reflete pas encore ce changement de politique."
+                  Impact model: dovish shift underpriced vs. consensus. Contract mechanism aligns with policy path — not just headline correlation.
                 </p>
               </div>
               <div className="flex flex-col gap-3 md:w-[220px] shrink-0">
                 <div className="bg-surface-raised rounded-xl p-4 text-center">
                   <p className="text-[11px] text-txt-muted uppercase tracking-wider mb-1">Score</p>
                   <p className="text-3xl font-extrabold font-mono text-accent">91</p>
-                  <p className="text-[10px] text-success font-semibold">Conviction exceptionnelle</p>
+                  <p className="text-[10px] text-success font-semibold">High conviction</p>
                 </div>
                 <div className="bg-surface-raised rounded-xl p-4 text-center">
-                  <p className="text-[11px] text-txt-muted uppercase tracking-wider mb-1">Le marche dit</p>
+                  <p className="text-[11px] text-txt-muted uppercase tracking-wider mb-1">Market says</p>
                   <p className="text-2xl font-bold font-mono text-txt-primary">22% <span className="text-success text-sm">YES</span></p>
                 </div>
                 <div className="bg-success/10 rounded-xl p-3 text-center">
                   <p className="text-sm font-bold text-success">BUY YES</p>
-                  <p className="text-[10px] text-txt-muted">Fenetre: 2-4 semaines</p>
+                  <p className="text-[10px] text-txt-muted">Window: 2–4 weeks</p>
                 </div>
               </div>
             </div>
@@ -178,8 +179,8 @@ export default function Landing() {
       <section id="how" className="py-24 px-6">
         <div className="max-w-[1100px] mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0} className="text-center mb-16">
-            <span className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-3 block">Comment ca marche</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary">De l'info brute a l'avantage en <span className="text-accent">60 secondes</span></h2>
+            <span className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-3 block">How it works</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary">From news to <span className="text-accent">actionable conviction</span></h2>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -216,8 +217,8 @@ export default function Landing() {
       <section id="features" className="py-24 px-6 bg-surface-card/50">
         <div className="max-w-[1100px] mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0} className="text-center mb-16">
-            <span className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-3 block">Fonctionnalites</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary">Tout ce qu'il faut pour <span className="text-accent">gagner</span></h2>
+            <span className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-3 block">Features</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary">Everything you need to <span className="text-accent">decide with confidence</span></h2>
           </motion.div>
 
           <motion.div
@@ -249,9 +250,9 @@ export default function Landing() {
       <section id="pricing" className="py-24 px-6">
         <div className="max-w-[1100px] mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0} className="text-center mb-16">
-            <span className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-3 block">Tarifs</span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary mb-4">Commencez gratuitement, <span className="text-accent">evoluez quand vous etes pret</span></h2>
-            <p className="text-txt-muted max-w-lg mx-auto">Tous les plans incluent les signaux en temps reel. Passez a Pro pour debloquer l'historique complet et les alertes.</p>
+            <span className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-3 block">Pricing</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary mb-4">Start free, <span className="text-accent">upgrade when you are ready</span></h2>
+            <p className="text-txt-muted max-w-lg mx-auto">Every plan includes live signals. Pro unlocks full history, richer explanations, and alerts.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-[960px] mx-auto">
@@ -269,7 +270,7 @@ export default function Landing() {
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-accent text-surface-0 text-[11px] font-bold tracking-wider">
-                    POPULAIRE
+                    POPULAR
                   </div>
                 )}
                 <div className="flex items-center gap-3 mb-5">
@@ -321,16 +322,16 @@ export default function Landing() {
             <Triangle size={32} strokeWidth={1.5} className="fill-accent/20" />
           </div>
           <h2 className="text-3xl md:text-4xl font-extrabold text-txt-primary mb-4">
-            Pret a voir avant les autres ?
+            Ready to see the full picture?
           </h2>
           <p className="text-lg text-txt-muted mb-10 max-w-md mx-auto leading-relaxed">
-            Rejoignez les traders qui recoivent des opportunites en temps reel, alimentees par l'IA, avant que le marche ne reagisse.
+            Join traders who combine fast detection with structured analysis — so every signal is something you can actually understand and act on.
           </p>
           <button
             onClick={() => nav("/auth")}
             className="group px-8 py-4 rounded-xl bg-accent text-surface-0 text-lg font-bold hover:brightness-110 transition-all cursor-pointer border-none flex items-center gap-3 mx-auto shadow-[0_0_30px_rgba(245,158,11,0.2)]"
           >
-            Creer mon compte gratuit
+            Create free account
             <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </motion.div>
@@ -341,14 +342,14 @@ export default function Landing() {
         <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2.5">
             <Triangle size={16} strokeWidth={1.8} className="text-accent fill-accent/20" />
-            <span className="font-bold text-txt-primary">Presage</span>
+            <span className="font-bold text-txt-primary">Foresight</span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="#pricing" className="text-xs text-txt-muted hover:text-txt-secondary transition-colors no-underline">Tarifs</a>
-            <a href="#features" className="text-xs text-txt-muted hover:text-txt-secondary transition-colors no-underline">Fonctionnalites</a>
-            <span className="text-xs text-txt-muted">contact@presage.market</span>
+            <a href="#pricing" className="text-xs text-txt-muted hover:text-txt-secondary transition-colors no-underline">Pricing</a>
+            <a href="#features" className="text-xs text-txt-muted hover:text-txt-secondary transition-colors no-underline">Features</a>
+            <span className="text-xs text-txt-muted">hello@getforesight.io</span>
           </div>
-          <span className="text-xs text-txt-muted">&copy; {new Date().getFullYear()} Presage. Tous droits reserves.</span>
+          <span className="text-xs text-txt-muted">&copy; {new Date().getFullYear()} Foresight. All rights reserved.</span>
         </div>
       </footer>
     </div>
@@ -358,43 +359,43 @@ export default function Landing() {
 const STEPS = [
   {
     icon: Eye,
-    title: "Detection instantanee",
-    desc: "Notre pipeline analyse 50+ sources d'information en temps reel — agences de presse, medias financiers, reseaux sociaux — pour capturer chaque evenement qui compte.",
+    title: "Ingest & match",
+    desc: "50+ sources feed our pipeline — wire services, finance media, social — then we retrieve the Polymarket contracts that truly match the story, not just keyword overlap.",
   },
   {
-    icon: Zap,
-    title: "Scoring intelligent",
-    desc: "Chaque evenement est croise avec les contrats Polymarket actifs. Similarite semantique, analyse LLM, microstructure du marche — tout est quantifie en un score de 0 a 100.",
+    icon: Brain,
+    title: "Deep analysis",
+    desc: "Hybrid retrieval (vectors + BM25), LLM impact scoring, liquidity and spread checks. Every signal carries structured reasoning — why this contract, why now.",
   },
   {
     icon: TrendingUp,
-    title: "Agir avec conviction",
-    desc: "Recevez le signal avec l'explication complete : pourquoi l'evenement impacte le contrat, quelle fenetre d'action, et le niveau de confiance du modele.",
+    title: "Conviction you can use",
+    desc: "Direction, score tiers, probability context, and time window — so you trade on analysis, not vibes. Alerts when it matters.",
   },
 ]
 
 const FEATURES = [
-  { icon: Radio, title: "Signaux en temps reel", desc: "Chaque signal = un evenement + un contrat Polymarket ou le marche n'a pas encore integre l'information." },
-  { icon: BarChart3, title: "Score explicable", desc: "Chaque score est decompose : pertinence semantique, impact LLM, liquidite, spread. Vous comprenez le pourquoi." },
-  { icon: Shield, title: "Track record verifiable", desc: "Chaque signal est suivi contre les resultats reels. Taux de reussite, P&L simule — des preuves, pas des promesses." },
-  { icon: Clock, title: "Latence < 60 secondes", desc: "De la publication d'une news au signal dans votre feed en moins d'une minute. L'avantage est dans la vitesse." },
-  { icon: TrendingUp, title: "Dashboard performance", desc: "Distribution des scores, win rate par categorie, timeline cumulative — suivez votre edge en temps reel." },
-  { icon: Zap, title: "Alertes multi-canal", desc: "Push notifications, Telegram, dashboard — ne ratez jamais un signal a haute conviction." },
+  { icon: Radio, title: "Live signal feed", desc: "Event + contract pairs where information may not be fully priced — surfaced as soon as the pipeline validates the link." },
+  { icon: BarChart3, title: "Explainable scores", desc: "Semantic fit, model impact, market quality — decomposed so you see why a signal exists, not just a single number." },
+  { icon: Shield, title: "Verified track record", desc: "Signals tracked against outcomes: win rates, simulated P&L — evidence you can audit." },
+  { icon: Zap, title: "Low-latency delivery", desc: "Fast path from headline to dashboard when timing matters — without skipping the analysis layer." },
+  { icon: TrendingUp, title: "Performance analytics", desc: "Score distribution, category win rates, timelines — understand where your edge actually comes from." },
+  { icon: Bell, title: "Multi-channel alerts", desc: "Push, Telegram, in-app — high-conviction moments find you wherever you work." },
 ]
 
 const PLANS = [
   {
-    name: "Gratuit",
+    name: "Free",
     price: 0,
     icon: Zap,
     color: "#6B7280",
     popular: false,
-    cta: "Commencer",
+    cta: "Get started",
     features: [
-      "5 signaux par jour",
-      "Score et direction",
-      "Dernieres 24h d'historique",
-      "Dashboard basique",
+      "5 signals per day",
+      "Score & direction",
+      "24h history",
+      "Basic dashboard",
     ],
   },
   {
@@ -403,14 +404,14 @@ const PLANS = [
     icon: Crown,
     color: "#F59E0B",
     popular: true,
-    cta: "Passer a Pro",
+    cta: "Upgrade to Pro",
     features: [
-      "Signaux illimites",
-      "Explications detaillees",
-      "Historique complet",
-      "Alertes Telegram & Push",
-      "Dashboard performance avance",
-      "Support prioritaire",
+      "Unlimited signals",
+      "Rich explanations",
+      "Full history",
+      "Telegram & push alerts",
+      "Advanced performance view",
+      "Priority support",
     ],
   },
   {
@@ -419,14 +420,14 @@ const PLANS = [
     icon: Building2,
     color: "#8B5CF6",
     popular: false,
-    cta: "Contacter",
+    cta: "Talk to us",
     features: [
-      "Tout Pro inclus",
-      "Execution directe Polymarket",
-      "Alertes risk management",
-      "Briefs intelligence quotidiens",
-      "Acces API (10k req/jour)",
-      "Support dedie Discord",
+      "Everything in Pro",
+      "Direct Polymarket execution",
+      "Risk alerts",
+      "Daily intelligence briefs",
+      "API access (10k req/day)",
+      "Dedicated Discord support",
     ],
   },
 ]

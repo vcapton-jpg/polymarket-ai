@@ -1,3 +1,6 @@
+import "./authStorage"
+import { TOKEN_KEY } from "./authStorage"
+
 import type {
   SignalListResponse,
   SignalDetail,
@@ -17,7 +20,7 @@ import type {
 const BASE = "/api"
 
 function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem("presage-token")
+  const token = localStorage.getItem(TOKEN_KEY)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
@@ -27,6 +30,22 @@ async function get<T>(path: string): Promise<T> {
   return res.json()
 }
 
+function formatErrorDetail(detail: unknown, status: number): string {
+  if (typeof detail === "string") return detail
+  if (Array.isArray(detail)) {
+    return (
+      detail
+        .map((e: { msg?: string }) => e?.msg)
+        .filter(Boolean)
+        .join(". ") || `Request failed (${status})`
+    )
+  }
+  if (detail && typeof detail === "object" && "message" in detail) {
+    return String((detail as { message: string }).message)
+  }
+  return `Request failed (${status})`
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
@@ -34,8 +53,8 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: `API ${res.status}` }))
-    throw new Error(err.detail ?? `API ${res.status}: ${path}`)
+    const err = await res.json().catch(() => ({ detail: null }))
+    throw new Error(formatErrorDetail(err.detail, res.status))
   }
   return res.json()
 }
