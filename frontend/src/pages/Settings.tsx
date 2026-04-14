@@ -1,11 +1,13 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { Settings as SettingsIcon, Bell, Sliders, Info, ExternalLink, Save, Smartphone } from "lucide-react"
+import { Settings as SettingsIcon, Bell, Sliders, Info, ExternalLink, Save, Smartphone, LogOut, CreditCard, Crown } from "lucide-react"
 import { Card } from "../components/ui/Card"
 import { Button } from "../components/ui/Button"
 import { BUCKETS, SCORE_TIERS } from "../lib/constants"
 import { cn } from "../lib/utils"
 import { usePushNotifications } from "../hooks/usePushNotifications"
+import { useAuth } from "../lib/auth"
 
 interface Prefs {
   telegramChatId: string
@@ -17,9 +19,11 @@ interface Prefs {
 }
 
 export default function Settings() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [prefs, setPrefs] = useState<Prefs>(() => {
     try {
-      const stored = localStorage.getItem("signal-prefs")
+      const stored = localStorage.getItem("presage-prefs")
       if (stored) return { ...{
         telegramChatId: "",
         minScoreNotif: 60,
@@ -41,7 +45,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
 
   const handleSave = () => {
-    localStorage.setItem("signal-prefs", JSON.stringify(prefs))
+    localStorage.setItem("presage-prefs", JSON.stringify(prefs))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -79,7 +83,7 @@ export default function Settings() {
               className="w-full"
             />
             <p className="text-[11px] text-txt-muted mt-1">
-              Message @SignalPMBot on Telegram to get your Chat ID
+              Message @PresageBot on Telegram to get your Chat ID
             </p>
           </div>
 
@@ -209,7 +213,7 @@ export default function Settings() {
         <Card className="p-5">
           <div className="flex items-center gap-3 mb-5">
             <Info size={18} className="text-accent" />
-            <h3 className="text-sm font-semibold text-txt-primary">About Signal</h3>
+            <h3 className="text-sm font-semibold text-txt-primary">About Presage</h3>
           </div>
 
           <div className="space-y-4 text-sm">
@@ -247,6 +251,39 @@ export default function Settings() {
               <ExternalLink size={12} />
               Open Polymarket
             </a>
+          </div>
+        </Card>
+        {/* Account */}
+        <Card className="p-5">
+          <div className="flex items-center gap-3 mb-5">
+            <Crown size={18} className="text-accent" />
+            <h3 className="text-sm font-semibold text-txt-primary">Compte & Abonnement</h3>
+          </div>
+
+          <div className="space-y-4 text-sm">
+            <div className="flex justify-between items-center py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span className="text-txt-muted">Email</span>
+              <span className="font-mono text-txt-secondary text-xs">{user?.email ?? "--"}</span>
+            </div>
+            <div className="flex justify-between items-center py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span className="text-txt-muted">Plan</span>
+              <span className="text-accent font-semibold text-xs uppercase">{user?.plan ?? "free"}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-5">
+            <Button variant="secondary" size="sm" icon={<CreditCard size={14} />} onClick={() => navigate("/pricing")}>
+              Changer de plan
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<LogOut size={14} />}
+              onClick={() => { logout(); navigate("/") }}
+              className="text-danger hover:text-danger hover:bg-danger/10"
+            >
+              Deconnexion
+            </Button>
           </div>
         </Card>
       </motion.div>

@@ -1,12 +1,12 @@
 {
-  "name": "Signal — Prediction Market Intelligence",
-  "short_name": "Signal",
-  "description": "Real-time prediction market signals powered by AI",
+  "name": "Presage — Intelligence Marches Predictifs",
+  "short_name": "Presage",
+  "description": "Signaux en temps reel sur les marches predictifs, alimentes par l'IA",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0A0E1A",
-  "theme_color": "#0A0E1A",
+  "background_color": "#080C16",
+  "theme_color": "#080C16",
   "icons": [
     {
       "src": "/icon.svg",

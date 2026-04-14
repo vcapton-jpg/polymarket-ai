@@ -1,4 +1,4 @@
-const CACHE_NAME = "signal-v1"
+const CACHE_NAME = "presage-v1"
 const PRECACHE = ["/", "/dashboard", "/icon.svg"]
 
 self.addEventListener("install", (e) => {
@@ -32,13 +32,13 @@ self.addEventListener("fetch", (e) => {
 })
 
 self.addEventListener("push", (e) => {
-  let data = { title: "Signal", body: "New signal available" }
+  let data = { title: "Presage", body: "New signal available" }
   try {
     if (e.data) data = e.data.json()
   } catch {}
 
   e.waitUntil(
-    self.registration.showNotification(data.title || "Signal", {
+    self.registration.showNotification(data.title || "Presage", {
       body: data.body || "New signal available",
       icon: "/icon.svg",
       badge: "/icon.svg",

@@ -412,9 +412,14 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True, unique=True, index=True
+    )
+    password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     wallet_address: Mapped[Optional[str]] = mapped_column(String(42), nullable=True, unique=True)
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     preferences: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -16,9 +16,27 @@ import type {
 
 const BASE = "/api"
 
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem("presage-token")
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() })
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`)
+  return res.json()
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: `API ${res.status}` }))
+    throw new Error(err.detail ?? `API ${res.status}: ${path}`)
+  }
   return res.json()
 }
 
@@ -109,6 +127,13 @@ export const api = {
 
   // Briefs
   briefs: () => get<{ activities: unknown[] }>("/agents/activity?agent=reporter"),
+
+  // Auth
+  register: (email: string, password: string) =>
+    post<{ token: string; user: Record<string, unknown> }>("/auth/register", { email, password }),
+  login: (email: string, password: string) =>
+    post<{ token: string; user: Record<string, unknown> }>("/auth/login", { email, password }),
+  me: () => get<{ id: number; email: string; plan: string; created_at: string }>("/auth/me"),
 }
 
 export const queryKeys = {

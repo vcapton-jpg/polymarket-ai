@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowUpRight, Crosshair, TrendingUp, Trophy, Target, Wallet, Zap } from "lucide-react"
+import { ArrowUpRight, Triangle, TrendingUp, Trophy, Target, Wallet, Zap } from "lucide-react"
 import { MetricCard } from "../components/ui/MetricCard"
 import { SignalCard } from "../components/signals/SignalCard"
 import { LiveIndicator } from "../components/signals/LiveIndicator"
@@ -44,9 +44,9 @@ export default function Dashboard() {
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <Crosshair size={20} className="text-accent" />
+            <Triangle size={18} className="text-accent fill-accent/20" />
             <h1 className="text-xl md:text-2xl font-bold text-txt-primary tracking-tight">
-              Signal
+              Presage
             </h1>
           </div>
           <p className="text-sm text-txt-muted">

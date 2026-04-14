@@ -1,9 +1,11 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import { AppLayout } from "./components/layout/AppLayout"
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, type ReactNode } from "react"
 import { Skeleton } from "./components/ui/Skeleton"
+import { AuthProvider, useAuth } from "./lib/auth"
 
 const Landing = lazy(() => import("./pages/Landing"))
+const Auth = lazy(() => import("./pages/Auth"))
 const Dashboard = lazy(() => import("./pages/Dashboard"))
 const Opportunities = lazy(() => import("./pages/Opportunities"))
 const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"))
@@ -28,27 +30,43 @@ function PageLoader() {
   )
 }
 
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuth()
+  if (isLoading) return <PageLoader />
+  if (!user) return <Navigate to="/auth" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/opportunities" element={<Opportunities />} />
-          <Route path="/opportunity/:id" element={<OpportunityDetail />} />
-          <Route path="/markets" element={<Markets />} />
-          <Route path="/performance" element={<Performance />} />
-          <Route path="/learn" element={<Learn />} />
-          <Route path="/track-record" element={<TrackRecord />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/briefs" element={<Briefs />} />
-          <Route path="/workspace" element={<AgentWorkspace />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <AuthProvider>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/opportunities" element={<Opportunities />} />
+            <Route path="/opportunity/:id" element={<OpportunityDetail />} />
+            <Route path="/markets" element={<Markets />} />
+            <Route path="/performance" element={<Performance />} />
+            <Route path="/learn" element={<Learn />} />
+            <Route path="/track-record" element={<TrackRecord />} />
+            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/agents" element={<Agents />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/briefs" element={<Briefs />} />
+            <Route path="/workspace" element={<AgentWorkspace />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    </AuthProvider>
   )
 }

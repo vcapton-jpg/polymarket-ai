@@ -40,12 +40,13 @@ class Settings(BaseSettings):
     telegram_chat_id: Optional[str] = Field(default=None)
 
     # ── Auth / Security ──────────────────────────────────────────────────
+    jwt_secret_key: str = Field(default="change-me-in-production")
     signal_api_key: Optional[str] = Field(default=None)
 
     # ── Push Notifications (VAPID) ────────────────────────────────────
     vapid_private_key: Optional[str] = Field(default=None)
     vapid_public_key: Optional[str] = Field(default=None)
-    vapid_email: str = Field(default="admin@signal.app")
+    vapid_email: str = Field(default="admin@presage.market")
 
     # ── Polymarket Builder ─────────────────────────────────────────────
     builder_api_key: Optional[str] = Field(default=None)
@@ -58,10 +59,16 @@ class Settings(BaseSettings):
     stripe_secret_key: Optional[str] = Field(default=None)
     stripe_webhook_secret: Optional[str] = Field(default=None)
     stripe_price_pro: Optional[str] = Field(default=None)
-    stripe_price_enterprise: Optional[str] = Field(default=None)
+    stripe_price_trader: Optional[str] = Field(default=None)
+
+    # ── Auth ───────────────────────────────────────────────────────────
+    jwt_secret_key: str = Field(default="change-me-in-production")
+    jwt_algorithm: str = Field(default="HS256")
+    jwt_expire_days: int = Field(default=7)
 
     # ── Environment ───────────────────────────────────────────────────────
     env: str = Field(default="development")
+    app_base_url: str = Field(default="https://presage.market")
 
     # ── Ingestion intervals (seconds) ─────────────────────────────────────
     rss_poll_interval_seconds: int = Field(default=90)
@@ -120,8 +127,8 @@ class Settings(BaseSettings):
     x_scraper_inbox_interval_seconds: int = Field(default=120)
 
     # ── Application ───────────────────────────────────────────────────────
-    app_name: str = "Signal"
-    app_version: str = "0.1.0"
+    app_name: str = "Presage"
+    app_version: str = "1.0.0"
 
     @property
     def is_production(self) -> bool:

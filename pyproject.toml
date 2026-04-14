@@ -1,6 +1,6 @@
 [project]
-name = "signal"
-version = "0.1.0"
+name = "presage"
+version = "1.0.0"
 requires-python = ">=3.11,<3.14"
 
 dependencies = [
@@ -47,6 +47,11 @@ dependencies = [
     "eth-account>=0.13.0",
     "python-telegram-bot>=21.0",
     "stripe>=8.0.0",
+    # Auth
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.0",
+    "email-validator>=2.0.0",
+    "pywebpush>=2.0.0",
 ]
 
 [project.optional-dependencies]
