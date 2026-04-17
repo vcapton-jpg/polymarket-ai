@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { BarChart3 } from "lucide-react"
+import { BarChart3, ExternalLink } from "lucide-react"
 import { DataTable, type Column } from "../components/ui/DataTable"
 import { CategoryBadge } from "../components/ui/CategoryBadge"
 import { Badge } from "../components/ui/Badge"
@@ -10,6 +10,16 @@ import { useMarkets } from "../hooks/useMarkets"
 import { formatUsdCompact, formatYesImpliedPct, formatSpreadPp, cn } from "../lib/utils"
 import { BUCKETS } from "../lib/constants"
 import type { Market } from "../lib/types"
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+}
 
 export default function Markets() {
   const [category, setCategory] = useState("")
@@ -29,9 +39,15 @@ export default function Markets() {
       header: "Question",
       className: "min-w-[200px]",
       render: (m) => (
-        <span className="text-txt-primary font-medium text-[13px] line-clamp-1">
+        <a
+          href={`https://polymarket.com/event/${m.market_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-txt-primary font-medium text-[13px] line-clamp-1 hover:text-accent-bright transition-colors no-underline flex items-center gap-1.5 group"
+        >
           {m.question}
-        </span>
+          <ExternalLink size={11} className="shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" />
+        </a>
       ),
     },
     {
@@ -103,52 +119,56 @@ export default function Markets() {
 
   return (
     <div className="max-w-[1100px]">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-1">
-        <BarChart3 size={20} className="text-accent" />
-        <h1 className="text-xl md:text-2xl font-bold text-txt-primary tracking-tight">Markets</h1>
-      </div>
-      <p className="text-sm text-txt-muted mb-6">
-        <span className="font-mono font-semibold text-accent">{data?.total ?? 0}</span> Polymarket contracts tracked
-      </p>
+      <motion.div initial="hidden" animate="visible" variants={stagger}>
+        {/* Header */}
+        <motion.div variants={fadeUp} className="flex items-center gap-3 mb-1">
+          <BarChart3 size={20} className="text-accent" />
+          <h1 className="font-display text-xl md:text-2xl font-bold text-txt-primary tracking-display">
+            Markets
+          </h1>
+        </motion.div>
+        <motion.p variants={fadeUp} className="text-sm text-txt-muted mb-6">
+          <span className="inline-block font-mono font-semibold text-gradient-gold">{data?.total ?? 0}</span>{" "}
+          Polymarket contracts tracked
+        </motion.p>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {allBuckets.map((b) => {
-            const active = category === b.value
-            return (
-              <button
-                key={b.value}
-                onClick={() => setCategory(b.value)}
-                className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0",
-                  active
-                    ? "bg-accent/15 text-accent"
-                    : "bg-surface-card text-txt-muted hover:text-txt-secondary",
-                )}
-                style={{ border: active ? "1px solid rgba(245,158,11,0.35)" : "1px solid rgba(255,255,255,0.08)" }}
-              >
-                {b.emoji && <span>{b.emoji}</span>}
-                {b.label}
-              </button>
-            )
-          })}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-txt-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={activeOnly}
-            onChange={(e) => setActiveOnly(e.target.checked)}
-            className="accent-accent w-4 h-4"
-          />
-          Active only
-        </label>
-      </div>
+        {/* Filters */}
+        <motion.div variants={fadeUp} className="flex items-center gap-3 mb-6 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {allBuckets.map((b) => {
+              const active = category === b.value
+              return (
+                <button
+                  key={b.value}
+                  onClick={() => setCategory(b.value)}
+                  className={cn(
+                    "flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 border",
+                    active
+                      ? "bg-accent-muted/40 text-accent-bright border-edge-accent shadow-glow"
+                      : "bg-surface-card text-txt-muted hover:text-txt-secondary border-edge-subtle hover:border-edge hover:shadow-card",
+                  )}
+                >
+                  {b.emoji && <span>{b.emoji}</span>}
+                  {b.label}
+                </button>
+              )
+            })}
+          </div>
+          <label className="flex items-center gap-2 text-sm text-txt-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={activeOnly}
+              onChange={(e) => setActiveOnly(e.target.checked)}
+              className="accent-accent w-4 h-4 rounded"
+            />
+            Active only
+          </label>
+        </motion.div>
+      </motion.div>
 
       {/* Table */}
       {isLoading ? (
-        <div className="flex flex-col gap-2">
+        <div className="rounded-xl border border-edge-subtle glass-card shadow-glass p-4 flex flex-col gap-2">
           <Skeleton height={48} />
           <Skeleton height={48} />
           <Skeleton height={48} />
@@ -157,7 +177,17 @@ export default function Markets() {
       ) : markets.length === 0 ? (
         <EmptyState title="No markets found" message="Try changing the filters." />
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+          className={cn(
+            "rounded-xl overflow-hidden border border-edge-subtle glass-card shadow-card",
+            "[&_thead_tr]:bg-surface-raised/40",
+            "[&_tbody_tr]:transition-all [&_tbody_tr]:duration-200",
+            "[&_tbody_tr:hover]:!bg-surface-raised [&_tbody_tr:hover]:shadow-[inset_0_0_0_1px_rgba(212,160,23,0.12)]",
+          )}
+        >
           <DataTable data={markets} columns={columns} keyFn={(m) => m.market_id} />
         </motion.div>
       )}

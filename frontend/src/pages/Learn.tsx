@@ -13,6 +13,23 @@ import {
 import { PageHeader } from "../components/layout/PageHeader"
 import { Card } from "../components/ui/Card"
 
+const learnContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.07, delayChildren: 0.06 },
+  },
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] as const },
+  },
+}
+
 export default function Learn() {
   return (
     <div>
@@ -21,18 +38,23 @@ export default function Learn() {
         subtitle="Everything you need to understand prediction markets and trade smarter"
       />
 
-      <div style={styles.sections}>
+      <motion.div
+        className="flex flex-col gap-4"
+        variants={learnContainer}
+        initial="hidden"
+        animate="visible"
+      >
         <EducationSection
           icon={<BarChart3 size={22} />}
           title="What is a prediction market?"
           defaultOpen
         >
-          <p style={styles.text}>
+          <p className="text-sm text-txt-secondary leading-relaxed mb-4">
             A prediction market is a marketplace where you trade contracts based on
             the outcomes of real-world events. The price of a contract reflects how
             likely the crowd thinks that event is to happen.
           </p>
-          <div style={styles.conceptGrid}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
             <ConceptCard
               title="Binary contracts"
               desc="Contracts pay $1 if the event happens, $0 if it doesn't. Buying at $0.60 means you think there's more than a 60% chance."
@@ -46,9 +68,11 @@ export default function Learn() {
               desc="One of the largest prediction markets. It offers contracts on politics, economics, crypto, sports, and more."
             />
           </div>
-          <div style={styles.exampleBox}>
-            <h4 style={styles.exampleTitle}>Example</h4>
-            <p style={styles.text}>
+          <div className="rounded-xl border border-edge-subtle border-l-4 border-l-accent bg-accent-muted/50 p-5 shadow-glass">
+            <h4 className="text-xs font-semibold font-display tracking-display text-accent-bright uppercase mb-2">
+              Example
+            </h4>
+            <p className="text-sm text-txt-secondary leading-relaxed">
               &ldquo;Will Bitcoin exceed $100,000 by Dec 31?&rdquo; trades at $0.42.
               That means the market estimates a 42% probability. If you believe the
               real probability is closer to 60%, buying at $0.42 gives you an edge.
@@ -60,11 +84,11 @@ export default function Learn() {
           icon={<Zap size={22} />}
           title="How to read an opportunity"
         >
-          <p style={styles.text}>
+          <p className="text-sm text-txt-secondary leading-relaxed mb-4">
             Our platform detects news that could move a Polymarket contract's price
             and delivers it to you as an opportunity. Here's what each indicator means:
           </p>
-          <div style={styles.metricList}>
+          <div className="flex flex-col gap-5">
             <MetricExplainer
               name="Opportunity Score (0-100)"
               desc="Overall strength of the opportunity. Higher means a stronger connection between the news event and the market. Think of it as our confidence."
@@ -97,7 +121,7 @@ export default function Learn() {
           icon={<TrendingUp size={22} />}
           title="Trading strategies"
         >
-          <div style={styles.strategyGrid}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <StrategyCard
               title="Getting Started"
               steps={[
@@ -135,11 +159,16 @@ export default function Learn() {
           icon={<BookOpen size={22} />}
           title="Glossary"
         >
-          <div style={styles.glossaryGrid}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {GLOSSARY.map(({ term, def }) => (
-              <div key={term} style={styles.glossaryItem}>
-                <h4 style={styles.glossaryTerm}>{term}</h4>
-                <p style={styles.glossaryDef}>{def}</p>
+              <div
+                key={term}
+                className="rounded-lg border border-edge-subtle bg-surface-raised p-3.5 shadow-glass"
+              >
+                <h4 className="text-sm font-semibold font-display tracking-display text-accent-bright mb-1">
+                  {term}
+                </h4>
+                <p className="text-[0.82rem] text-txt-muted leading-relaxed">{def}</p>
               </div>
             ))}
           </div>
@@ -149,13 +178,13 @@ export default function Learn() {
           icon={<HelpCircle size={22} />}
           title="Frequently Asked Questions"
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="flex flex-col gap-2">
             {FAQ.map(({ q, a }) => (
               <FaqItem key={q} question={q} answer={a} />
             ))}
           </div>
         </EducationSection>
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -174,36 +203,49 @@ function EducationSection({
   const [open, setOpen] = useState(defaultOpen ?? false)
 
   return (
-    <Card>
-      <div style={styles.sectionHeader} onClick={() => setOpen(!open)}>
-        <div style={styles.sectionIcon}>{icon}</div>
-        <h2 style={styles.sectionTitle}>{title}</h2>
-        <div style={{ marginLeft: "auto", color: "var(--text-muted)" }}>
-          {open ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+    <motion.div variants={fadeUp}>
+      <Card className="shadow-card p-0 overflow-hidden">
+        <div
+          className="flex items-center gap-3 cursor-pointer select-none p-5 md:p-6 pb-0 md:pb-0"
+          onClick={() => setOpen(!open)}
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-muted text-accent border border-edge-subtle shadow-glass">
+            {icon}
+          </div>
+          <h2 className="font-display text-lg font-semibold tracking-display text-txt-primary flex-1">
+            {title}
+          </h2>
+          <div className="text-txt-muted shrink-0">
+            {open ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+          </div>
         </div>
-      </div>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{ overflow: "hidden" }}
-          >
-            <div style={styles.sectionBody}>{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Card>
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            >
+              <div className="px-5 md:px-6 pt-5 pb-5 md:pb-6 mt-4 border-t border-edge-subtle">
+                {children}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+    </motion.div>
   )
 }
 
 function ConceptCard({ title, desc }: { title: string; desc: string }) {
   return (
-    <div style={styles.conceptCard}>
-      <h4 style={styles.conceptTitle}>{title}</h4>
-      <p style={styles.conceptDesc}>{desc}</p>
+    <div className="rounded-xl border border-edge-subtle bg-surface-raised p-5 shadow-glass">
+      <h4 className="text-[0.95rem] font-semibold font-display tracking-display text-txt-primary mb-2">
+        {title}
+      </h4>
+      <p className="text-[0.85rem] text-txt-muted leading-relaxed">{desc}</p>
     </div>
   )
 }
@@ -218,12 +260,14 @@ function MetricExplainer({
   threshold: string
 }) {
   return (
-    <div style={styles.metricItem}>
-      <h4 style={styles.metricName}>{name}</h4>
-      <p style={styles.text}>{desc}</p>
-      <div style={styles.thresholdBox}>
-        <Shield size={14} color="var(--color-primary)" />
-        <span style={styles.thresholdText}>{threshold}</span>
+    <div className="rounded-xl border border-edge-subtle bg-surface-raised p-4 shadow-glass">
+      <h4 className="text-[0.95rem] font-semibold font-display tracking-display text-txt-primary mb-1.5">
+        {name}
+      </h4>
+      <p className="text-sm text-txt-secondary leading-relaxed">{desc}</p>
+      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-accent-muted px-3 py-1.5 border border-edge-subtle">
+        <Shield size={14} className="text-accent shrink-0" />
+        <span className="text-[0.8rem] font-medium text-accent">{threshold}</span>
       </div>
     </div>
   )
@@ -231,12 +275,16 @@ function MetricExplainer({
 
 function StrategyCard({ title, steps }: { title: string; steps: string[] }) {
   return (
-    <div style={styles.strategyCard}>
-      <h4 style={styles.strategyTitle}>{title}</h4>
-      <ol style={styles.stepList}>
+    <div className="rounded-xl border border-edge-subtle bg-surface-raised p-6 shadow-glass">
+      <h4 className="text-base font-semibold font-display tracking-display text-txt-primary mb-4">
+        {title}
+      </h4>
+      <ol className="list-none p-0 flex flex-col gap-2.5">
         {steps.map((s, i) => (
-          <li key={i} style={styles.stepItem}>
-            <span style={styles.stepNum}>{i + 1}</span>
+          <li key={i} className="flex gap-2.5 text-[0.85rem] text-txt-secondary leading-relaxed">
+            <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-accent-muted text-[0.7rem] font-bold text-accent border border-edge-subtle">
+              {i + 1}
+            </span>
             <span>{s}</span>
           </li>
         ))}
@@ -249,15 +297,18 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <div style={styles.faqItem} onClick={() => setOpen(!open)}>
-      <div style={styles.faqQ}>
-        <span style={{ flex: 1 }}>{question}</span>
-        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+    <div
+      className="rounded-lg border border-edge-subtle bg-surface-raised px-4 py-3.5 cursor-pointer shadow-glass hover:border-edge-accent/30 hover:shadow-card-hover transition-all"
+      onClick={() => setOpen(!open)}
+    >
+      <div className="flex items-center gap-2 text-sm font-semibold text-txt-primary">
+        <span className="flex-1">{question}</span>
+        {open ? <ChevronDown size={16} className="text-txt-muted shrink-0" /> : <ChevronRight size={16} className="text-txt-muted shrink-0" />}
       </div>
       <AnimatePresence>
         {open && (
           <motion.p
-            style={styles.faqA}
+            className="text-[0.85rem] text-txt-muted leading-relaxed mt-2.5 overflow-hidden"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -306,201 +357,3 @@ const FAQ = [
     a: "No. Signal provides informational trading opportunities based on AI analysis. Always do your own research and never invest more than you can afford to lose.",
   },
 ]
-
-const styles: Record<string, React.CSSProperties> = {
-  sections: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
-  sectionHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    cursor: "pointer",
-    userSelect: "none",
-  },
-  sectionIcon: {
-    width: 40,
-    height: 40,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "var(--radius-sm)",
-    background: "rgba(99,102,241,0.1)",
-    color: "var(--color-primary)",
-    flexShrink: 0,
-  },
-  sectionTitle: {
-    fontSize: "1.15rem",
-    fontWeight: 600,
-    color: "var(--text-primary)",
-  },
-  sectionBody: {
-    paddingTop: "20px",
-    marginTop: "16px",
-    borderTop: "1px solid var(--border-light)",
-  },
-  text: {
-    fontSize: "0.9rem",
-    color: "var(--text-secondary)",
-    lineHeight: 1.7,
-    marginBottom: "16px",
-  },
-  conceptGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "16px",
-    marginBottom: "20px",
-  },
-  conceptCard: {
-    padding: "20px",
-    background: "var(--bg-tertiary)",
-    borderRadius: "var(--radius-md)",
-    border: "1px solid var(--border-light)",
-  },
-  conceptTitle: {
-    fontSize: "0.95rem",
-    fontWeight: 600,
-    color: "var(--text-primary)",
-    marginBottom: "8px",
-  },
-  conceptDesc: {
-    fontSize: "0.85rem",
-    color: "var(--text-muted)",
-    lineHeight: 1.6,
-  },
-  exampleBox: {
-    padding: "20px",
-    background: "rgba(99,102,241,0.06)",
-    borderRadius: "var(--radius-md)",
-    borderLeft: "3px solid var(--color-primary)",
-  },
-  exampleTitle: {
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    color: "var(--color-primary)",
-    marginBottom: "8px",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  },
-  metricList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-  },
-  metricItem: {
-    padding: "16px",
-    background: "var(--bg-tertiary)",
-    borderRadius: "var(--radius-md)",
-    border: "1px solid var(--border-light)",
-  },
-  metricName: {
-    fontSize: "0.95rem",
-    fontWeight: 600,
-    color: "var(--text-primary)",
-    marginBottom: "6px",
-  },
-  thresholdBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    marginTop: "8px",
-    padding: "6px 12px",
-    background: "rgba(99,102,241,0.06)",
-    borderRadius: "var(--radius-sm)",
-  },
-  thresholdText: {
-    fontSize: "0.8rem",
-    color: "var(--color-primary)",
-    fontWeight: 500,
-  },
-  strategyGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: "16px",
-  },
-  strategyCard: {
-    padding: "24px",
-    background: "var(--bg-tertiary)",
-    borderRadius: "var(--radius-md)",
-    border: "1px solid var(--border-light)",
-  },
-  strategyTitle: {
-    fontSize: "1rem",
-    fontWeight: 600,
-    color: "var(--text-primary)",
-    marginBottom: "16px",
-  },
-  stepList: {
-    listStyle: "none",
-    padding: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-  stepItem: {
-    display: "flex",
-    gap: "10px",
-    fontSize: "0.85rem",
-    color: "var(--text-secondary)",
-    lineHeight: 1.5,
-  },
-  stepNum: {
-    width: 22,
-    height: 22,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "50%",
-    background: "rgba(99,102,241,0.12)",
-    color: "var(--color-primary)",
-    fontSize: "0.7rem",
-    fontWeight: 700,
-    flexShrink: 0,
-  },
-  glossaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: "12px",
-  },
-  glossaryItem: {
-    padding: "14px",
-    background: "var(--bg-tertiary)",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--border-light)",
-  },
-  glossaryTerm: {
-    fontSize: "0.9rem",
-    fontWeight: 600,
-    color: "var(--color-primary-hover)",
-    marginBottom: "4px",
-  },
-  glossaryDef: {
-    fontSize: "0.82rem",
-    color: "var(--text-muted)",
-    lineHeight: 1.5,
-  },
-  faqItem: {
-    padding: "14px 16px",
-    background: "var(--bg-tertiary)",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--border-light)",
-    cursor: "pointer",
-  },
-  faqQ: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "0.9rem",
-    fontWeight: 600,
-    color: "var(--text-primary)",
-  },
-  faqA: {
-    fontSize: "0.85rem",
-    color: "var(--text-muted)",
-    lineHeight: 1.7,
-    marginTop: "10px",
-    overflow: "hidden",
-  },
-}

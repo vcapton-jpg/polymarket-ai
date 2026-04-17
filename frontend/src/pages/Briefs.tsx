@@ -2,11 +2,10 @@ import { useQuery } from "@tanstack/react-query"
 import { motion } from "framer-motion"
 import { FileText, Calendar, TrendingUp, Award } from "lucide-react"
 import { PageHeader } from "../components/layout/PageHeader"
-import { Card } from "../components/ui/Card"
 import { Skeleton } from "../components/ui/Skeleton"
 import { EmptyState } from "../components/ui/EmptyState"
 import { api, queryKeys } from "../lib/api"
-import { cn, timeAgo } from "../lib/utils"
+import { timeAgo } from "../lib/utils"
 
 export default function Briefs() {
   const { data, isLoading } = useQuery({
@@ -55,14 +54,16 @@ export default function Briefs() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <Card className="p-5">
+                <div
+                  className="glass-card glass-card-hover rounded-xl border border-edge-subtle p-5 md:p-6 shadow-card shadow-glass transition-all duration-300"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-500/15 text-cyan-500 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-lg bg-accent-muted text-accent-bright flex items-center justify-center border border-accent/25 shadow-inner-glow">
                         <FileText size={16} />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-txt-primary">
+                        <h3 className="text-sm font-semibold font-display tracking-display text-txt-primary">
                           Daily Intelligence Brief
                         </h3>
                         <span className="text-[11px] text-txt-muted flex items-center gap-1">
@@ -73,27 +74,27 @@ export default function Briefs() {
                     </div>
                   </div>
 
-                  <p className="text-sm text-txt-secondary mb-3">{brief.summary}</p>
+                  <p className="text-sm text-txt-secondary mb-3 leading-relaxed">{brief.summary}</p>
 
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-surface-raised rounded-md p-3 text-center">
-                      <TrendingUp size={14} className="text-accent mx-auto mb-1" />
-                      <span className="text-lg font-bold text-txt-primary block">{signalsCount}</span>
-                      <span className="text-[10px] text-txt-muted">Signals</span>
+                    <div className="glass-card rounded-xl border border-edge-subtle p-3 text-center shadow-inner-glow">
+                      <TrendingUp size={14} className="text-accent-bright mx-auto mb-1 drop-shadow-[0_0_8px_rgba(245,158,11,0.25)]" />
+                      <span className="text-lg font-bold font-display tracking-display text-txt-primary block tabular-nums">{signalsCount}</span>
+                      <span className="text-[10px] text-txt-muted uppercase tracking-wider">Signals</span>
                     </div>
-                    <div className="bg-surface-raised rounded-md p-3 text-center">
+                    <div className="glass-card rounded-xl border border-edge-subtle p-3 text-center shadow-inner-glow">
                       <Award size={14} className="text-success mx-auto mb-1" />
-                      <span className="text-lg font-bold text-success block">{wins}</span>
-                      <span className="text-[10px] text-txt-muted">Wins</span>
+                      <span className="text-lg font-bold font-display tracking-display text-success block tabular-nums">{wins}</span>
+                      <span className="text-[10px] text-txt-muted uppercase tracking-wider">Wins</span>
                     </div>
-                    <div className="bg-surface-raised rounded-md p-3 text-center">
-                      <span className="text-lg font-bold text-txt-primary block">
+                    <div className="glass-card rounded-xl border border-edge-subtle p-3 text-center shadow-inner-glow">
+                      <span className="text-lg font-bold font-display tracking-display text-txt-primary block tabular-nums">
                         {winRate != null ? `${winRate}%` : "—"}
                       </span>
-                      <span className="text-[10px] text-txt-muted">Win Rate</span>
+                      <span className="text-[10px] text-txt-muted uppercase tracking-wider">Win Rate</span>
                     </div>
                   </div>
-                </Card>
+                </div>
               </motion.div>
             )
           })}

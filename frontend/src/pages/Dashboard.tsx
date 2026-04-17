@@ -1,7 +1,6 @@
-import { useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowUpRight, Triangle, TrendingUp, Trophy, Target, Wallet, Zap } from "lucide-react"
+import { ArrowUpRight, TrendingUp, Trophy, Target, Zap } from "lucide-react"
 import { MetricCard } from "../components/ui/MetricCard"
 import { SignalCard } from "../components/signals/SignalCard"
 import { LiveIndicator } from "../components/signals/LiveIndicator"
@@ -10,6 +9,7 @@ import { SkeletonCard } from "../components/ui/Skeleton"
 import { useSignals } from "../hooks/useSignals"
 import { useDashboardKpis } from "../hooks/useAnalytics"
 import { useWebSocket } from "../hooks/useWebSocket"
+import { useAuth } from "../lib/auth"
 import { mergeSignalsDedupe } from "../lib/utils"
 
 const stagger = {
@@ -17,8 +17,15 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.06 } },
 }
 const fadeUp = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+  hidden: { opacity: 0, y: 10, filter: "blur(4px)" },
+  visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.35 } },
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours()
+  if (h < 12) return "Good morning"
+  if (h < 18) return "Good afternoon"
+  return "Good evening"
 }
 
 export default function Dashboard() {
@@ -29,6 +36,7 @@ export default function Dashboard() {
   })
   const { data: kpis } = useDashboardKpis({ refetchInterval: 30_000 })
   const { connected, liveSignals } = useWebSocket()
+  const { user } = useAuth()
 
   const allSignals = mergeSignalsDedupe(
     liveSignals,
@@ -36,27 +44,29 @@ export default function Dashboard() {
     8,
   )
 
-  const [lastUpdate] = useState(() => new Date())
+  const firstName = user?.email?.split("@")[0] ?? "trader"
 
   return (
     <div className="max-w-[1080px] mx-auto">
       {/* ─── Header ─── */}
       <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <Triangle size={18} className="text-accent fill-accent/20" />
-            <h1 className="text-xl md:text-2xl font-bold text-txt-primary tracking-tight">
-              Foresight
-            </h1>
-          </div>
+          <motion.h1
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="text-xl md:text-2xl font-display font-bold tracking-display text-txt-primary mb-1"
+          >
+            {getGreeting()}, {firstName}
+          </motion.h1>
           <p className="text-sm text-txt-muted">
-            AI-powered prediction market intelligence
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </p>
         </div>
-        <LiveIndicator connected={connected} lastUpdate={lastUpdate} />
+        <LiveIndicator connected={connected} />
       </div>
 
-      {/* ─── Portfolio KPIs ─── */}
+      {/* ─── KPIs ─── */}
       <motion.div
         className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10"
         variants={stagger}
@@ -101,11 +111,11 @@ export default function Dashboard() {
         ))}
       </motion.div>
 
-      {/* ─── Live Signal Feed ─── */}
+      {/* ─── Signal Feed ─── */}
       <section>
         <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
           <div>
-            <h2 className="text-base font-semibold text-txt-primary mb-1">
+            <h2 className="text-base font-display font-semibold text-txt-primary mb-1">
               Live Signal Feed
             </h2>
             <p className="text-xs text-txt-muted max-w-md leading-relaxed">
@@ -116,7 +126,7 @@ export default function Dashboard() {
           <Link to="/opportunities" className="no-underline shrink-0">
             <button
               type="button"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-md bg-surface-card shadow-card text-txt-secondary hover:text-accent transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg glass-card border border-edge-subtle text-txt-secondary hover:text-accent hover:border-accent/15 transition-all"
             >
               View all
               <ArrowUpRight size={14} />

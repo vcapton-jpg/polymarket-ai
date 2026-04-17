@@ -22,6 +22,7 @@ import { Skeleton } from "../components/ui/Skeleton"
 import { useAccuracy, useSimulatedPnl } from "../hooks/useAnalytics"
 import { useSignals } from "../hooks/useSignals"
 import { BUCKETS } from "../lib/constants"
+import { cn } from "../lib/utils"
 
 const SCORE_RANGES = [
   { range: "50-59", min: 50, max: 59, color: "#6B7280" },
@@ -32,17 +33,25 @@ const SCORE_RANGES = [
 ]
 
 const tooltipStyle = {
-  background: "#1A2236",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 8,
+  background: "#131C2E",
+  border: "1px solid rgba(255,255,255,0.06)",
+  borderRadius: 12,
   fontSize: 12,
-  color: "#F1F5F9",
+  color: "#E8ECF4",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04)",
 }
+
+const axisTick = { fill: "#505868", fontSize: 11 }
 
 const fadeUp = {
   hidden: { opacity: 0, y: 8 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
+
+const chartCardClass = cn(
+  "glass-card glass-card-hover rounded-xl border border-edge-subtle shadow-card p-5",
+  "transition-all duration-300",
+)
 
 export default function Performance() {
   const { data: accuracy, isLoading } = useAccuracy()
@@ -116,17 +125,29 @@ export default function Performance() {
   if (isLoading) {
     return (
       <div className="max-w-[1080px]">
-        <div className="flex items-center gap-3 mb-6">
-          <TrendingUp size={20} className="text-accent" />
-          <h1 className="text-xl md:text-2xl font-bold text-txt-primary">Performance</h1>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={80} />)}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton height={280} />
-          <Skeleton height={280} />
-        </div>
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
+        >
+          <motion.div variants={fadeUp} className="flex items-center gap-3 mb-6">
+            <TrendingUp size={20} className="text-accent" />
+            <h1 className="font-display text-xl md:text-2xl font-bold text-txt-primary tracking-display">
+              Performance
+            </h1>
+          </motion.div>
+          <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height={80} />)}
+          </motion.div>
+          <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-xl border border-edge-subtle glass-card shadow-card overflow-hidden">
+              <Skeleton height={280} />
+            </div>
+            <div className="rounded-xl border border-edge-subtle glass-card shadow-card overflow-hidden">
+              <Skeleton height={280} />
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
     )
   }
@@ -135,249 +156,255 @@ export default function Performance() {
 
   return (
     <div className="max-w-[1080px]">
-      <div className="flex items-center gap-3 mb-1">
-        <TrendingUp size={20} className="text-accent" />
-        <h1 className="text-xl md:text-2xl font-bold text-txt-primary tracking-tight">Performance</h1>
-      </div>
-      <p className="text-sm text-txt-muted mb-6">
-        {hasData ? "Track record across all signals generated" : "Performance metrics will populate as signals are generated and resolved"}
-      </p>
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
+      >
+        <motion.div variants={fadeUp} className="flex items-center gap-3 mb-1">
+          <TrendingUp size={20} className="text-accent" />
+          <h1 className="font-display text-xl md:text-2xl font-bold text-txt-primary tracking-display">
+            Performance
+          </h1>
+        </motion.div>
+        <motion.p variants={fadeUp} className="text-sm text-txt-muted mb-6">
+          {hasData ? "Track record across all signals generated" : "Performance metrics will populate as signals are generated and resolved"}
+        </motion.p>
 
-      <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.05 } } }}>
         {/* KPIs */}
         <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-          <MetricCard label="Total Signals" value={accuracy?.total_signals ?? 0} icon={<Zap size={16} />} />
-          <MetricCard label="Resolved" value={accuracy?.resolved_signals ?? 0} icon={<Target size={16} />} />
-          <MetricCard
-            label="Win Rate"
-            value={accuracy?.accuracy_pct != null ? `${accuracy.accuracy_pct.toFixed(1)}%` : "--"}
-            sub={accuracy?.resolved_signals === 0 ? "Requires resolved markets" : `${accuracy?.correct_signals ?? 0} correct`}
-            icon={<Award size={16} />}
-            mono
-          />
-          <MetricCard
-            label="Avg Win Score"
-            value={avgWinScore != null ? String(avgWinScore) : "--"}
-            sub={avgWinScore != null ? "High conviction signals" : "Pending data"}
-            icon={<BarChart3 size={16} />}
-            mono
-          />
-          <MetricCard
-            label="Best Category"
-            value={bestCategory ? bestCategory.name : "--"}
-            sub={bestCategory?.winRate != null ? `${bestCategory.winRate}% win rate` : "Pending win data"}
-            icon={<Trophy size={16} />}
-          />
-          <MetricCard
-            label="Simulated P&L"
-            value={pnl?.simulated_pnl_pct != null
-              ? `${pnl.simulated_pnl_pct > 0 ? "+" : ""}${pnl.simulated_pnl_pct.toFixed(1)}%`
-              : "--"}
-            sub={pnl?.resolved_signals ? `${pnl.resolved_signals} resolved trades` : "Pending resolved data"}
-            icon={pnl?.simulated_pnl_pct != null && pnl.simulated_pnl_pct > 0
-              ? <ArrowUpRight size={16} className="text-success" />
-              : <ArrowDownRight size={16} />}
-            mono
-          />
-        </motion.div>
-
-        {!hasData ? (
-          <motion.div variants={fadeUp}>
-            <EmptyState
-              title="No signals yet"
-              message="Performance metrics, charts, and win rate analysis will appear here once the pipeline starts generating signals. Markets typically resolve in 2-8 weeks."
+            <MetricCard label="Total Signals" value={accuracy?.total_signals ?? 0} icon={<Zap size={16} />} />
+            <MetricCard label="Resolved" value={accuracy?.resolved_signals ?? 0} icon={<Target size={16} />} />
+            <MetricCard
+              label="Win Rate"
+              value={accuracy?.accuracy_pct != null ? `${accuracy.accuracy_pct.toFixed(1)}%` : "--"}
+              sub={accuracy?.resolved_signals === 0 ? "Requires resolved markets" : `${accuracy?.correct_signals ?? 0} correct`}
+              icon={<Award size={16} />}
+              mono
             />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-              <Card className="p-5 text-center">
-                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                  <Zap size={18} className="text-accent" />
-                </div>
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Signal Generation</h3>
-                <p className="text-xs text-txt-muted">Breaking news is matched to Polymarket contracts and scored in real-time.</p>
-              </Card>
-              <Card className="p-5 text-center">
-                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                  <Clock size={18} className="text-accent" />
-                </div>
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Market Resolution</h3>
-                <p className="text-xs text-txt-muted">Prediction markets resolve when outcomes are known -- typically 2-8 weeks.</p>
-              </Card>
-              <Card className="p-5 text-center">
-                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                  <Target size={18} className="text-accent" />
-                </div>
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Win Rate Tracking</h3>
-                <p className="text-xs text-txt-muted">Every signal is tracked against outcomes to measure real accuracy.</p>
-              </Card>
-            </div>
+            <MetricCard
+              label="Avg Win Score"
+              value={avgWinScore != null ? String(avgWinScore) : "--"}
+              sub={avgWinScore != null ? "High conviction signals" : "Pending data"}
+              icon={<BarChart3 size={16} />}
+              mono
+            />
+            <MetricCard
+              label="Best Category"
+              value={bestCategory ? bestCategory.name : "--"}
+              sub={bestCategory?.winRate != null ? `${bestCategory.winRate}% win rate` : "Pending win data"}
+              icon={<Trophy size={16} />}
+            />
+            <MetricCard
+              label="Simulated P&L"
+              value={pnl?.simulated_pnl_pct != null
+                ? `${pnl.simulated_pnl_pct > 0 ? "+" : ""}${pnl.simulated_pnl_pct.toFixed(1)}%`
+                : "--"}
+              sub={pnl?.resolved_signals ? `${pnl.resolved_signals} resolved trades` : "Pending resolved data"}
+              icon={pnl?.simulated_pnl_pct != null && pnl.simulated_pnl_pct > 0
+                ? <ArrowUpRight size={16} className="text-success" />
+                : <ArrowDownRight size={16} />}
+              mono
+            />
           </motion.div>
-        ) : (
-          <>
-            {/* Charts row 1 */}
-            <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <Card className="p-5">
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Score Distribution</h3>
-                <p className="text-[11px] text-txt-muted mb-4">Higher scores = higher conviction</p>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={scoreDistribution} barSize={32}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-                    <XAxis dataKey="range" tick={{ fill: "#6B7280", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {scoreDistribution.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
 
-              <Card className="p-5">
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Category Breakdown</h3>
-                <p className="text-[11px] text-txt-muted mb-4">Signal distribution + win rate by category</p>
-                {bucketDonutData.length === 0 ? (
-                  <div className="flex items-center justify-center py-12 text-xs text-txt-muted">No category data yet</div>
-                ) : (
-                  <div className="flex items-center gap-4">
-                    <ResponsiveContainer width={140} height={140}>
-                      <PieChart>
-                        <Pie
-                          data={bucketDonutData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={65}
-                          paddingAngle={2}
-                          dataKey="value"
-                          strokeWidth={0}
-                        >
-                          {bucketDonutData.map((entry, i) => (
-                            <Cell key={i} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex-1 flex flex-col gap-2">
-                      {bucketStats.slice(0, 6).map((b) => (
-                        <div key={b.value} className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
-                          <span className="text-xs text-txt-secondary flex-1 truncate">{b.name}</span>
-                          <span className="text-xs font-mono text-txt-muted font-tabular">
-                            {b.total} {b.winRate != null ? `(${b.winRate}%)` : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            </motion.div>
-
-            {/* Charts row 2 */}
-            <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <Card className="p-5">
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Signal Timeline</h3>
-                <p className="text-[11px] text-txt-muted mb-4">Cumulative signals over time</p>
-                {timelineData.length < 2 ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-                    <Clock size={20} className="text-txt-muted" />
-                    <p className="text-xs text-txt-muted">Collecting data -- chart appears after multiple days of signals.</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={timelineData}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
-                      <XAxis dataKey="day" tick={{ fill: "#6B7280", fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: "#6B7280", fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Line
-                        type="monotone"
-                        dataKey="cumulative"
-                        stroke="#F59E0B"
-                        strokeWidth={2}
-                        dot={{ fill: "#F59E0B", r: 2 }}
-                        activeDot={{ r: 4, stroke: "#F59E0B", strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-
-              <Card className="p-5">
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Win Rate by Score Tier</h3>
-                <p className="text-[11px] text-txt-muted mb-4">Do higher scores produce better results?</p>
-                {pnl?.by_score_tier && Object.keys(pnl.by_score_tier).length > 0 ? (
-                  <div className="flex flex-col gap-4">
-                    {Object.entries(pnl.by_score_tier)
-                      .sort(([a], [b]) => b.localeCompare(a))
-                      .map(([tier, data]) => {
-                        const total = data.wins + data.losses
-                        const wr = total > 0 ? Math.round((data.wins / total) * 100) : 0
-                        const color = wr >= 60 ? "#10B981" : wr >= 50 ? "#F59E0B" : "#EF4444"
-                        return (
-                          <div key={tier}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-semibold text-txt-primary">{tier}</span>
-                              <span className="text-xs font-mono font-tabular" style={{ color }}>
-                                {wr}% ({data.wins}W / {data.losses}L)
-                              </span>
-                            </div>
-                            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                              <div
-                                className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${wr}%`, background: color }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-                    <Target size={20} className="text-txt-muted" />
-                    <p className="text-xs text-txt-muted max-w-xs">
-                      Score vs outcome analysis will appear after first market resolutions.
-                    </p>
-                  </div>
-                )}
-              </Card>
-            </motion.div>
-
-            {/* Category win rates */}
+          {!hasData ? (
             <motion.div variants={fadeUp}>
-              <Card className="p-5">
-                <h3 className="text-sm font-semibold text-txt-primary mb-1">Category Win Rates</h3>
-                <p className="text-[11px] text-txt-muted mb-4">Performance breakdown by topic</p>
-                <div className="flex flex-col gap-3">
-                  {bucketStats.length === 0 ? (
-                    <p className="text-xs text-txt-muted py-8 text-center">No category data yet</p>
+              <EmptyState
+                title="No signals yet"
+                message="Performance metrics, charts, and win rate analysis will appear here once the pipeline starts generating signals. Markets typically resolve in 2-8 weeks."
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                <Card className="p-5 text-center rounded-xl shadow-card-hover">
+                  <div className="w-10 h-10 rounded-lg bg-accent-muted/50 border border-edge-subtle flex items-center justify-center mx-auto mb-3 shadow-glass">
+                    <Zap size={18} className="text-accent-bright" />
+                  </div>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Signal Generation</h3>
+                  <p className="text-xs text-txt-muted">Breaking news is matched to Polymarket contracts and scored in real-time.</p>
+                </Card>
+                <Card className="p-5 text-center rounded-xl shadow-card-hover">
+                  <div className="w-10 h-10 rounded-lg bg-accent-muted/50 border border-edge-subtle flex items-center justify-center mx-auto mb-3 shadow-glass">
+                    <Clock size={18} className="text-accent-bright" />
+                  </div>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Market Resolution</h3>
+                  <p className="text-xs text-txt-muted">Prediction markets resolve when outcomes are known -- typically 2-8 weeks.</p>
+                </Card>
+                <Card className="p-5 text-center rounded-xl shadow-card-hover">
+                  <div className="w-10 h-10 rounded-lg bg-accent-muted/50 border border-edge-subtle flex items-center justify-center mx-auto mb-3 shadow-glass">
+                    <Target size={18} className="text-accent-bright" />
+                  </div>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Win Rate Tracking</h3>
+                  <p className="text-xs text-txt-muted">Every signal is tracked against outcomes to measure real accuracy.</p>
+                </Card>
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              {/* Charts row 1 */}
+              <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className={chartCardClass}>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Score Distribution</h3>
+                  <p className="text-[11px] text-txt-muted mb-4">Higher scores = higher conviction</p>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={scoreDistribution} barSize={32}>
+                      <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis dataKey="range" tick={axisTick} axisLine={false} tickLine={false} />
+                      <YAxis tick={axisTick} axisLine={false} tickLine={false} width={28} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {scoreDistribution.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className={chartCardClass}>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Category Breakdown</h3>
+                  <p className="text-[11px] text-txt-muted mb-4">Signal distribution + win rate by category</p>
+                  {bucketDonutData.length === 0 ? (
+                    <div className="flex items-center justify-center py-12 text-xs text-txt-muted">No category data yet</div>
                   ) : (
-                    bucketStats.map((b) => (
-                      <div key={b.name} className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
-                        <span className="text-xs font-medium text-txt-secondary w-24 truncate">{b.name}</span>
-                        <div className="flex-1 h-5 rounded overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                          <div
-                            className="h-full rounded transition-all duration-500"
-                            style={{
-                              width: `${Math.max(4, (b.total / Math.max(...bucketStats.map((x) => x.total), 1)) * 100)}%`,
-                              background: b.color,
-                              opacity: 0.7,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs font-mono text-txt-muted w-20 text-right font-tabular">
-                          {b.winRate !== null ? `${b.winRate}%` : "--"} ({b.resolved}/{b.total})
-                        </span>
+                    <div className="flex items-center gap-4">
+                      <ResponsiveContainer width={140} height={140}>
+                        <PieChart>
+                          <Pie
+                            data={bucketDonutData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={65}
+                            paddingAngle={2}
+                            dataKey="value"
+                            strokeWidth={0}
+                          >
+                            {bucketDonutData.map((entry, i) => (
+                              <Cell key={i} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="flex-1 flex flex-col gap-2">
+                        {bucketStats.slice(0, 6).map((b) => (
+                          <div key={b.value} className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
+                            <span className="text-xs text-txt-secondary flex-1 truncate">{b.name}</span>
+                            <span className="text-xs font-mono text-txt-muted font-tabular">
+                              {b.total} {b.winRate != null ? `(${b.winRate}%)` : ""}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))
+                    </div>
                   )}
                 </div>
-              </Card>
-            </motion.div>
-          </>
-        )}
+              </motion.div>
+
+              {/* Charts row 2 */}
+              <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className={chartCardClass}>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Signal Timeline</h3>
+                  <p className="text-[11px] text-txt-muted mb-4">Cumulative signals over time</p>
+                  {timelineData.length < 2 ? (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                      <Clock size={20} className="text-txt-muted" />
+                      <p className="text-xs text-txt-muted">Collecting data -- chart appears after multiple days of signals.</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={timelineData}>
+                        <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis dataKey="day" tick={{ fill: "#505868", fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={axisTick} axisLine={false} tickLine={false} width={28} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Line
+                          type="monotone"
+                          dataKey="cumulative"
+                          stroke="#F59E0B"
+                          strokeWidth={2}
+                          dot={{ fill: "#F59E0B", r: 2 }}
+                          activeDot={{ r: 4, stroke: "#F59E0B", strokeWidth: 2 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+
+                <div className={chartCardClass}>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Win Rate by Score Tier</h3>
+                  <p className="text-[11px] text-txt-muted mb-4">Do higher scores produce better results?</p>
+                  {pnl?.by_score_tier && Object.keys(pnl.by_score_tier).length > 0 ? (
+                    <div className="flex flex-col gap-4">
+                      {Object.entries(pnl.by_score_tier)
+                        .sort(([a], [b]) => b.localeCompare(a))
+                        .map(([tier, data]) => {
+                          const total = data.wins + data.losses
+                          const wr = total > 0 ? Math.round((data.wins / total) * 100) : 0
+                          const color = wr >= 60 ? "#10B981" : wr >= 50 ? "#F59E0B" : "#EF4444"
+                          return (
+                            <div key={tier}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-semibold text-txt-primary">{tier}</span>
+                                <span className="text-xs font-mono font-tabular" style={{ color }}>
+                                  {wr}% ({data.wins}W / {data.losses}L)
+                                </span>
+                              </div>
+                              <div className="h-2.5 rounded-full overflow-hidden bg-surface-0 border border-edge-subtle">
+                                <div
+                                  className="h-full rounded-full transition-all duration-700 shadow-glow"
+                                  style={{ width: `${wr}%`, background: color }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                      <Target size={20} className="text-txt-muted" />
+                      <p className="text-xs text-txt-muted max-w-xs">
+                        Score vs outcome analysis will appear after first market resolutions.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Category win rates */}
+              <motion.div variants={fadeUp}>
+                <div className={chartCardClass}>
+                  <h3 className="font-display text-sm font-semibold text-txt-primary tracking-display mb-1">Category Win Rates</h3>
+                  <p className="text-[11px] text-txt-muted mb-4">Performance breakdown by topic</p>
+                  <div className="flex flex-col gap-3">
+                    {bucketStats.length === 0 ? (
+                      <p className="text-xs text-txt-muted py-8 text-center">No category data yet</p>
+                    ) : (
+                      bucketStats.map((b) => (
+                        <div key={b.name} className="flex items-center gap-3">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
+                          <span className="text-xs font-medium text-txt-secondary w-24 truncate">{b.name}</span>
+                          <div className="flex-1 h-5 rounded overflow-hidden bg-surface-0 border border-edge-subtle">
+                            <div
+                              className="h-full rounded transition-all duration-500"
+                              style={{
+                                width: `${Math.max(4, (b.total / Math.max(...bucketStats.map((x) => x.total), 1)) * 100)}%`,
+                                background: b.color,
+                                opacity: 0.85,
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono text-txt-muted w-20 text-right font-tabular">
+                            {b.winRate !== null ? `${b.winRate}%` : "--"} ({b.resolved}/{b.total})
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
       </motion.div>
     </div>
   )

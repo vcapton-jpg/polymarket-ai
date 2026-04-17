@@ -8,7 +8,6 @@ import { PageHeader } from "../components/layout/PageHeader"
 import { Card } from "../components/ui/Card"
 import { api, queryKeys } from "../lib/api"
 import { cn, timeAgo } from "../lib/utils"
-import type { AgentActivityItem } from "../lib/types"
 
 const AGENT_ICONS: Record<string, React.ReactNode> = {
   scout: <Search size={14} />,
@@ -203,7 +202,7 @@ export default function AgentWorkspace() {
       <div className="flex-1 flex gap-5 min-h-0">
         {/* Chat area */}
         <div className="flex-1 flex flex-col min-w-0">
-          <Card className="flex-1 flex flex-col overflow-hidden">
+          <Card className="flex-1 flex flex-col overflow-hidden p-0 shadow-card shadow-glass">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               <AnimatePresence initial={false}>
@@ -221,7 +220,7 @@ export default function AgentWorkspace() {
                     >
                       {msg.type === "agent" && (
                         <div
-                          className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+                          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 glass-card border border-edge-subtle shadow-inner-glow"
                           style={{ background: `${color}20`, color }}
                         >
                           {msg.agent ? AGENT_ICONS[msg.agent] : <Bot size={14} />}
@@ -229,14 +228,14 @@ export default function AgentWorkspace() {
                       )}
                       <div
                         className={cn(
-                          "max-w-[75%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed",
+                          "max-w-[75%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed border shadow-card",
                           msg.type === "user"
-                            ? "bg-accent text-white"
-                            : "bg-surface-raised text-txt-secondary",
+                            ? "glass-card border-accent/35 text-txt-primary bg-surface-raised/35 shadow-glow"
+                            : "glass-card border-edge-subtle text-txt-secondary bg-surface-card/50",
                         )}
                       >
                         {msg.type === "agent" && msg.agent && msg.agent !== "system" && (
-                          <span className="text-[10px] font-bold uppercase block mb-1" style={{ color }}>
+                          <span className="text-[10px] font-bold font-display tracking-display uppercase block mb-1" style={{ color }}>
                             {msg.agent.replace("_", " ")}
                           </span>
                         )}
@@ -248,11 +247,11 @@ export default function AgentWorkspace() {
               </AnimatePresence>
               {processing && (
                 <div className="flex gap-2.5">
-                  <div className="w-7 h-7 rounded-md bg-surface-raised flex items-center justify-center">
-                    <Activity size={14} className="text-txt-muted animate-pulse" />
+                  <div className="w-7 h-7 rounded-lg glass-card border border-edge-subtle bg-surface-raised/60 flex items-center justify-center shadow-inner-glow">
+                    <Activity size={14} className="text-accent-bright animate-pulse" />
                   </div>
-                  <div className="bg-surface-raised rounded-lg px-4 py-3">
-                    <span className="text-sm text-txt-muted animate-pulse">Thinking...</span>
+                  <div className="rounded-xl glass-card border border-edge-subtle shadow-card px-4 py-3 bg-surface-raised/40">
+                    <span className="text-sm text-txt-muted animate-pulse font-display">Thinking...</span>
                   </div>
                 </div>
               )}
@@ -260,14 +259,12 @@ export default function AgentWorkspace() {
             </div>
 
             {/* Quick actions */}
-            <div className="px-4 py-2 flex gap-2 flex-wrap"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
-            >
+            <div className="px-4 py-2 flex gap-2 flex-wrap border-t border-edge-subtle bg-surface-0/20">
               {QUICK_ACTIONS.map(({ label, prompt }) => (
                 <button
                   key={prompt}
                   onClick={() => handleSend(prompt)}
-                  className="text-[11px] px-2.5 py-1.5 rounded-md bg-surface-raised text-txt-muted hover:text-txt-secondary hover:bg-surface-card transition-colors"
+                  className="text-[11px] px-2.5 py-1.5 rounded-lg border border-edge-subtle bg-surface-raised/50 text-txt-muted hover:text-accent-bright hover:border-accent/30 hover:shadow-glass transition-all font-display tracking-display"
                 >
                   {label}
                 </button>
@@ -275,9 +272,7 @@ export default function AgentWorkspace() {
             </div>
 
             {/* Input */}
-            <div className="p-3"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
-            >
+            <div className="p-3 border-t border-edge-subtle bg-surface-0/25">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -285,12 +280,12 @@ export default function AgentWorkspace() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   placeholder="Type a command or ask a question..."
-                  className="flex-1 bg-surface-raised rounded-md px-4 py-2.5 text-sm text-txt-primary placeholder-txt-muted/50 border-0 outline-none focus:ring-1 focus:ring-accent/30"
+                  className="flex-1 rounded-lg bg-surface-raised/80 border border-edge-subtle px-4 py-2.5 text-sm text-txt-primary placeholder:text-txt-muted/50 outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/35 shadow-inner-glow"
                 />
                 <button
                   onClick={() => handleSend()}
                   disabled={!input.trim() || processing}
-                  className="w-10 h-10 rounded-md bg-accent text-white flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-40"
+                  className="w-10 h-10 rounded-lg bg-accent text-surface-0 flex items-center justify-center shadow-glow hover:shadow-card-hover hover:brightness-110 transition-all disabled:opacity-40 border border-accent-bright/30"
                 >
                   <Send size={16} />
                 </button>
@@ -301,24 +296,21 @@ export default function AgentWorkspace() {
 
         {/* Activity sidebar */}
         <div className="hidden lg:block w-[280px] shrink-0">
-          <Card className="h-full overflow-hidden flex flex-col">
-            <div className="p-3 text-xs font-semibold text-txt-muted uppercase tracking-wider"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-            >
+          <Card className="h-full overflow-hidden flex flex-col p-0 shadow-card shadow-glass">
+            <div className="p-3 font-display tracking-display text-xs font-semibold text-txt-muted uppercase border-b border-edge-subtle bg-surface-0/30">
               Live Activity
             </div>
             <div className="flex-1 overflow-y-auto">
               {activityData?.activities?.slice(0, 20).map((act) => {
                 const color = AGENT_COLORS[act.agent] || "#888"
                 return (
-                  <div key={act.id} className="px-3 py-2.5"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                  <div key={act.id} className="px-3 py-2.5 border-b border-edge-subtle last:border-b-0 hover:bg-surface-raised/30 transition-colors"
                   >
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="w-4 h-4 rounded flex items-center justify-center" style={{ color }}>
+                      <span className="w-4 h-4 rounded flex items-center justify-center glass-card border border-edge-subtle" style={{ color }}>
                         {AGENT_ICONS[act.agent]}
                       </span>
-                      <span className="text-[10px] font-semibold" style={{ color }}>
+                      <span className="text-[10px] font-semibold font-display tracking-display" style={{ color }}>
                         {act.agent_name}
                       </span>
                     </div>
@@ -330,7 +322,7 @@ export default function AgentWorkspace() {
                 )
               })}
               {!activityData?.activities?.length && (
-                <div className="p-4 text-center text-xs text-txt-muted">
+                <div className="p-4 text-center text-xs text-txt-muted font-display">
                   No activity yet
                 </div>
               )}
