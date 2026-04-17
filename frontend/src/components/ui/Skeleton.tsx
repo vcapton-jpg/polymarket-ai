@@ -1,11 +1,24 @@
-export function Skeleton({ width = "100%", height = 14, className }: { width?: string | number; height?: number; className?: string }) {
+import { cn } from "../../lib/utils"
+
+const SHIMMER_GOLD =
+  "linear-gradient(90deg, rgba(212,160,23,0.04) 25%, rgba(212,160,23,0.08) 50%, rgba(212,160,23,0.04) 75%)"
+
+export function Skeleton({
+  width = "100%",
+  height = 14,
+  className,
+}: {
+  width?: string | number
+  height?: number
+  className?: string
+}) {
   return (
     <div
-      className={`rounded animate-shimmer ${className ?? ""}`}
+      className={cn("rounded-md animate-shimmer-gold", className)}
       style={{
         width,
         height,
-        background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
+        background: SHIMMER_GOLD,
         backgroundSize: "200% 100%",
       }}
     />
@@ -15,11 +28,11 @@ export function Skeleton({ width = "100%", height = 14, className }: { width?: s
 export function SkeletonLine({ width = "100%", height = 14 }: { width?: string | number; height?: number }) {
   return (
     <div
-      className="rounded animate-shimmer"
+      className="rounded-md animate-shimmer-gold"
       style={{
         width,
         height,
-        background: "linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)",
+        background: SHIMMER_GOLD,
         backgroundSize: "200% 100%",
       }}
     />
@@ -28,7 +41,7 @@ export function SkeletonLine({ width = "100%", height = 14 }: { width?: string |
 
 export function SkeletonCard() {
   return (
-    <div className="bg-surface-card rounded-lg shadow-card p-5 space-y-4">
+    <div className="glass-card rounded-xl shadow-card p-5 space-y-4 border border-edge-subtle">
       <div className="flex items-center justify-between">
         <SkeletonLine width={80} height={20} />
         <SkeletonLine width={60} height={20} />

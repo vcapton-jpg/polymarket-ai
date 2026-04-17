@@ -34,7 +34,7 @@ export function ScoreBar({
     >
       <div className="flex items-center gap-2.5">
         <span
-          className={`font-mono font-bold ${isSm ? "text-lg" : "text-2xl"} leading-none font-tabular`}
+          className={`font-mono font-extrabold ${isSm ? "text-xl" : "text-3xl"} leading-none font-tabular`}
           style={{ color }}
         >
           {Math.round(score)}
@@ -42,11 +42,14 @@ export function ScoreBar({
         <div className="flex-1 min-w-0">
           <div
             className={`${isSm ? "h-2" : "h-2.5"} rounded-full overflow-hidden`}
-            style={{ background: "rgba(255,255,255,0.06)" }}
+            style={{ background: "rgba(255,255,255,0.04)" }}
           >
             <motion.div
               className={`${isSm ? "h-2" : "h-2.5"} rounded-full`}
-              style={{ background: color }}
+              style={{
+                background: color,
+                boxShadow: `0 0 12px ${color}55, 0 0 4px ${color}33`,
+              }}
               initial={{ width: 0 }}
               animate={{ width: `${pct}%` }}
               transition={{ duration: 0.6, ease: "easeOut" }}
@@ -69,8 +72,7 @@ export function ScoreBar({
 
       {showTooltip && hover && (
         <div
-          className="absolute z-50 bottom-full left-0 mb-2 w-64 px-3 py-2.5 bg-surface-raised rounded-lg shadow-xl text-[11px] text-txt-secondary leading-relaxed pointer-events-none"
-          style={{ border: "1px solid rgba(255,255,255,0.12)" }}
+          className="absolute z-50 bottom-full left-0 mb-2 w-64 px-3 py-2.5 glass-card rounded-xl text-[11px] text-txt-secondary leading-relaxed pointer-events-none"
         >
           <p className="font-semibold text-txt-primary mb-1">Score: {Math.round(score)}</p>
           {hasSubScores && (
@@ -106,10 +108,13 @@ function SubBar({ label, value, color }: { label: string; value: number; color: 
         <span className="text-[9px] text-txt-muted">{label}</span>
         <span className="text-[9px] font-mono font-semibold" style={{ color }}>{Math.round(value)}</span>
       </div>
-      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
         <motion.div
           className="h-1 rounded-full"
-          style={{ background: color }}
+          style={{
+            background: color,
+            boxShadow: `0 0 8px ${color}44`,
+          }}
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(value, 100)}%` }}
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}

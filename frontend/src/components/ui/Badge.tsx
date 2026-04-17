@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react"
+import { cn } from "../../lib/utils"
 
 interface Props {
   children?: ReactNode
@@ -11,14 +12,19 @@ interface Props {
 
 export function Badge({ children, label, color, bg, size = "sm", style }: Props) {
   const pad = size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"
+  const baseColor = color ?? "#8892A4"
 
   return (
     <span
-      className={`inline-flex items-center rounded ${pad} font-semibold uppercase tracking-wider whitespace-nowrap`}
+      className={cn(
+        "inline-flex items-center rounded-md font-semibold uppercase tracking-wider whitespace-nowrap",
+        "backdrop-blur-md backdrop-saturate-150",
+        pad,
+      )}
       style={{
-        color: color ?? "#94A3B8",
-        background: bg ?? `${color ?? "#94A3B8"}1A`,
-        border: `1px solid ${color ?? "#94A3B8"}22`,
+        color: baseColor,
+        background: bg ?? `${baseColor}14`,
+        border: `1px solid ${baseColor}26`,
         ...style,
       }}
     >

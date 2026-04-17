@@ -11,7 +11,9 @@ export function Card({ children, className, style }: Props) {
   return (
     <div
       className={cn(
-        "bg-surface-card rounded-lg shadow-card p-5 md:p-6",
+        "glass-card glass-card-hover rounded-xl border border-edge-subtle shadow-inner-glow",
+        "p-5 md:p-6",
+        "transition-all duration-300 ease-out",
         className,
       )}
       style={style}

@@ -12,11 +12,11 @@ export function EmptyState({
   icon,
 }: Props) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-14 h-14 rounded-full bg-surface-raised flex items-center justify-center mb-4">
-        {icon ?? <Inbox size={24} className="text-txt-muted" />}
+    <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in-blur">
+      <div className="w-16 h-16 rounded-full glass-card border border-edge-subtle shadow-inner-glow flex items-center justify-center mb-4">
+        {icon ?? <Inbox size={28} className="text-txt-muted" strokeWidth={1.5} />}
       </div>
-      <h3 className="text-sm font-semibold text-txt-secondary mb-1">{title}</h3>
+      <h3 className="text-sm font-semibold font-display text-txt-secondary mb-1">{title}</h3>
       <p className="text-xs text-txt-muted max-w-xs leading-relaxed">{message}</p>
     </div>
   )

@@ -1,3 +1,5 @@
+import { useId } from "react"
+import { motion } from "framer-motion"
 import { scoreColor } from "../../lib/utils"
 
 interface Props {
@@ -7,23 +9,34 @@ interface Props {
 }
 
 export function ScoreRing({ score, size = 72, strokeWidth = 5 }: Props) {
+  const reactId = useId()
+  const filterId = `score-ring-glow-${reactId.replace(/:/g, "")}`
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (score / 100) * circumference
   const color = scoreColor(score)
 
   return (
-    <div style={{ position: "relative", width: size, height: size }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <defs>
+          <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.25" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--border-default)"
+          stroke="rgba(255,255,255,0.04)"
           strokeWidth={strokeWidth}
         />
-        <circle
+        <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -31,23 +44,16 @@ export function ScoreRing({ score, size = 72, strokeWidth = 5 }: Props) {
           stroke={color}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
-          strokeDashoffset={offset}
           strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 0.6s ease" }}
+          filter={`url(#${filterId})`}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
         />
       </svg>
       <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "var(--font-mono)",
-          fontWeight: 700,
-          fontSize: size * 0.28,
-          color,
-        }}
+        className="absolute inset-0 flex items-center justify-center font-mono font-bold font-tabular"
+        style={{ fontSize: size * 0.28, color }}
       >
         {Math.round(score)}
       </div>
