@@ -152,6 +152,8 @@ export const api = {
     post<{ token: string; user: Record<string, unknown> }>("/auth/register", { email, password }),
   login: (email: string, password: string) =>
     post<{ token: string; user: Record<string, unknown> }>("/auth/login", { email, password }),
+  loginGoogle: (credential: string) =>
+    post<{ token: string; user: Record<string, unknown> }>("/auth/google", { credential }),
   me: () => get<{ id: number; email: string; plan: string; created_at: string }>("/auth/me"),
 }
 
