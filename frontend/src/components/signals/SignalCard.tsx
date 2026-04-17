@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowRight, Clock, TrendingUp, Zap } from "lucide-react"
+import { ArrowRight, Clock, ExternalLink, TrendingUp, Zap } from "lucide-react"
 import { ScoreBar } from "../ui/ScoreBar"
 import { CategoryBadge } from "../ui/CategoryBadge"
 import { DirectionBadge } from "../ui/DirectionBadge"
@@ -22,12 +22,18 @@ export function SignalCard({ signal, showLive, isNew }: Props) {
   const yesPct = formatYesImpliedPct(signal.market_price_at_signal)
   const edge = computeEdge(signal.direction, signal.signal_strength, signal.market_price_at_signal)
 
+  const s = signal.signal_score
+  const tierBorderColor =
+    s >= 90 ? "#10B981" : s >= 75 ? "#F97316" : s >= 60 ? "#F59E0B" : "#6B7280"
+
   return (
     <motion.article
       className={cn(
-        "bg-surface-card rounded-lg shadow-card cursor-pointer transition-shadow duration-200 hover:shadow-card-hover overflow-hidden",
+        "glass-card glass-card-hover rounded-xl cursor-pointer overflow-hidden border border-white/[0.04] transition-shadow duration-200",
+        "hover:shadow-[0_0_28px_rgba(212,160,23,0.12)]",
         isNew && "animate-flash-border",
       )}
+      style={{ borderLeftWidth: 3, borderLeftColor: tierBorderColor }}
       onClick={() => nav(`/opportunity/${signal.id}`)}
       layout
       initial={isNew ? { opacity: 0, y: -12 } : { opacity: 0, y: 6 }}
@@ -68,7 +74,7 @@ export function SignalCard({ signal, showLive, isNew }: Props) {
 
       {/* Body */}
       <div className="px-4 py-3">
-        <h3 className="text-[15px] font-semibold text-txt-primary leading-snug line-clamp-2 mb-1">
+        <h3 className="text-[15px] font-display font-semibold text-txt-primary leading-snug line-clamp-2 mb-1">
           {displayText}
         </h3>
         {marketLabel && (
@@ -104,8 +110,8 @@ export function SignalCard({ signal, showLive, isNew }: Props) {
       </div>
 
       {/* Footer: confidence + urgency + trade */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-surface-0/50"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      <div className="flex items-center justify-between px-4 py-2.5 glass-card rounded-none border-x-0 border-b-0"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div className="flex items-center gap-4 text-[11px]">
           {signal.confidence_label && (
@@ -134,12 +140,22 @@ export function SignalCard({ signal, showLive, isNew }: Props) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`https://polymarket.com/event/${signal.market_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-surface-raised text-txt-muted hover:text-txt-secondary transition-colors no-underline border border-white/[0.06]"
+          >
+            <ExternalLink size={10} />
+            Polymarket
+          </a>
           <button
             onClick={(e) => {
               e.stopPropagation()
               nav(`/opportunity/${signal.id}?trade=1`)
             }}
-            className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
+            className="flex items-center gap-1 text-[10px] font-bold uppercase px-2.5 py-1 rounded-md bg-gradient-to-r from-accent to-accent-bright text-surface-0 shadow-[0_0_14px_rgba(212,160,23,0.35)] hover:brightness-110 transition-all"
           >
             <Zap size={10} />
             Trade
