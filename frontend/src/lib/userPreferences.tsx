@@ -11,6 +11,7 @@ import {
   type SupportedLanguage,
   isSupportedLanguage,
 } from "./i18n"
+import { putPreferences } from "./api/auth"
 
 /**
  * Global user preferences: language + currency.
@@ -64,6 +65,9 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
       } catch {
         // ignore
       }
+      // Mirror to backend. Fire-and-forget; unauth'd users are a no-op
+      // (putPreferences returns 401 which we swallow).
+      void putPreferences({ language: lang }).catch(() => undefined)
     },
     [i18n],
   )
@@ -75,6 +79,7 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     } catch {
       // ignore
     }
+    void putPreferences({ currency: next }).catch(() => undefined)
   }, [])
 
   // Keep <html lang="…"> synced for accessibility.

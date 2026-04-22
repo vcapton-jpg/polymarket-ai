@@ -182,6 +182,17 @@ export default function Settings() {
         title: "Impossible d'enregistrer. Vérifie que le navigateur accepte le stockage local.",
       })
     }
+    // Mirror notification preferences to the backend for multi-device
+    // parity. Fire-and-forget; unauth'd users silently no-op on 401.
+    import("@/lib/api/auth")
+      .then(({ putPreferences }) =>
+        putPreferences({
+          notif_email: emailNotif,
+          notif_push: pushNotif,
+          notif_telegram: telegramConnected,
+        }).catch(() => undefined),
+      )
+      .catch(() => undefined)
   }
 
   const toggleCategory = (v: string) => {

@@ -22,6 +22,7 @@ import type { UserProfile } from "@/types/signal"
 
 import { readAuth } from "@/lib/trial"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { putProfile } from "@/lib/api/auth"
 
 /** Mirrors the check in RequireAuth — uses the shared readAuth helper so
  *  the AuthState shape contract lives in exactly one file. */
@@ -193,6 +194,17 @@ export default function Welcome() {
         JSON.stringify({ ...profile, suggestedSizing: sizing }),
       )
       localStorage.setItem(STORAGE_KEYS.onboarding, "done")
+      // Mirror the profile to the backend for multi-device parity. Fire-
+      // and-forget — the authoritative copy is local until the next
+      // /auth/me merge. For unauth'd users (rare on Welcome) this is a
+      // silent no-op.
+      void putProfile({
+        type: profile.type,
+        experience: profile.experience,
+        reaction: profile.reaction,
+        budget: profile.budget,
+        suggested_sizing: sizing,
+      }).catch(() => undefined)
       setDirection(1)
       setStep(4)
     }
