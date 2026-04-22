@@ -25,6 +25,9 @@ import {
   SESSION_KEYS,
   STORAGE_KEYS,
 } from "@/lib/storageKeys"
+import { placeTrade } from "@/lib/api/trading"
+import { useIsFreePlan } from "@/hooks/useAuth"
+import { hasToken } from "@/lib/api/auth"
 
 type Direction = "YES" | "NO"
 const DIRECTIONS: readonly Direction[] = ["YES", "NO"] as const
@@ -189,10 +192,32 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const isFreePlan = useIsFreePlan()
+
+  /** Extract the `market_id` path segment from a Polymarket URL so the
+   *  trade request can reach the right CLOB market. URL shape is
+   *  `https://polymarket.com/market/<id>` or `.../event/<id>`. */
+  const extractMarketId = (url: string): string | null => {
+    const match = url.match(/\/(?:market|event)\/([^/?#]+)/i)
+    return match ? match[1] : null
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
     if (!amountValid) return
+
+    // Free plan guard: Score 90+ signals are Pro-only. Send users with
+    // a reachable /signup flow to /pricing instead of the Stripe path.
+    if (isFreePlan && signal.score >= 90) {
+      addToast({
+        type: "info",
+        title: "Signal exceptionnel réservé à Pro",
+        description: "Passe Pro pour exécuter sur les signaux Score 90+.",
+      })
+      navigate("/pricing?plan=pro")
+      return
+    }
 
     const draft: OrderDraft = {
       signalId: signal.id,
@@ -202,14 +227,9 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       estimatedShares: shares,
       estimatedReturn,
     }
-    // Cursor: wire Polymarket CLOB client here.
-    // eslint-disable-next-line no-console
-    console.info("[OrderForm] draft submitted", draft)
     onSubmit?.(draft)
     setSubmitted(true)
 
-    // Append a mock position to localStorage under `foresight.positions`
-    // so Portfolio can anchor-scroll to it. Real id will come from backend.
     const positionId = `pos_${Date.now()}`
     const now = new Date().toISOString()
     const position: Position = {
@@ -228,6 +248,10 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       correctPrediction: null,
       source: "native",
     }
+
+    // Optimistic localStorage write so Portfolio anchors to the new
+    // position immediately — the remote sync via /api/portfolio will
+    // reconcile on the next refetch.
     try {
       const raw = window.localStorage.getItem(STORAGE_KEYS.positions)
       const arr: Position[] = raw ? JSON.parse(raw) : []
@@ -236,6 +260,52 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       window.dispatchEvent(new Event(POSITIONS_CHANGED_EVENT))
     } catch {
       // quota / disabled storage — continue with toast+nav anyway
+    }
+
+    // Backend submission. We require an authenticated session for real
+    // orders; unauth'd users stay in optimistic-demo mode (localStorage
+    // only). A market_id is required — if we can't parse it we stay
+    // local too.
+    const marketId = extractMarketId(signal.polymarketUrl)
+    const signalIdNum = /^\d+$/.test(signal.id) ? Number(signal.id) : undefined
+    if (hasToken() && marketId) {
+      void placeTrade({
+        market_id: marketId,
+        direction,
+        amount,
+        price: pricePerShare,
+        signal_id: signalIdNum,
+      })
+        .then((res) => {
+          if (res.success) {
+            addToast({
+              type: "success",
+              title: "Ordre envoyé à Polymarket",
+              description: res.polymarket_order_id
+                ? `ID ${res.polymarket_order_id}`
+                : undefined,
+              duration: 3000,
+            })
+          } else {
+            addToast({
+              type: "info",
+              title: "Ordre en local uniquement",
+              description:
+                res.error ||
+                "Exécution native indisponible. Ta position reste suivie dans le portfolio.",
+              duration: 4000,
+            })
+          }
+        })
+        .catch(() => {
+          addToast({
+            type: "info",
+            title: "Ordre en local uniquement",
+            description:
+              "Exécution indisponible (CLOB). Ta position reste suivie dans le portfolio.",
+            duration: 4000,
+          })
+        })
     }
 
     addToast({
