@@ -418,6 +418,9 @@ class UserProfile(Base):
     )
     password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     wallet_address: Mapped[Optional[str]] = mapped_column(String(42), nullable=True, unique=True)
+    polymarket_safe_address: Mapped[Optional[str]] = mapped_column(
+        String(42), nullable=True, unique=True
+    )
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
