@@ -15,24 +15,32 @@ from app.api.schemas import (
     EventOut,
     HealthResponse,
     IngestionHealthResponse,
-    LlmAnalysisOut,
     MarketListResponse,
     MarketOut,
     PipelineStatusResponse,
-    SignalDetailOut,
-    SignalListResponse,
-    SignalOut,
     SimulatedPnlResponse,
     TrackRecordResponse,
+)
+from app.api.schemas_v2 import (
+    SignalCardOut,
+    SignalDetailOut,
+    SignalListOut,
+)
+from app.api.signal_mapper import (
+    derive_direction,
+    to_signal_card,
+    to_signal_detail,
 )
 from app.core.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import (
     Event,
     EventMarketAnalysis,
+    EventNewsLink,
     LLMCostLog,
     Market,
     News,
+    NewsClean,
     Signal,
     SignalOutcome,
 )
@@ -76,11 +84,22 @@ async def health_check():
 
 
 # ── Signals ───────────────────────────────────────────────────────────
-@router.get("/signals", response_model=SignalListResponse)
+# Wire shape matches `frontend/src/types/signal.ts` 1:1 (camelCase + French
+# labels). All translation/enrichment lives in `app.api.signal_mapper` so
+# the React layer stays a dumb renderer.
+@router.get("/signals", response_model=SignalListOut)
 async def list_signals(
-    bucket: Optional[str] = Query(None),
+    category: Optional[str] = Query(
+        None,
+        description="V2 frontend category filter (geopolitics|politics|economics|crypto|sports|science).",
+    ),
+    bucket: Optional[str] = Query(
+        None, description="Legacy bucket filter (pre-V2 clients)."
+    ),
     min_score: float = Query(0, ge=0, le=100),
-    direction: Optional[str] = Query(None),
+    direction: Optional[str] = Query(
+        None, description="YES, NO, or legacy BUY_YES/BUY_NO."
+    ),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db_session),
@@ -99,12 +118,18 @@ async def list_signals(
         .order_by(desc(Signal.created_at))
     )
 
-    if bucket:
-        query = query.join(Event).where(Event.bucket == bucket)
+    # Accept both the V2 `category=` and the legacy `bucket=` query params.
+    filter_bucket = bucket or category
+    if filter_bucket:
+        query = query.join(Event).where(Event.bucket == filter_bucket)
     if min_score > 0:
         query = query.where(Signal.signal_score >= min_score)
     if direction:
-        query = query.where(Signal.direction == direction)
+        # Frontend sends "YES"/"NO"; DB stores "BUY_YES"/"BUY_NO".
+        # Accept both forms and collapse NO -> BUY_NO, YES -> BUY_YES.
+        dir_norm = derive_direction(direction)
+        db_direction = "BUY_NO" if dir_norm == "NO" else "BUY_YES"
+        query = query.where(Signal.direction == db_direction)
 
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar() or 0
@@ -113,16 +138,10 @@ async def list_signals(
     result = await db.execute(query)
     signals = result.scalars().all()
 
-    out = []
-    for s in signals:
-        data = SignalOut.model_validate(s)
-        if s.event:
-            data.event_title = s.event.event_title
-        if s.market:
-            data.market_question = s.market.question
-        out.append(data)
-
-    return SignalListResponse(signals=out, total=total)
+    return SignalListOut(
+        signals=[to_signal_card(s) for s in signals],
+        total=total,
+    )
 
 
 @router.get("/signals/{signal_id}", response_model=SignalDetailOut)
@@ -133,7 +152,9 @@ async def get_signal_detail(
     query = (
         select(Signal)
         .options(
-            selectinload(Signal.event),
+            selectinload(Signal.event).selectinload(Event.news_links)
+            .selectinload(EventNewsLink.news_clean)
+            .selectinload(NewsClean.news),
             selectinload(Signal.market),
             selectinload(Signal.outcome),
         )
@@ -141,11 +162,8 @@ async def get_signal_detail(
     )
     result = await db.execute(query)
     signal = result.scalar_one_or_none()
-
     if not signal:
         raise HTTPException(status_code=404, detail="Signal not found")
-
-    detail = SignalDetailOut.model_validate(signal)
 
     analysis_q = (
         select(EventMarketAnalysis)
@@ -155,12 +173,10 @@ async def get_signal_detail(
         )
         .limit(1)
     )
-    analysis_result = await db.execute(analysis_q)
-    analysis = analysis_result.scalar_one_or_none()
-    if analysis:
-        detail.analysis = LlmAnalysisOut.model_validate(analysis)
+    analysis = (await db.execute(analysis_q)).scalar_one_or_none()
+    news_links = signal.event.news_links if signal.event else []
 
-    return detail
+    return to_signal_detail(signal, analysis, news_links)
 
 
 # ── Markets ───────────────────────────────────────────────────────────

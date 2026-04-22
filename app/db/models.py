@@ -144,6 +144,7 @@ class Market(Base):
     best_ask: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
     spread: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
     last_trade_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     clob_token_ids: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     liquidity_pct: Mapped[Optional[float]] = mapped_column(Numeric(5, 4), nullable=True)
     volume_24h_pct: Mapped[Optional[float]] = mapped_column(Numeric(5, 4), nullable=True)
