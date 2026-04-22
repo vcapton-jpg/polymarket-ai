@@ -1,165 +1,176 @@
-# Design — Polymarket Wallet Link (Link Once, Trade Forever)
+# Design — Polymarket Per-User Trading (Link Once, Trade Forever)
 
 **Date:** 2026-04-22  
-**Status:** Approved  
+**Status:** Approved (revised after py-clob-client-v2 review)
 
 ---
 
 ## Problem
 
-The current `/api/trading/trade` endpoint uses a single builder wallet (`BuilderTradeClient`) to place all orders. This is wrong: the builder's private key signs every order, which means Foresight's USDC would fund all trades. Orders should come from each user's own wallet.
+The current `/api/trading/trade` endpoint uses a single builder wallet (`BuilderTradeClient`) to sign all orders. This means Foresight's USDC funds every trade — wrong. Orders must come from each user's own funds.
 
-The builder credentials exist only for **attribution** — attaching `builderCode` to every order so Polymarket credits volume to Foresight's builder account. They must never be used to fund user trades.
-
----
-
-## Goal
-
-A Foresight user clicks "Investir" and an order lands on Polymarket using their own USDC. After a one-time 10-second wallet-link step, subsequent trades require zero wallet interaction — one click, done.
+Builder credentials exist only for **attribution** — attaching `builder_code` to every `OrderArgsV2` so Polymarket credits volume to Foresight's builder account. They are not a source of funds.
 
 ---
 
-## Architecture
+## Key insight from py-clob-client-v2
 
-### Concept: One-time credential derivation
+`ClobClient` has a `funder` parameter:
 
-Polymarket's CLOB API uses credentials (`api_key`, `api_secret`, `api_passphrase`) derived deterministically from a wallet's private key via an EIP-712 signature. Once derived and stored server-side (encrypted), the backend can place orders on the user's behalf without any further wallet interaction.
-
-```
-One-time (first trade only):
-  User → MetaMask → sign EIP-712 message
-      → frontend derives CLOB creds
-      → POST /api/trading/wallet/link {eoa, api_key, api_secret, api_passphrase}
-      → stored encrypted in UserProfile
-
-Every subsequent trade:
-  User clicks "Investir"
-      → POST /api/trading/trade {market_id, direction, amount, price}
-      → backend fetches user's CLOB creds from DB
-      → py-clob-client places order with builderCode attached
-      → order confirmed
+```python
+ClobClient(
+    host=CLOB_HOST,
+    chain_id=137,
+    key=builder_private_key,   # Foresight signs
+    creds=builder_creds,        # HMAC auth
+    funder=user_safe_address,   # USDC comes from user's Safe
+)
 ```
 
-### What the user owns
+`OrderArgsV2` has a native `builder_code` field (defaults to `BYTES32_ZERO`):
 
-The user's USDC stays in their Polygon wallet. Foresight never takes custody. The stored credentials give Foresight permission to place CLOB orders (not withdraw funds). Users can revoke by re-deriving new credentials on Polymarket.
+```python
+OrderArgsV2(
+    token_id=token_id,
+    price=price,
+    size=size,
+    side=Side.BUY,
+    builder_code=settings.polymarket_builder_code,
+)
+```
+
+This means: **the builder key signs every order, but the user's Safe provides the USDC**. After one-time Safe setup, every subsequent trade is zero-friction for the user.
+
+---
+
+## User Flow
+
+### One-time setup (first trade ever)
+1. "Activer le trading" → modal wallet connect (MetaMask / WalletConnect)
+2. User approves wallet connection (wagmi)
+3. Backend deploys a Gnosis Safe for the user → stores `safe_address` in DB
+4. Frontend shows user their Safe address + instructs them to deposit USDC
+5. Setup complete — Safe address saved, never repeated
+
+### Every trade after setup
+1. User clicks "Investir" on a signal
+2. `POST /api/trading/trade` with `{market_id, direction, amount, price}`
+3. Backend fetches `user.safe_address`, builds `ClobClient(key=builder_pk, funder=safe_addr)`
+4. Order placed with `builder_code` attached — user's USDC used, zero wallet interaction
 
 ---
 
 ## Backend Changes
 
-### 1. Database — `UserProfile` model (`app/db/models.py`)
+### 1. Database — `UserProfile` (`app/db/models.py`)
 
-Add 4 encrypted fields:
-- `polymarket_eoa: str` — user's Polygon address
-- `polymarket_api_key: str` — encrypted CLOB api_key
-- `polymarket_api_secret: str` — encrypted CLOB api_secret  
-- `polymarket_api_passphrase: str` — encrypted CLOB api_passphrase
+Add two fields:
+- `polymarket_eoa: Optional[str]` — user's connected wallet address
+- `polymarket_safe_address: Optional[str]` — deployed Gnosis Safe address
 
-Encryption: Fernet symmetric encryption using `FORESIGHT_ENCRYPTION_KEY` env var. Encrypt on write, decrypt on read inside the service layer.
+### 2. New service — `app/trading/safe_deployer.py`
 
-### 2. New route — `app/api/routes/trading_wallet.py`
+Deploys a minimal Gnosis Safe proxy for a user address using `web3.py`:
+- Calls `GnosisSafeProxyFactory.createProxyWithNonce(masterCopy, setupData, saltNonce)` on Polygon
+- `masterCopy` = Gnosis Safe singleton on Polygon (known constant address)
+- `setupData` = ABI-encoded `setup([user_eoa], threshold=1, ...)` — user is the Safe owner
+- `saltNonce` = `int(user_eoa, 16)` for deterministic address
+- Builder wallet pays gas (~$0.001 on Polygon)
+- Returns the deployed Safe address (or pre-computes it deterministically before deploying)
 
-`POST /api/trading/wallet/link`  
-Auth required. Body: `{eoa_address, api_key, api_secret, api_passphrase}`.  
-Encrypts and stores creds on the current user's `UserProfile`. Returns `{linked: true}`.
+### 3. New route — `app/api/routes/trading_wallet.py`
+
+`POST /api/trading/wallet/connect`  
+Auth required. Body: `{eoa_address}`.  
+Deploys Safe for user (or returns existing one), stores both addresses. Returns `{safe_address}`.
 
 `GET /api/trading/wallet/status`  
-Returns `{linked: bool, eoa_address: str | null}`. Used by the frontend to decide whether to show the wallet-link modal.
+Returns `{connected: bool, eoa_address: str|null, safe_address: str|null}`.
 
-### 3. Update trading route — `app/api/routes/trading.py`
+### 4. Update `app/trading/builder_client.py` → `app/trading/clob_client.py`
 
-`POST /api/trading/trade`: replace `get_trade_client()` with a per-user client:
-- Fetch authenticated user's CLOB creds from `UserProfile`
-- If no creds: return `{success: false, error: "wallet_not_linked"}`
-- Build `ClobClient` with user's creds (using `py-clob-client` `ApiCreds`)
-- Attach `builderCode` in `order_args` on every order
+Replace `py_clob_client` (v1) with `py_clob_client_v2`. Key changes:
+- `OrderArgs` → typed `OrderArgsV2` dataclass
+- `order_args` dict → `OrderArgsV2(token_id=..., price=..., size=..., side=Side.BUY, builder_code=settings.polymarket_builder_code)`
+- `MarketOrderArgs` → `MarketOrderArgsV2`
+- `PartialCreateOrderOptions` for tick_size
+- New `get_user_client(safe_address)` factory: `ClobClient(key=builder_pk, funder=safe_address, creds=builder_creds)`
 
-### 4. Config — `app/core/config.py`
+### 5. Update `app/api/routes/trading.py`
+
+`POST /api/trading/trade`:
+- Check `user.polymarket_safe_address` — if None, return `{success: false, error: "wallet_not_connected"}`
+- Call `get_user_client(user.safe_address)` instead of `get_trade_client()`
+- Rest of logic unchanged
+
+### 6. Config — `app/core/config.py`
 
 Add:
-- `foresight_encryption_key: str` — Fernet key for credential encryption
-- `polymarket_builder_code: str` — builder code from polymarket.com/settings?tab=builder (already have `builder_private_key` etc., add the attribution code)
+- `polymarket_builder_code: str` — hex bytes32 from polymarket.com/settings?tab=builder
+- `polygon_rpc_url: str` — Polygon mainnet RPC (Alchemy/Infura)
+- `gnosis_safe_proxy_factory: str` — factory contract address on Polygon
+- `gnosis_safe_singleton: str` — Safe master copy address on Polygon
 
 ---
 
 ## Frontend Changes
 
-### 1. New hook — `src/hooks/useWalletLink.ts`
+### 1. New hook — `src/hooks/useWalletSetup.ts`
 
-Manages wallet link state:
-- `GET /api/trading/wallet/status` on mount → `{linked, eoa}`
-- `linkWallet()`: triggers wagmi wallet connection → EIP-712 sign → derives CLOB creds (using `@polymarket/clob-client` JS or manual EIP-712 derivation) → `POST /api/trading/wallet/link`
+- `GET /api/trading/wallet/status` on mount → `{connected, eoa, safe_address}`
+- `connectWallet()`: wagmi `connect()` → get account address → `POST /api/trading/wallet/connect {eoa_address}` → receives `safe_address`
 
-### 2. New component — `src/components/trading/WalletLinkModal.tsx`
+### 2. New component — `src/components/trading/WalletSetupModal.tsx`
 
-Shown when user tries to trade but has no linked wallet:
-- "Connecte ton wallet Polymarket" heading
-- Connect button (wagmi `useConnect` — MetaMask + WalletConnect)
-- One-click sign + link flow
-- On success: dismisses, order proceeds
+Shown on first trade attempt when wallet not connected:
+- Step 1: "Connecte ton wallet" → MetaMask/WalletConnect button (wagmi `useConnect`)
+- Step 2: "Déploiement de ton Safe Polymarket…" (spinner while backend deploys)
+- Step 3: "Dépose des USDC" — shows Safe address + copy button + link to Polygon bridge
+- Done: dismisses, order proceeds
 
 ### 3. Update `OrderForm.tsx`
 
-Before submit: check `walletLinked` from `useWalletLink`. If false → open `WalletLinkModal` instead of submitting. On link success → resubmit.
+Before submit: check `walletConnected` from `useWalletSetup`. If false → open `WalletSetupModal`. On setup complete → resubmit.
 
 ### 4. New dependencies — `frontend/package.json`
 
-- `wagmi` — wallet connection + EIP-712 signing
-- `viem` — low-level EVM types, used by wagmi
+- `wagmi` — wallet connection
+- `viem` — EVM types (peer dep of wagmi)
 - `@wagmi/connectors` — MetaMask + WalletConnect connectors
 
 ---
 
-## CLOB Credential Derivation (EIP-712)
+## Dependencies
 
-Polymarket's CLOB API key derivation is a standard EIP-712 sign of a specific message. The `py-clob-client` method `ClobClient.derive_api_key()` returns `{api_key, api_secret, api_passphrase}` when given the wallet's private key.
+### Backend (`pyproject.toml`)
+- `py_clob_client_v2` — replaces `py_clob_client`
+- `web3>=6.0` — for Safe deployment on Polygon
 
-On the frontend, we replicate this by having the user sign the same EIP-712 message via MetaMask, then reconstruct the credentials. The `@polymarket/clob-client` JS package exposes `deriveApiKey(signer)` for this.
-
-The derived creds are sent to the backend (over HTTPS) immediately after signing — they are never stored in localStorage.
-
----
-
-## Builder Code Attribution
-
-In `builder_client.py`, every `order_args` dict gets `builderCode` injected:
-
-```python
-order_args = {
-    "token_id": token_id,
-    "price": price,
-    "size": size,
-    "side": side.upper(),
-    "builderCode": settings.polymarket_builder_code,  # ← new
-}
-```
-
-This is the only change needed for volume attribution. No other builder-credential usage is required.
+### Frontend (`package.json`)
+- `wagmi` ~2.x
+- `viem` ~2.x
 
 ---
 
-## Security
+## Gnosis Safe Contract Addresses (Polygon Mainnet)
 
-- CLOB credentials stored with Fernet encryption (symmetric AES-128-CBC + HMAC). Key stored in env, never in DB.
-- Credentials transmitted only over HTTPS.
-- Credentials give CLOB order-placement access, not fund withdrawal.
-- `GET /api/trading/wallet/status` returns only `eoa_address` (public), never credentials.
+- `GnosisSafeProxyFactory`: `0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2`
+- `GnosisSafe` singleton: `0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552`
 
 ---
 
 ## Migration
 
-1. Alembic migration: add 4 nullable columns to `user_profiles`
-2. New env var: `FORESIGHT_ENCRYPTION_KEY` (generate with `Fernet.generate_key()`)
-3. New env var: `POLYMARKET_BUILDER_CODE` (copy from polymarket.com/settings?tab=builder)
-4. Frontend: add wagmi deps + WagmiProvider wrapper in `main.tsx`
+1. Alembic: add `polymarket_eoa`, `polymarket_safe_address` nullable columns to `user_profiles`
+2. New env vars: `POLYGON_RPC_URL`, `POLYMARKET_BUILDER_CODE`
+3. Frontend: add wagmi + viem deps, wrap `main.tsx` in `WagmiProvider`
+4. Replace `py_clob_client` with `py_clob_client_v2` in `pyproject.toml`
 
 ---
 
 ## Out of Scope
 
-- Gnosis Safe deployment (not needed — user's EOA works directly with CLOB)
-- Turnkey wallet provisioning (future enhancement for new-to-crypto users)
-- USDC deposit flow (users manage their own Polygon USDC)
-- Credential revocation UI (users can re-derive on polymarket.com)
+- Turnkey wallet provisioning (future: removes MetaMask requirement)
+- USDC onramp (users bridge their own USDC to Polygon)
+- Credential revocation UI
+- Safe multi-sig (threshold=1 for simplicity, upgradeable later)
