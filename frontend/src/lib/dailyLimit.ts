@@ -1,9 +1,14 @@
 /**
  * Daily signal view counter for Free-plan paywall mechanics.
  *
- * Stores a per-day counter in localStorage under
- * `foresight.daily_signals_viewed_YYYY-MM-DD`. The Signals feed reads it to
- * paywall the 6th+ card of the day; SignalCard increments it on click-through.
+ * Two-layer store:
+ *   1. Server (Redis, authoritative) — see `/api/me/quota`. Synced on
+ *      mount and after every click-through via `syncQuotaFromServer()` /
+ *      `consumeQuotaOnServer()` in the callers that opt in.
+ *   2. localStorage mirror under
+ *      `foresight.daily_signals_viewed_YYYY-MM-DD` — used for optimistic
+ *      updates and offline resilience. Stays authoritative for unauth'd
+ *      users (the server never sees them).
  *
  * Old daily keys (>7 days) are pruned on mount by the Signals page.
  */
@@ -13,6 +18,8 @@ import {
   DAILY_SIGNAL_VIEWED_EVENT,
 } from "./storageKeys"
 import { todayISODate } from "./utils"
+import { consumeQuota, fetchQuota } from "./api/quota"
+import { hasToken } from "./api/auth"
 
 export {
   DAILY_LIMIT_KEY_PREFIX,
@@ -60,5 +67,50 @@ export function cleanupOldDailyKeys(): void {
     }
   } catch {
     // ignore
+  }
+}
+
+/** Write the server's authoritative count into the local mirror. Used on
+ *  mount + after navigation so the paywall UI self-heals if the user
+ *  consumed signals from another device. No-op for unauth'd users. */
+export async function syncQuotaFromServer(): Promise<number | null> {
+  if (typeof window === "undefined") return null
+  if (!hasToken()) return null
+  try {
+    const q = await fetchQuota()
+    // Pro users carry `limit=-1`; don't write a counter for them.
+    if (q.limit === -1) return null
+    try {
+      localStorage.setItem(getDailyKey(), String(q.used))
+      window.dispatchEvent(new Event(DAILY_SIGNAL_VIEWED_EVENT))
+    } catch {
+      // ignore — mirror write can fail in private mode
+    }
+    return q.used
+  } catch {
+    return null
+  }
+}
+
+/** Optimistic consume: bump the local mirror immediately, then POST to the
+ *  server. If the server disagrees (e.g. multi-device race) we overwrite
+ *  with the authoritative value. Gracefully returns the optimistic count
+ *  when the server is unreachable or the user is unauth'd. */
+export async function consumeQuotaOnServer(): Promise<number> {
+  const optimistic = incrementDailyCount()
+  if (typeof window === "undefined") return optimistic
+  if (!hasToken()) return optimistic
+  try {
+    const q = await consumeQuota()
+    if (q.limit === -1) return optimistic
+    try {
+      localStorage.setItem(getDailyKey(), String(q.used))
+      window.dispatchEvent(new Event(DAILY_SIGNAL_VIEWED_EVENT))
+    } catch {
+      // ignore
+    }
+    return q.used
+  } catch {
+    return optimistic
   }
 }

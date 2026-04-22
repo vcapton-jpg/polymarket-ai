@@ -22,6 +22,7 @@ import {
   DAILY_SIGNAL_VIEWED_EVENT,
   FREE_DAILY_LIMIT,
   readDailyCount,
+  syncQuotaFromServer,
 } from "@/lib/dailyLimit"
 import { useIsFreePlan } from "@/hooks/useAuth"
 import {
@@ -102,6 +103,9 @@ export default function Signals() {
   const [viewedToday, setViewedToday] = useState<number>(() => readDailyCount())
   useEffect(() => {
     cleanupOldDailyKeys()
+    // Pull the authoritative server counter at mount so a user who viewed
+    // signals from another device doesn't bypass the paywall here.
+    void syncQuotaFromServer()
     const onViewed = () => setViewedToday(readDailyCount())
     window.addEventListener(DAILY_SIGNAL_VIEWED_EVENT, onViewed)
     return () => window.removeEventListener(DAILY_SIGNAL_VIEWED_EVENT, onViewed)

@@ -4,7 +4,7 @@ import { ArrowUpRight, Bookmark, ChevronRight, Clock, Target, Timer } from "luci
 import type { Signal } from "@/types/signal"
 import { cn, timeSinceISO, categoryFallback, scoreTone, toneForLevel, type MetricTone } from "@/lib/utils"
 import { useMotionConfig, useStagger } from "@/lib/motion"
-import { DAILY_SIGNAL_VIEWED_EVENT, incrementDailyCount } from "@/lib/dailyLimit"
+import { consumeQuotaOnServer } from "@/lib/dailyLimit"
 import { useIsFreePlan } from "@/hooks/useAuth"
 import { DirectionBadge, CategoryPill } from "./badges"
 
@@ -214,9 +214,13 @@ export function SignalCard({ signal, variant = "default", flash, index = 0, clas
           // storage + would trigger the wrong paywall banner if they later
           // downgraded. Gate at the hook-returned plan rather than reading
           // auth at click time: useAuth reactively updates on trial expiry.
+          //
+          // Server-side quota is the source of truth; consumeQuotaOnServer
+          // optimistically updates localStorage, posts to Redis, then
+          // reconciles on the response. Fire-and-forget: navigation
+          // continues regardless of network outcome.
           if (!isFreePlan) return
-          incrementDailyCount()
-          window.dispatchEvent(new CustomEvent(DAILY_SIGNAL_VIEWED_EVENT))
+          void consumeQuotaOnServer()
         }}
       >
         {CardInner}
