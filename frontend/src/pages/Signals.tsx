@@ -12,6 +12,11 @@ import { PaywallChip } from "@/components/ui/PaywallChip"
 import { PaywallOverlay } from "@/components/ui/PaywallOverlay"
 import { MOCK_SIGNALS } from "@/data/signals"
 import { fetchSignalsFromApi } from "@/lib/apiSignals"
+
+/** Dev-only: `VITE_USE_MOCKS=1` forces the mock dataset so the page renders
+ *  even when the API is offline. Default is API-first with an error banner
+ *  if /api/signals fails. */
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "1"
 import {
   cleanupOldDailyKeys,
   DAILY_SIGNAL_VIEWED_EVENT,
@@ -129,11 +134,18 @@ export default function Signals() {
   const [apiError, setApiError] = useState<string | null>(null)
 
   const loadSignals = useCallback(async () => {
+    if (USE_MOCKS) {
+      setApiSignals(MOCK_SIGNALS)
+      setApiTotal(MOCK_SIGNALS.length)
+      setApiLoading(false)
+      setApiError(null)
+      return
+    }
     setApiLoading(true)
     setApiError(null)
     try {
-      const dirParam =
-        direction === "all" ? undefined : direction === "YES" ? "BUY_YES" : "BUY_NO"
+      // Backend accepts "YES"/"NO" natively (it normalises legacy BUY_* too).
+      const dirParam = direction === "all" ? undefined : direction
       const { signals, total } = await fetchSignalsFromApi({
         limit: 100,
         min_score: minScore > 0 ? minScore : undefined,

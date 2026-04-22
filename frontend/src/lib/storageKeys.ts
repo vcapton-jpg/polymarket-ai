@@ -10,6 +10,8 @@
 export const STORAGE_KEYS = {
   /** Authoritative AuthState blob (see lib/trial.ts). */
   auth: "foresight.auth",
+  /** JWT bearer token issued by /api/auth/{login,register,google}. */
+  token: "foresight.token",
   /** UserProfile blob (see types/signal.ts). */
   profile: "foresight.profile",
   /** Native-order positions written by OrderForm. */

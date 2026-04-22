@@ -27,6 +27,9 @@ import { PoweredByPolymarket } from "@/components/signals/PoweredByPolymarket"
 import { getSignalById, MOCK_SIGNALS } from "@/data/signals"
 import { fetchSignalDetailFromApi } from "@/lib/apiSignals"
 import type { Signal } from "@/types/signal"
+
+/** Dev-only: mocks instead of real API. */
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "1"
 import { fadeIn } from "@/lib/motion"
 import { Button } from "@/components/ui/Button"
 import { withBuilderCode } from "@/lib/polymarket"
@@ -54,8 +57,9 @@ export default function SignalDetail() {
       setDetailLoading(false)
       return
     }
-    const numeric = /^\d+$/.test(id)
-    if (!numeric) {
+    // Mocks (dev) or non-numeric legacy ids (SIG-2847) resolve from the
+    // bundled mock dataset. Numeric ids (DB primary key) hit the API.
+    if (USE_MOCKS || !/^\d+$/.test(id)) {
       setSignal(getSignalById(id))
       setDetailLoading(false)
       setDetailError(null)
@@ -64,7 +68,7 @@ export default function SignalDetail() {
     let cancelled = false
     setDetailLoading(true)
     setDetailError(null)
-    void fetchSignalDetailFromApi(Number(id))
+    void fetchSignalDetailFromApi(id)
       .then((s) => {
         if (!cancelled) setSignal(s)
       })

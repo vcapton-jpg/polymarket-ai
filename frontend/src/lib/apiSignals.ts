@@ -1,38 +1,36 @@
-import type { ApiSignalDetail, ApiSignalRow } from "@/lib/mapApiSignal"
-import { mapApiDetailToSignal, mapApiRowToSignal } from "@/lib/mapApiSignal"
+/**
+ * Signals API — thin passthrough to FastAPI `/signals` endpoints.
+ *
+ * The backend serves the V2 shape natively (see `app/api/signal_mapper.py`)
+ * so this module does zero transformation: fetch + JSON, typed as
+ * `Signal`.
+ */
+
+import { apiGet } from "@/lib/api/client"
 import type { Signal } from "@/types/signal"
 
-const BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "/api"
-
-async function getJson<T>(path: string): Promise<T> {
-  const url = path.startsWith("http") ? path : `${BASE}${path.startsWith("/") ? path : `/${path}`}`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.json() as Promise<T>
-}
-
-export type SignalsListPayload = { signals: ApiSignalRow[]; total: number }
+export type SignalListResponse = { signals: Signal[]; total: number }
 
 export async function fetchSignalsFromApi(params?: {
   limit?: number
   offset?: number
+  /** 0–100 — filter out below. */
   min_score?: number
+  /** "YES" | "NO" (the API also accepts legacy BUY_YES/BUY_NO). */
   direction?: string
-}): Promise<{ signals: Signal[]; total: number }> {
+  /** V2 category — forwarded as `category=` query param. */
+  category?: string
+}): Promise<SignalListResponse> {
   const q = new URLSearchParams()
   if (params?.limit != null) q.set("limit", String(params.limit))
   if (params?.offset != null) q.set("offset", String(params.offset))
   if (params?.min_score != null) q.set("min_score", String(params.min_score))
   if (params?.direction) q.set("direction", params.direction)
+  if (params?.category) q.set("category", params.category)
   const qs = q.toString()
-  const data = await getJson<SignalsListPayload>(`/signals${qs ? `?${qs}` : ""}`)
-  return {
-    signals: data.signals.map(mapApiRowToSignal),
-    total: data.total,
-  }
+  return apiGet<SignalListResponse>(`/signals${qs ? `?${qs}` : ""}`)
 }
 
-export async function fetchSignalDetailFromApi(id: number): Promise<Signal> {
-  const row = await getJson<ApiSignalDetail>(`/signals/${id}`)
-  return mapApiDetailToSignal(row)
+export async function fetchSignalDetailFromApi(id: string | number): Promise<Signal> {
+  return apiGet<Signal>(`/signals/${id}`)
 }
