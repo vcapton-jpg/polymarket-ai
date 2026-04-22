@@ -1,0 +1,152 @@
+{
+  "app": {
+    "name": "Foresight",
+    "tagline": "Les marchés réagissent avec retard. On te montre la fenêtre."
+  },
+  "nav": {
+    "sections": {
+      "feed": "Feed",
+      "analyse": "Analyse",
+      "compte": "Compte"
+    },
+    "items": {
+      "signals": "Signals",
+      "portfolio": "Portfolio",
+      "performance": "Performance",
+      "apprendre": "Apprendre",
+      "settings": "Paramètres"
+    },
+    "cta": {
+      "upgrade": "Passer Pro",
+      "logout": "Déconnexion"
+    },
+    "pipeline": {
+      "active": "Pipeline actif",
+      "lastSignal": "Dernier signal · il y a {{minutes}} min"
+    },
+    "search": "Rechercher un marché…"
+  },
+  "language": {
+    "label": "Langue",
+    "fr": "FR",
+    "en": "EN"
+  },
+  "currency": {
+    "label": "Devise",
+    "usd": "USD",
+    "eur": "EUR"
+  },
+  "status": {
+    "tenir": "Tenir",
+    "surveiller": "Surveiller",
+    "vendre": "Vendre"
+  },
+  "direction": {
+    "yes": "BUY YES",
+    "no": "BUY NO"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "close": "Fermer",
+    "reset": "Réinitialiser",
+    "seeAll": "Voir tout",
+    "seeDetails": "Détails",
+    "backToIndex": "Retour à l'index",
+    "next": "Suivant",
+    "previous": "Précédent"
+  },
+  "portfolio": {
+    "title": "Portfolio",
+    "eyebrow": "Portfolio",
+    "heading": "Tes positions, en un coup d'œil",
+    "subheading": "{{active}} positions en cours · {{resolved}} résolues",
+    "sections": {
+      "active": {
+        "eyebrow": "En cours",
+        "title": "{{count}} position active",
+        "title_plural": "{{count}} positions actives",
+        "caption": "La barre de vie se vide en temps réel — surveille tes niveaux."
+      },
+      "history": {
+        "eyebrow": "Historique",
+        "title": "{{count}} position résolue",
+        "title_plural": "{{count}} positions résolues"
+      },
+      "stats": {
+        "eyebrow": "Tes stats",
+        "title": "Mes stats personnelles",
+        "bestCategory": "Meilleure catégorie",
+        "worstCategory": "Pire catégorie",
+        "bestGain": "Gain max sur un signal",
+        "worstLoss": "Perte max sur un signal",
+        "winRate": "{{rate}}% de réussite"
+      },
+      "profile": {
+        "title": "Profil {{type}}",
+        "suggestedSizing": "Mise suggérée : {{sizing}}",
+        "edit": "Modifier mon profil"
+      },
+      "export": {
+        "label": "Exporter mon historique en CSV"
+      }
+    },
+    "kpi": {
+      "capital": "Capital engagé",
+      "capitalSub": "Sur {{count}} position",
+      "capitalSub_plural": "Sur {{count}} positions",
+      "gain": "Gain estimé",
+      "gainSub": "Actives + résolues",
+      "winRate": "Taux de réussite",
+      "winRateSub": "{{correct}}/{{total}} corrects",
+      "followed": "Signaux suivis",
+      "followedSub": "Depuis inscription"
+    },
+    "stakeToggle": {
+      "show": "Afficher les mises",
+      "hide": "Masquer les mises"
+    },
+    "filters": {
+      "all": "Tout",
+      "correct": "Corrects",
+      "incorrect": "Incorrects",
+      "pending": "En attente"
+    },
+    "card": {
+      "entry": "Entrée",
+      "current": "Actuel",
+      "gain": "Gain",
+      "stake": "Mise",
+      "lifeTitle": "Vie du signal",
+      "minutesRemaining": "~{{mins}} min",
+      "windowClosed": "fenêtre fermée",
+      "openedAgo": "Ouvert {{time}}",
+      "viewOnPolymarket": "Voir sur Polymarket",
+      "source": {
+        "native": "Native",
+        "manual": "Manuel"
+      }
+    },
+    "empty": {
+      "title": "Aucune position pour l'instant",
+      "body": "Suis un signal pour commencer à tracker tes positions ici.",
+      "cta": "Voir les signaux"
+    },
+    "emptyFilter": "Aucune position pour ce filtre."
+  },
+  "signal": {
+    "eyebrow": "Signaux",
+    "count": "{{count}} opportunité détectée",
+    "count_plural": "{{count}} opportunités détectées",
+    "none": "Aucun signal actif",
+    "sortedBy": "Trié par {{sort}}",
+    "disclaimer": "Signal informatif — tu prends la décision finale."
+  },
+  "time": {
+    "now": "à l'instant",
+    "minutesAgo": "il y a {{count}} min",
+    "hoursAgo": "il y a {{count}}h",
+    "daysAgo": "il y a {{count}}j"
+  }
+}

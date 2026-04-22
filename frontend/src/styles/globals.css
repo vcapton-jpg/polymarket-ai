@@ -1,0 +1,179 @@
+/* Satoshi: weights 500/600/700 — include italic variants (suffix `i`) so
+   `font-style: italic` uses real italic glyphs instead of the browser's
+   synthetic (mathematically slanted) fake italic, which renders malformed
+   shapes when combined with `bg-clip-text text-transparent`. */
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@500,501,600,601,700,701&display=swap");
+/* Inter + JetBrains Mono: self-hosted via @fontsource for deterministic
+   delivery and no third-party dependency. Italic axis for Inter (400/500)
+   remains available through the upstream font files. */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 16% 3%;
+    --foreground: 220 15% 96%;
+    --card: 240 14% 5%;
+    --card-foreground: 220 15% 96%;
+    --popover: 240 18% 6%;
+    --popover-foreground: 220 15% 96%;
+    --primary: 165 94% 46%;
+    --primary-foreground: 240 30% 4%;
+    --secondary: 240 10% 12%;
+    --secondary-foreground: 220 15% 96%;
+    --muted: 240 10% 10%;
+    --muted-foreground: 230 8% 60%;
+    --accent: 240 10% 14%;
+    --accent-foreground: 220 15% 96%;
+    --destructive: 0 80% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 10% 14%;
+    --input: 240 10% 10%;
+    --ring: 165 94% 46%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-line/60;
+  }
+
+  html {
+    @apply bg-obsidian-900;
+    color-scheme: dark;
+  }
+
+  /* Smooth scroll for hash anchors & programmatic scrollIntoView. Gated on
+     prefers-reduced-motion so users who opted out keep instant jumps. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Suppress the grey flash iOS/Android paint on interactive elements —
+     Framer hover/press states take over the feedback job. */
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-obsidian-900 text-ink font-sans antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5 {
+    @apply font-display tracking-tight;
+  }
+
+  ::selection {
+    @apply bg-brand-500/30 text-brand-50;
+  }
+
+  /* Tabular numbers by default on mono */
+  .font-mono, code {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-line-strong rounded-full;
+  }
+
+  /* Focus ring — WCAG 2.1 AA requires ≥3:1 contrast vs adjacent colors.
+     Solid brand-400 at 100% opacity gives a strong visible ring on the
+     obsidian-900 background (and on obsidian-800/850 card surfaces). */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-400 ring-offset-2 ring-offset-obsidian-900;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Marketing-page container — widened from 1240px to 1440px so 1920px+
+     viewports don't leave huge dead gutters on the sides. 1440px matches
+     MacBook Pro 14" exactly; below that it simply fills the viewport. */
+  .container-page {
+    @apply mx-auto w-full max-w-[1440px] px-5 md:px-8;
+  }
+
+  /* Grain overlay */
+  .grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>");
+    opacity: 0.035;
+    mix-blend-mode: screen;
+    z-index: 1;
+  }
+
+  /* Subtle grid background */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 64px 64px;
+    background-position: center;
+  }
+
+  .bg-grid-fade {
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 20%, transparent 75%);
+  }
+
+  /* Mono number style */
+  .num {
+    @apply font-mono tabular-nums;
+  }
+
+  /* Hairline separator */
+  .hairline {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-line-strong to-transparent;
+  }
+
+  /* Premium hover transition */
+  .transition-premium {
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 240ms ease,
+                background-color 240ms ease,
+                border-color 240ms ease,
+                box-shadow 240ms ease;
+  }
+
+  /* Ticker bar */
+  .bg-ticker {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(11,224,166,0.08) 30%,
+      rgba(11,224,166,0.08) 70%,
+      transparent 100%);
+  }
+}

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -138,6 +138,77 @@ async def me(user: UserProfile = Depends(get_current_user)):
         plan=user.plan,
         created_at=user.created_at,
     )
+
+
+class GoogleTokenRequest(BaseModel):
+    """Google Identity Services credential (JWT) from the client."""
+
+    credential: str = Field(min_length=100, max_length=12000)
+
+
+@router.post("/google", response_model=AuthResponse)
+async def login_google(body: GoogleTokenRequest, db: AsyncSession = Depends(get_db_session)):
+    """Verify Google ID token and issue app JWT (create user if new)."""
+    settings = get_settings()
+    if not settings.google_client_id:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in is not configured",
+        )
+
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token as google_id_token
+
+        idinfo = google_id_token.verify_oauth2_token(
+            body.credential,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Google token: {e!s}",
+        ) from e
+
+    if idinfo.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")
+
+    email = idinfo.get("email")
+    if not email or not isinstance(email, str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google did not return an email",
+        )
+    if not idinfo.get("email_verified", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google email is not verified",
+        )
+
+    email_norm = email.strip().lower()
+    result = await db.execute(
+        select(UserProfile).where(
+            UserProfile.email.isnot(None),
+            func.lower(UserProfile.email) == email_norm,
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = UserProfile(
+            email=email_norm,
+            password_hash=None,
+            plan="free",
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+    else:
+        # Same email as existing account (password or prior OAuth) — issue token
+        pass
+
+    return AuthResponse(token=_create_token(user.id), user=_user_dict(user))
 
 
 @router.post("/logout")

@@ -1,168 +1,327 @@
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowRight, Clock, ExternalLink, TrendingUp, Zap } from "lucide-react"
-import { ScoreBar } from "../ui/ScoreBar"
-import { CategoryBadge } from "../ui/CategoryBadge"
-import { DirectionBadge } from "../ui/DirectionBadge"
-import { timeAgo, formatYesImpliedPct, cn, computeEdge } from "../../lib/utils"
-import { inferBucketFromQuestion } from "../../lib/constants"
-import type { Signal } from "../../lib/types"
+import { ArrowUpRight, Bookmark, ChevronRight, Clock, Target, Timer } from "lucide-react"
+import type { Signal } from "@/types/signal"
+import { cn, timeSinceISO, categoryFallback, scoreTone, toneForLevel, type MetricTone } from "@/lib/utils"
+import { useMotionConfig, useStagger } from "@/lib/motion"
+import { DAILY_SIGNAL_VIEWED_EVENT, incrementDailyCount } from "@/lib/dailyLimit"
+import { useIsFreePlan } from "@/hooks/useAuth"
+import { DirectionBadge, CategoryPill } from "./badges"
 
-interface Props {
+type SignalCardProps = {
   signal: Signal
-  showLive?: boolean
-  isNew?: boolean
+  variant?: "default" | "teaser" | "compact"
+  flash?: boolean
+  index?: number
+  className?: string
+  example?: boolean
 }
 
-export function SignalCard({ signal, showLive, isNew }: Props) {
-  const nav = useNavigate()
-  const displayText = signal.event_title || `Signal #${signal.id}`
-  const marketLabel = signal.market_question ?? null
-  const bucket = inferBucketFromQuestion(signal.market_question)
-  const yesPct = formatYesImpliedPct(signal.market_price_at_signal)
-  const edge = computeEdge(signal.direction, signal.signal_strength, signal.market_price_at_signal)
+export function SignalCard({ signal, variant = "default", flash, index = 0, className, example }: SignalCardProps) {
+  const isYes = signal.direction === "YES"
+  const isTeaser = variant === "teaser"
+  const isCompact = variant === "compact"
+  const scoreT = scoreTone(signal.score)
+  const motionConfig = useMotionConfig("default")
+  const stagger = useStagger("default")
+  const isFreePlan = useIsFreePlan()
 
-  const s = signal.signal_score
-  const tierBorderColor =
-    s >= 90 ? "#10B981" : s >= 75 ? "#F97316" : s >= 60 ? "#F59E0B" : "#6B7280"
-
-  return (
-    <motion.article
+  const CardInner = (
+    <article
       className={cn(
-        "glass-card glass-card-hover rounded-xl cursor-pointer overflow-hidden border border-white/[0.04] transition-shadow duration-200",
-        "hover:shadow-[0_0_28px_rgba(212,160,23,0.12)]",
-        isNew && "animate-flash-border",
+        "group relative isolate overflow-hidden rounded-2xl border bg-obsidian-850/60 backdrop-blur-sm",
+        "border-line-strong hover:border-brand-500/40",
+        "transition-premium",
+        flash && "animate-flash",
+        isTeaser && "pointer-events-none select-none",
+        className,
       )}
-      style={{ borderLeftWidth: 3, borderLeftColor: tierBorderColor }}
-      onClick={() => nav(`/opportunity/${signal.id}`)}
-      layout
-      initial={isNew ? { opacity: 0, y: -12 } : { opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
     >
-      {/* Top strip: category + time + direction */}
-      <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <CategoryBadge bucket={bucket} question={signal.market_question} />
-          <span className="text-[11px] text-txt-muted whitespace-nowrap flex items-center gap-1">
-            <Clock size={10} />
-            {timeAgo(signal.created_at)} ago
-          </span>
-          {showLive && (
-            <span className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse-live" />
-          )}
+      {/* Direction accent bar (left edge) */}
+      <div
+        className={cn(
+          "absolute left-0 top-0 h-full w-[3px]",
+          isYes
+            ? "bg-gradient-to-b from-signal-yes via-signal-yes/80 to-signal-yes/20"
+            : "bg-gradient-to-b from-signal-no via-signal-no/80 to-signal-no/20",
+        )}
+        aria-hidden
+      />
+
+      {/* Subtle ambient gradient bg per direction */}
+      <div
+        className={cn(
+          "pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full blur-3xl opacity-40",
+          isYes ? "bg-signal-yes/20" : "bg-signal-no/20",
+        )}
+        aria-hidden
+      />
+
+      <div className="relative px-5 py-4 md:px-6 md:py-5">
+        {/* Top row: category + optional thumbnail + time */}
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <CategoryPill label={categoryFallback(signal.categoryLabel)} />
+          <div className="flex items-start gap-2 shrink-0">
+            {signal.image && (
+              <img
+                src={signal.image}
+                alt=""
+                aria-hidden
+                className="h-10 w-10 rounded-lg object-cover border border-line-strong/60"
+              />
+            )}
+            <div className="flex flex-col items-end gap-1">
+              <span className="inline-flex items-center gap-1 text-[0.6875rem] text-ink-readable whitespace-nowrap">
+                <Clock className="h-3 w-3" aria-hidden />
+                {timeSinceISO(signal.createdAt)}
+              </span>
+              {example && (
+                <span className="font-mono text-[0.5625rem] uppercase tracking-[0.14em] text-ink-dim/60 select-none">
+                  exemple
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {edge.label !== "N/A" && (
-            <span
-              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
-              style={{
-                color: edge.color,
-                background: `${edge.color}15`,
-                border: `1px solid ${edge.color}30`,
+
+        {/* Hero row: big score tile + meta on right */}
+        <div
+          className={cn(
+            "mb-4 flex items-stretch gap-4 rounded-xl border px-4 py-3",
+            "border-line/80 bg-obsidian-800/40",
+          )}
+        >
+          <ScoreTile score={signal.score} tone={scoreT} label={signal.scoreLabel} signalId={signal.id} />
+          <div className="flex flex-1 min-w-0 flex-col justify-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <DirectionBadge direction={signal.direction} size={isCompact ? "sm" : "md"} />
+              <PillStat
+                label="Marché"
+                value={`${Math.round(signal.marketProbability * 100)}%`}
+                tone={isYes ? "yes" : "no"}
+              />
+            </div>
+            <div className="flex items-center gap-1.5 text-[0.75rem] text-ink-muted">
+              <Timer className="h-3.5 w-3.5 text-brand-400" aria-hidden />
+              <span>Agir avant</span>
+              <span className="num font-semibold text-ink">~{signal.windowHours}&nbsp;h</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Question */}
+        <h3
+          className={cn(
+            "mb-4 font-display font-semibold tracking-tight text-ink text-balance",
+            isCompact ? "text-base leading-snug" : "text-[1.125rem] md:text-[1.25rem] leading-tight",
+          )}
+        >
+          {signal.question}
+        </h3>
+
+        {/* Sub-metrics */}
+        {!isCompact && (
+          <div className="mb-4 grid grid-cols-3 gap-x-4 gap-y-2">
+            <MetricItem label="Confiance" value={signal.confidence} tone={toneForLevel(signal.confidence)} />
+            <MetricItem label="Urgence" value={signal.urgency} tone={toneForLevel(signal.urgency)} />
+            <MetricItem label="Tradabilité" value={signal.tradability} tone={toneForLevel(signal.tradability)} />
+          </div>
+        )}
+
+        {/* Catalyst */}
+        {!isCompact && (
+          <div className="mb-4 rounded-lg border border-line/80 bg-obsidian-800/40 px-3.5 py-3">
+            <p className="text-[0.6875rem] font-mono uppercase tracking-[0.14em] text-ink-dim mb-1">
+              Ce qu’on a détecté
+            </p>
+            <p className="text-sm leading-relaxed text-ink/90">{signal.catalyst}</p>
+          </div>
+        )}
+
+        {/* Footer row */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+          <div className="flex items-center gap-2 text-[0.75rem] text-ink-muted">
+            <Target className="h-3.5 w-3.5 text-brand-400" aria-hidden />
+            <span>
+              <span className="num font-medium text-ink">{signal.sources.length}</span> sources
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 md:h-8 md:w-8 items-center justify-center rounded-md text-ink-dim hover:text-ink hover:bg-obsidian-700 transition-premium cursor-pointer"
+              aria-label={`Ajouter \u00AB\u00A0${signal.question}\u00A0\u00BB aux favoris`}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
               }}
             >
-              <TrendingUp size={10} />
-              Edge: {edge.label}
-            </span>
-          )}
-          <DirectionBadge direction={signal.direction} animate />
+              <Bookmark className="h-4 w-4" />
+            </button>
+            {!isCompact && (
+              <span
+                aria-hidden
+                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-500 px-3 text-[0.8125rem] font-medium text-obsidian-900 group-hover:bg-brand-400 transition-premium shadow-[0_0_0_1px_rgba(11,224,166,0.25),0_6px_20px_-8px_rgba(11,224,166,0.45)]"
+              >
+                Investir
+                <ChevronRight className="h-3.5 w-3.5" />
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="px-4 py-3">
-        <h3 className="text-[15px] font-display font-semibold text-txt-primary leading-snug line-clamp-2 mb-1">
-          {displayText}
-        </h3>
-        {marketLabel && (
-          <p className="text-xs text-txt-muted mb-0.5 truncate">{marketLabel}</p>
-        )}
-        {signal.score_explanation && (
-          <p className="text-[11px] text-txt-muted/70 leading-relaxed line-clamp-2 mt-1">
-            {signal.score_explanation}
-          </p>
-        )}
-      </div>
-
-      {/* Score + Market section */}
-      <div className="px-4 pb-3.5 flex items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <ScoreBar
-            score={signal.signal_score}
-            signalStrength={signal.signal_strength}
-            tradeQuality={signal.trade_quality}
-            size="sm"
+      {/* Teaser blur overlay — placed LAST so it sits above all content */}
+      {isTeaser && (
+        <>
+          <div
+            className="absolute inset-0 z-20 bg-obsidian-900/80 backdrop-blur-xl"
+            aria-hidden
           />
-        </div>
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center p-6">
+            <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-brand-500/40 bg-obsidian-850/95 px-4 py-2.5 text-[0.8125rem] font-medium text-brand-200 shadow-brand-glow">
+              <span className="relative inline-flex h-1.5 w-1.5">
+                <span className="absolute inset-0 animate-ping motion-reduce:animate-none rounded-full bg-brand-500 opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand-500" />
+              </span>
+              Inscris-toi pour voir ce signal
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </div>
+          </div>
+        </>
+      )}
+    </article>
+  )
 
-        <div className="shrink-0 text-right pl-3"
-          style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}
-        >
-          <span className="text-[10px] text-txt-muted block mb-0.5">Market says</span>
-          <span className="text-base font-mono font-bold text-txt-primary font-tabular leading-none">
-            {yesPct}
-          </span>
-          <span className="text-[10px] text-txt-muted ml-1">YES</span>
-        </div>
-      </div>
+  if (isTeaser) return CardInner
 
-      {/* Footer: confidence + urgency + trade */}
-      <div className="flex items-center justify-between px-4 py-2.5 glass-card rounded-none border-x-0 border-b-0"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ ...motionConfig, delay: index * stagger }}
+    >
+      <Link
+        to={`/signals/${signal.id}`}
+        className="block"
+        aria-label={`Signal: ${signal.question}`}
+        onClick={() => {
+          // Increment the daily counter ONLY for Free-plan users — Pro
+          // users have no cap, so accumulating their views would be wasted
+          // storage + would trigger the wrong paywall banner if they later
+          // downgraded. Gate at the hook-returned plan rather than reading
+          // auth at click time: useAuth reactively updates on trial expiry.
+          if (!isFreePlan) return
+          incrementDailyCount()
+          window.dispatchEvent(new CustomEvent(DAILY_SIGNAL_VIEWED_EVENT))
+        }}
       >
-        <div className="flex items-center gap-4 text-[11px]">
-          {signal.confidence_label && (
-            <span className="flex items-center gap-1.5">
-              <span className="text-txt-muted">Confidence:</span>
-              <span className="font-semibold text-txt-secondary">
-                {signal.confidence_label.toUpperCase()}
-              </span>
-            </span>
-          )}
-          {signal.urgency_label && (
-            <span className="flex items-center gap-1.5">
-              <span className="text-txt-muted">Urgency:</span>
-              <span className="font-semibold text-warning">
-                {signal.urgency_label.toUpperCase()}
-              </span>
-            </span>
-          )}
-          {signal.window_estimate && (
-            <span className="flex items-center gap-1.5">
-              <span className="text-txt-muted">Window:</span>
-              <span className="font-semibold text-txt-secondary">
-                {signal.window_estimate}
-              </span>
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={`https://polymarket.com/event/${signal.market_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-surface-raised text-txt-muted hover:text-txt-secondary transition-colors no-underline border border-white/[0.06]"
-          >
-            <ExternalLink size={10} />
-            Polymarket
-          </a>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              nav(`/opportunity/${signal.id}?trade=1`)
-            }}
-            className="flex items-center gap-1 text-[10px] font-bold uppercase px-2.5 py-1 rounded-md bg-gradient-to-r from-accent to-accent-bright text-surface-0 shadow-[0_0_14px_rgba(212,160,23,0.35)] hover:brightness-110 transition-all"
-          >
-            <Zap size={10} />
-            Trade
-          </button>
-          <ArrowRight size={14} className="text-txt-muted" />
-        </div>
-      </div>
-    </motion.article>
+        {CardInner}
+      </Link>
+    </motion.div>
   )
 }
+
+/* ───────────── Sub-components ───────────── */
+
+function ScoreTile({
+  score,
+  tone,
+  label,
+  signalId,
+}: {
+  score: number
+  tone: ReturnType<typeof scoreTone>
+  label: string
+  signalId: string
+}) {
+  const colors = {
+    exceptional: "border-brand-400/50 bg-brand-400/10 text-brand-300",
+    strong: "border-brand-500/40 bg-brand-500/10 text-brand-400",
+    actionable: "border-signal-amber/40 bg-signal-amber/10 text-signal-amber",
+    watch: "border-line-strong bg-obsidian-800 text-ink-muted",
+  }[tone]
+
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 flex-col items-center justify-center rounded-lg border px-4 py-2 min-w-[96px]",
+        colors,
+      )}
+    >
+      <motion.span
+        layoutId={`score-${signalId}`}
+        className="num font-display text-[2.25rem] font-semibold leading-none tracking-tight"
+      >
+        {score}
+      </motion.span>
+      <span className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] opacity-80">
+        {label}
+      </span>
+    </div>
+  )
+}
+
+function PillStat({
+  label,
+  value,
+  tone,
+  icon,
+  className,
+}: {
+  label: string
+  value: string
+  tone?: "yes" | "no"
+  icon?: React.ReactNode
+  className?: string
+}) {
+  const toneCls =
+    tone === "yes"
+      ? "text-signal-yes"
+      : tone === "no"
+        ? "text-signal-no"
+        : "text-ink"
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border border-line-strong bg-obsidian-800/60 px-2.5 py-1 text-[0.75rem]",
+        className,
+      )}
+    >
+      {icon && <span className="text-ink-readable">{icon}</span>}
+      <span className="text-ink-readable">{label}</span>
+      <span className={cn("num font-semibold", toneCls)}>{value}</span>
+    </span>
+  )
+}
+
+function MetricItem({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: React.ReactNode
+  tone?: MetricTone
+}) {
+  const toneCls =
+    tone === "positive"
+      ? "text-signal-yes"
+      : tone === "warning"
+        ? "text-signal-amber"
+        : tone === "negative"
+          ? "text-signal-no"
+          : "text-ink"
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[0.6875rem] font-mono uppercase tracking-[0.14em] text-ink-dim">{label}</span>
+      <span className={cn("text-[0.8125rem] font-medium", toneCls)}>{value}</span>
+    </div>
+  )
+}
+

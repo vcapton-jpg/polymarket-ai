@@ -1,115 +1,117 @@
-import { formatDistanceToNow, format } from "date-fns"
-import type { Signal } from "./types"
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
 
-export function mergeSignalsDedupe(live: Signal[], api: Signal[], max: number): Signal[] {
-  const seen = new Set<number>()
-  const out: Signal[] = []
-  for (const s of [...live, ...api]) {
-    if (seen.has(s.id)) continue
-    seen.add(s.id)
-    out.push(s)
-    if (out.length >= max) break
-  }
-  return out
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
 }
 
-export function timeAgo(date: string | Date): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: false })
+/**
+ * Truncate `s` to at most `n` characters, appending `…` if it was trimmed.
+ * Trims trailing whitespace before appending the ellipsis so we don't get
+ * "word …".
+ */
+export function truncate(s: string, n: number): string {
+  if (s.length <= n) return s
+  return `${s.slice(0, n).replace(/\s+$/, "")}…`
 }
 
-export function formatDate(date: string | Date): string {
-  return format(new Date(date), "MMM d, yyyy HH:mm")
+export function formatMinutesAgo(minutes: number): string {
+  if (minutes < 1) return "à l'instant"
+  if (minutes < 60) return `il y a ${Math.floor(minutes)} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `il y a ${hours}h`
+  const days = Math.floor(hours / 24)
+  return `il y a ${days}j`
 }
 
-export function formatYesImpliedPct(price: number | null | undefined): string {
-  if (price == null || Number.isNaN(Number(price))) return "--"
-  const pct = Math.round(Number(price) * 1000) / 10
-  return `${pct}%`
+export function timeSinceISO(iso: string): string {
+  const then = new Date(iso).getTime()
+  const diffMin = Math.max(0, (Date.now() - then) / 60_000)
+  return formatMinutesAgo(diffMin)
 }
 
-export function formatSpreadPp(spread: number | null | undefined): string {
-  if (spread == null || Number.isNaN(Number(spread))) return "--"
-  return `${(Number(spread) * 100).toFixed(1)} pts`
+export function scoreTone(score: number): "watch" | "actionable" | "strong" | "exceptional" {
+  if (score >= 90) return "exceptional"
+  if (score >= 75) return "strong"
+  if (score >= 60) return "actionable"
+  return "watch"
 }
 
-export function formatUsdCompact(amount: number | null | undefined): string {
-  if (amount == null || Number.isNaN(Number(amount))) return "--"
-  const n = Number(amount)
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`
-  return `$${Math.round(n).toLocaleString()}`
+export function scoreLabelFor(score: number): string {
+  const tone = scoreTone(score)
+  return {
+    watch: "À surveiller",
+    actionable: "Actionnable",
+    strong: "Signal fort",
+    exceptional: "Exceptionnel",
+  }[tone]
 }
 
-export function formatNumber(n: number | null | undefined): string {
-  if (n == null) return "0"
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
+export function categoryFallback(label: string | undefined): string {
+  return label && label.trim().length > 0 ? label : "🌐 Monde"
 }
 
-export function scoreColor(score: number): string {
-  if (score >= 90) return "#10B981"
-  if (score >= 75) return "#F97316"
-  if (score >= 60) return "#F59E0B"
-  return "#6B7280"
+/**
+ * Known category emojis. Performance mocks store bare category names
+ * (e.g. "Géopolitique") while signals/positions carry emoji-prefixed
+ * labels ("🌍 Géopolitique"). This helper normalizes a bare name into
+ * the display form used throughout the product.
+ */
+const CATEGORY_EMOJI: Record<string, string> = {
+  Géopolitique: "🌍",
+  Politique: "🏛️",
+  Économie: "📈",
+  Crypto: "₿",
+  Sport: "⚽",
+  Science: "🔬",
 }
 
-export function scoreBarBg(score: number): string {
-  if (score >= 90) return "rgba(16,185,129,0.15)"
-  if (score >= 75) return "rgba(249,115,22,0.15)"
-  if (score >= 60) return "rgba(245,158,11,0.15)"
-  return "rgba(107,114,128,0.15)"
+export function categoryWithEmoji(category: string): string {
+  const emoji = CATEGORY_EMOJI[category]
+  return emoji ? `${emoji} ${category}` : category
 }
 
-export function bucketColor(bucket: string): string {
-  const map: Record<string, string> = {
-    politics: "#818CF8",
-    geopolitics: "#F87171",
-    economics: "#34D399",
-    crypto: "#FBBF24",
-    sports: "#60A5FA",
-    science: "#A78BFA",
-  }
-  return map[bucket] ?? "#94A3B8"
+/**
+ * Semantic color per category — used for charts + pills so the same
+ * taxonomy has a consistent visual identity across the app.
+ */
+const CATEGORY_COLOR: Record<string, string> = {
+  Géopolitique: "#60A5FA", // blue-400
+  Politique: "#F59E0B", // amber-500
+  Économie: "#22C55E", // green-500
+  Crypto: "#F97316", // orange-500
+  Sport: "#A855F7", // purple-500
+  Science: "#06B6D4", // cyan-500
 }
 
-export function computeEdge(
-  direction: string,
-  signalStrength: number | null,
-  marketPrice: number | null,
-): { value: number; label: string; color: string } {
-  if (signalStrength == null || marketPrice == null) {
-    return { value: 0, label: "N/A", color: "#6B7280" }
-  }
-
-  const str = signalStrength / 100
-  const p = Number(marketPrice)
-  const directionMultiplier =
-    direction === "BUY_YES" ? (1 - p) :
-    direction === "BUY_NO" ? p : 0
-
-  const raw = str * directionMultiplier * 2
-  const value = Math.round(Math.min(100, raw * 100))
-
-  if (value >= 60) return { value, label: "HIGH", color: "#10B981" }
-  if (value >= 35) return { value, label: "MED", color: "#F59E0B" }
-  return { value, label: "LOW", color: "#6B7280" }
+export function categoryColor(category: string, fallback = "#5C6A82"): string {
+  return CATEGORY_COLOR[category] ?? fallback
 }
 
-export function strengthColor(score: number): string {
-  if (score >= 80) return "#10B981"
-  if (score >= 60) return "#F97316"
-  if (score >= 45) return "#F59E0B"
-  return "#6B7280"
+/**
+ * Map a French qualitative level (Confiance / Urgence / Tradabilité) to a
+ * tone token used across SignalCard / SignalDetail / MetricCard. Extracted
+ * here so the mapping is authoritative in one place.
+ */
+export type MetricTone = "positive" | "warning" | "negative" | "neutral"
+
+export function toneForLevel(level: string): MetricTone {
+  const l = level.toLowerCase()
+  if (l === "haute" || l === "bonne") return "positive"
+  if (l === "moyenne") return "warning"
+  if (l === "basse" || l === "faible") return "negative"
+  return "neutral"
 }
 
-export function tradeQualityColor(score: number): string {
-  if (score >= 80) return "#10B981"
-  if (score >= 60) return "#60A5FA"
-  if (score >= 40) return "#F59E0B"
-  return "#6B7280"
-}
-
-export function cn(...classes: (string | false | null | undefined)[]): string {
-  return classes.filter(Boolean).join(" ")
+/**
+ * Shared YYYY-MM-DD helper so date-scoped localStorage keys agree across
+ * dailyLimit, TrialBanner, etc. Always reads the browser-local date —
+ * this is the user-facing day boundary, not UTC.
+ */
+export function todayISODate(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }

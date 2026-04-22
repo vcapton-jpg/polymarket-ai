@@ -1,0 +1,152 @@
+{
+  "app": {
+    "name": "",
+    "tagline": ""
+  },
+  "nav": {
+    "sections": {
+      "feed": "",
+      "analyse": "",
+      "compte": ""
+    },
+    "items": {
+      "signals": "",
+      "portfolio": "",
+      "performance": "",
+      "apprendre": "",
+      "settings": ""
+    },
+    "cta": {
+      "upgrade": "",
+      "logout": ""
+    },
+    "pipeline": {
+      "active": "",
+      "lastSignal": ""
+    },
+    "search": ""
+  },
+  "language": {
+    "label": "",
+    "fr": "FR",
+    "en": "EN"
+  },
+  "currency": {
+    "label": "",
+    "usd": "USD",
+    "eur": "EUR"
+  },
+  "status": {
+    "tenir": "",
+    "surveiller": "",
+    "vendre": ""
+  },
+  "direction": {
+    "yes": "",
+    "no": ""
+  },
+  "common": {
+    "loading": "",
+    "cancel": "",
+    "save": "",
+    "close": "",
+    "reset": "",
+    "seeAll": "",
+    "seeDetails": "",
+    "backToIndex": "",
+    "next": "",
+    "previous": ""
+  },
+  "portfolio": {
+    "title": "",
+    "eyebrow": "",
+    "heading": "",
+    "subheading": "",
+    "sections": {
+      "active": {
+        "eyebrow": "",
+        "title": "",
+        "title_plural": "",
+        "caption": ""
+      },
+      "history": {
+        "eyebrow": "",
+        "title": "",
+        "title_plural": ""
+      },
+      "stats": {
+        "eyebrow": "",
+        "title": "",
+        "bestCategory": "",
+        "worstCategory": "",
+        "bestGain": "",
+        "worstLoss": "",
+        "winRate": ""
+      },
+      "profile": {
+        "title": "",
+        "suggestedSizing": "",
+        "edit": ""
+      },
+      "export": {
+        "label": ""
+      }
+    },
+    "kpi": {
+      "capital": "",
+      "capitalSub": "",
+      "capitalSub_plural": "",
+      "gain": "",
+      "gainSub": "",
+      "winRate": "",
+      "winRateSub": "",
+      "followed": "",
+      "followedSub": ""
+    },
+    "stakeToggle": {
+      "show": "",
+      "hide": ""
+    },
+    "filters": {
+      "all": "",
+      "correct": "",
+      "incorrect": "",
+      "pending": ""
+    },
+    "card": {
+      "entry": "",
+      "current": "",
+      "gain": "",
+      "stake": "",
+      "lifeTitle": "",
+      "minutesRemaining": "",
+      "windowClosed": "",
+      "openedAgo": "",
+      "viewOnPolymarket": "",
+      "source": {
+        "native": "",
+        "manual": ""
+      }
+    },
+    "empty": {
+      "title": "",
+      "body": "",
+      "cta": ""
+    },
+    "emptyFilter": ""
+  },
+  "signal": {
+    "eyebrow": "",
+    "count": "",
+    "count_plural": "",
+    "none": "",
+    "sortedBy": "",
+    "disclaimer": ""
+  },
+  "time": {
+    "now": "",
+    "minutesAgo": "",
+    "hoursAgo": "",
+    "daysAgo": ""
+  }
+}

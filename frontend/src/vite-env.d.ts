@@ -1,7 +1,12 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_GOOGLE_CLIENT_ID?: string
+  /** Base API prefix, e.g. `http://localhost:8001/api` or leave unset to use `/api` (Vite proxy). */
+  readonly VITE_API_URL?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
 }
 
 declare module "*.css" {

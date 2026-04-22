@@ -1,72 +1,78 @@
-import { Routes, Route, Navigate } from "react-router-dom"
-import { AppLayout } from "./components/layout/AppLayout"
-import { lazy, Suspense, type ReactNode } from "react"
-import { Skeleton } from "./components/ui/Skeleton"
-import { AuthProvider, useAuth } from "./lib/auth"
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom"
+import { lazy, Suspense, useEffect } from "react"
+import { LayoutGroup } from "framer-motion"
+import { RequireAuth } from "./components/auth/RequireAuth"
+import { readAuth } from "./lib/trial"
+import { STORAGE_KEYS } from "./lib/storageKeys"
 
-const Landing = lazy(() => import("./pages/Landing"))
-const Auth = lazy(() => import("./pages/Auth"))
-const Dashboard = lazy(() => import("./pages/Dashboard"))
-const Opportunities = lazy(() => import("./pages/Opportunities"))
-const OpportunityDetail = lazy(() => import("./pages/OpportunityDetail"))
-const Markets = lazy(() => import("./pages/Markets"))
-const Performance = lazy(() => import("./pages/Performance"))
-const Learn = lazy(() => import("./pages/Learn"))
-const TrackRecord = lazy(() => import("./pages/TrackRecord"))
-const Settings = lazy(() => import("./pages/Settings"))
+const Homepage = lazy(() => import("./pages/Homepage"))
+const Signals = lazy(() => import("./pages/Signals"))
+const SignalDetail = lazy(() => import("./pages/SignalDetail"))
 const Portfolio = lazy(() => import("./pages/Portfolio"))
-const Agents = lazy(() => import("./pages/Agents"))
+const Performance = lazy(() => import("./pages/Performance"))
+const Apprendre = lazy(() => import("./pages/Apprendre"))
+const LearnSection = lazy(() => import("./pages/LearnSection"))
+const Welcome = lazy(() => import("./pages/Welcome"))
+const Settings = lazy(() => import("./pages/Settings"))
 const Pricing = lazy(() => import("./pages/Pricing"))
-const Briefs = lazy(() => import("./pages/Briefs"))
-const AgentWorkspace = lazy(() => import("./pages/AgentWorkspace"))
+const Faq = lazy(() => import("./pages/Faq"))
+const Login = lazy(() => import("./pages/Login"))
+const Signup = lazy(() => import("./pages/Signup"))
+const SignalVariants = lazy(() => import("./pages/SignalVariants"))
 
-function PageLoader() {
-  return (
-    <div className="py-8 flex flex-col gap-4">
-      <Skeleton height={32} width="40%" />
-      <Skeleton height={200} />
-      <Skeleton height={120} />
-    </div>
-  )
-}
+/**
+ * Paths that never require onboarding completion (public marketing pages
+ * + the onboarding flow itself + auth entry points).
+ */
+const ONBOARDING_EXEMPT_PATHS = new Set(["/", "/welcome", "/login", "/signup", "/pricing", "/signal-variants"])
 
-function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, isLoading } = useAuth()
-  if (isLoading) return <PageLoader />
-  if (!user) return <Navigate to="/auth" replace />
-  return <>{children}</>
+/**
+ * App-level guard: if the user is authenticated but hasn't finished (or
+ * skipped) onboarding, force-redirect to /welcome. Runs on every route
+ * transition; no-op on public/auth/onboarding routes.
+ */
+function RequireOnboarding() {
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (ONBOARDING_EXEMPT_PATHS.has(location.pathname)) return
+    if (!readAuth()) return
+    const onboarding = localStorage.getItem(STORAGE_KEYS.onboarding)
+    if (onboarding !== "done" && onboarding !== "skipped") {
+      navigate("/welcome", { replace: true })
+    }
+  }, [location.pathname, navigate])
+
+  return null
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/opportunities" element={<Opportunities />} />
-            <Route path="/opportunity/:id" element={<OpportunityDetail />} />
-            <Route path="/markets" element={<Markets />} />
-            <Route path="/performance" element={<Performance />} />
-            <Route path="/learn" element={<Learn />} />
-            <Route path="/track-record" element={<TrackRecord />} />
-            <Route path="/portfolio" element={<Portfolio />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/briefs" element={<Briefs />} />
-            <Route path="/workspace" element={<AgentWorkspace />} />
-            <Route path="/settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </Suspense>
-    </AuthProvider>
+    <BrowserRouter>
+      <div className="min-h-screen bg-obsidian-900 text-ink grain">
+        <RequireOnboarding />
+        <Suspense fallback={<div className="container-page py-20 text-ink-muted">Chargement…</div>}>
+          <LayoutGroup>
+            <Routes>
+              <Route path="/" element={<Homepage />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/faq" element={<Faq />} />
+              <Route path="/signal-variants" element={<SignalVariants />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/signals" element={<RequireAuth><Signals /></RequireAuth>} />
+              <Route path="/signals/:id" element={<RequireAuth><SignalDetail /></RequireAuth>} />
+              <Route path="/portfolio" element={<RequireAuth><Portfolio /></RequireAuth>} />
+              <Route path="/performance" element={<RequireAuth><Performance /></RequireAuth>} />
+              <Route path="/apprendre" element={<RequireAuth><Apprendre /></RequireAuth>} />
+              <Route path="/apprendre/:slug" element={<RequireAuth><LearnSection /></RequireAuth>} />
+              <Route path="/welcome" element={<RequireAuth><Welcome /></RequireAuth>} />
+              <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+            </Routes>
+          </LayoutGroup>
+        </Suspense>
+      </div>
+    </BrowserRouter>
   )
 }

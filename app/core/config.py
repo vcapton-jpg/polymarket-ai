@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     # ── Auth / Security ──────────────────────────────────────────────────
     jwt_secret_key: str = Field(default="change-me-in-production")
+    jwt_algorithm: str = Field(default="HS256")
+    jwt_expire_days: int = Field(default=7)
+    # Google Sign-In (OAuth 2.0 Web client ID — same value as VITE_GOOGLE_CLIENT_ID on frontend)
+    google_client_id: Optional[str] = Field(default=None)
     signal_api_key: Optional[str] = Field(default=None)
 
     # ── Push Notifications (VAPID) ────────────────────────────────────
@@ -60,11 +64,6 @@ class Settings(BaseSettings):
     stripe_webhook_secret: Optional[str] = Field(default=None)
     stripe_price_pro: Optional[str] = Field(default=None)
     stripe_price_trader: Optional[str] = Field(default=None)
-
-    # ── Auth ───────────────────────────────────────────────────────────
-    jwt_secret_key: str = Field(default="change-me-in-production")
-    jwt_algorithm: str = Field(default="HS256")
-    jwt_expire_days: int = Field(default=7)
 
     # ── Environment ───────────────────────────────────────────────────────
     env: str = Field(default="development")

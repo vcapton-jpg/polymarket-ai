@@ -30,13 +30,15 @@ async def handle_command(chat_id: str, command: str, args: list[str]) -> str:
     """Process a bot command and return the response text."""
     if command == "/start":
         return (
-            "Welcome to *Signal* - Prediction Market Intelligence\n\n"
+            "Welcome to *Foresight* — Prediction Market Intelligence 🔺\n\n"
+            f"Your Chat ID is: `{chat_id}`\n"
+            "Copy this ID into Foresight Settings to receive signal alerts.\n\n"
             "Available commands:\n"
-            "/signals - Latest trading signals\n"
-            "/portfolio - Your positions & P&L\n"
-            "/brief - Latest daily intelligence brief\n"
-            "/agents - Agent team status\n"
-            "/help - Show this message"
+            "/signals — Latest trading signals\n"
+            "/portfolio — Your positions & P&L\n"
+            "/brief — Latest daily intelligence brief\n"
+            "/agents — Agent team status\n"
+            "/help — Show this message"
         )
 
     elif command == "/signals":
@@ -53,11 +55,12 @@ async def handle_command(chat_id: str, command: str, args: list[str]) -> str:
 
     elif command == "/help":
         return (
-            "*Signal Bot Commands*\n\n"
-            "/signals - Top 5 latest signals\n"
-            "/portfolio - Current positions\n"
-            "/brief - Daily intelligence brief\n"
-            "/agents - Agent status overview\n"
+            "*Foresight Bot Commands*\n\n"
+            "/signals — Top 5 latest signals\n"
+            "/portfolio — Current positions\n"
+            "/brief — Daily intelligence brief\n"
+            "/agents — Agent status overview\n\n"
+            f"Your Chat ID: `{chat_id}`"
         )
 
     return "Unknown command. Type /help for available commands."

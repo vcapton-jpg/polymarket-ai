@@ -32,6 +32,13 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Playwright MCP runtime
+.playwright-mcp/
+.cursor/
+
+# Claude worktree scratch
+.claude/worktrees/
+
 # Docker
 *.log
 

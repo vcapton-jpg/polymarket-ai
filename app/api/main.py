@@ -70,3 +70,19 @@ app.include_router(auth_router, prefix="/api")
 from app.api.routes.b2b import router as b2b_router  # noqa: E402
 
 app.include_router(b2b_router, prefix="/api")
+
+from app.api.routes.telegram_webhook import router as tg_webhook_router  # noqa: E402
+
+app.include_router(tg_webhook_router, prefix="/api")
+
+
+@app.get("/.well-known/apple-developer-merchantid-domain-association")
+async def apple_pay_domain_verification():
+    """Serve Apple Pay domain verification file for Stripe."""
+    from fastapi.responses import PlainTextResponse
+    import pathlib
+
+    path = pathlib.Path(__file__).parent.parent.parent / "static" / "apple-developer-merchantid-domain-association"
+    if path.exists():
+        return PlainTextResponse(path.read_text())
+    return PlainTextResponse("", status_code=404)
