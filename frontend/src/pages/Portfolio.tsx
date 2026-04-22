@@ -34,6 +34,11 @@ import {
 import { MOCK_PERFORMANCE } from "@/data/performance"
 import { useUserPreferences } from "@/lib/userPreferences"
 import { useManualPositions } from "@/lib/useManualPositions"
+import { useRemotePositions } from "@/hooks/useRemotePositions"
+
+/** When `VITE_USE_MOCKS=1`, layer the bundled demo positions on top of
+ *  whatever the API returns so the UI is never empty in showcase mode. */
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "1"
 import { downloadPositionsCSV } from "@/lib/positionsExport"
 import { cn } from "@/lib/utils"
 import type { Position, UserProfile } from "@/types/signal"
@@ -71,8 +76,7 @@ export default function Portfolio() {
   const [hideStake, setHideStake] = useState(false)
   const [nativePositions, setNativePositions] = useState<Position[]>([])
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  // Kept false for now — data is synchronous. Flip to true to preview skeleton.
-  const loading = false
+  const { data: remote, loading } = useRemotePositions()
   const { formatMoney } = useUserPreferences()
   const { positions: manualPositions } = useManualPositions()
   const location = useLocation()
@@ -117,13 +121,31 @@ export default function Portfolio() {
     }
   }, [])
 
-  // Native (from OrderForm) + manual + mock. Natives first so the just-opened
-  // position sits on top when we anchor-scroll to it.
-  const activePositions: Position[] = useMemo(
-    () => [...nativePositions, ...manualPositions, ...MOCK_POSITIONS],
-    [nativePositions, manualPositions],
-  )
-  const resolvedPositions = MOCK_RESOLVED_POSITIONS
+  // Remote (API) + Native (from OrderForm localStorage, legacy path) +
+  // manual (localStorage) + demo mocks (dev only). Remote first so the
+  // authenticated user's real trades anchor the top of the list.
+  // Dedup by `id` to protect against double-writes if a native position
+  // has been synced server-side.
+  const activePositions: Position[] = useMemo(() => {
+    const list: Position[] = [
+      ...remote.positions,
+      ...nativePositions,
+      ...manualPositions,
+    ]
+    if (USE_MOCKS) list.push(...MOCK_POSITIONS)
+    const seen = new Set<string>()
+    return list.filter((p) => {
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
+  }, [remote.positions, nativePositions, manualPositions])
+
+  const resolvedPositions: Position[] = useMemo(() => {
+    const list: Position[] = [...remote.resolved]
+    if (USE_MOCKS) list.push(...MOCK_RESOLVED_POSITIONS)
+    return list
+  }, [remote.resolved])
 
   const capital = useMemo(
     () => activePositions.reduce((sum, p) => sum + p.stake, 0),
