@@ -33,6 +33,7 @@ import {
   trialEndDate,
   type AuthState as TrialAuthState,
 } from "@/lib/trial"
+import { logoutApi } from "@/lib/api/auth"
 import { STORAGE_KEYS, AUTH_CHANGED_EVENT } from "@/lib/storageKeys"
 import ConfirmDeleteAccountModal from "@/components/modals/ConfirmDeleteAccountModal"
 import type { UserProfile } from "@/types/signal"
@@ -233,8 +234,11 @@ export default function Settings() {
       // clearAuth() keeps `has_ever_signed_up` so returning users get
       // routed to /login (not /signup) on next visit, and dispatches
       // AUTH_CHANGED_EVENT so in-tab subscribers (AppShell, TrialBanner,
-      // ProUpsellCTA gate) re-render immediately.
+      // ProUpsellCTA gate) re-render immediately. Fire-and-forget the
+      // backend /auth/logout so the server can invalidate the session
+      // even if the local clear already happened.
       clearAuth()
+      void logoutApi().catch(() => undefined)
       localStorage.removeItem(STORAGE_KEYS.profile)
       localStorage.removeItem(STORAGE_KEYS.onboarding)
     } catch {

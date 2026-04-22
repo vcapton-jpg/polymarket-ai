@@ -7,6 +7,7 @@ import TrialBanner from "@/components/layout/TrialBanner"
 import EndOfTrialModal from "@/components/layout/EndOfTrialModal"
 import { isOnTrial, clearAuth } from "@/lib/trial"
 import { useAuth } from "@/hooks/useAuth"
+import { logoutApi } from "@/lib/api/auth"
 import {
   Radio,
   Briefcase,
@@ -110,8 +111,12 @@ export function AppShell({
   const navGroups = useNavGroups(manualPositions.length)
   const navigate = useNavigate()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Clear local state first so the UI flips immediately even if the
+    // server call is slow or offline. logoutApi() is fire-and-forget —
+    // it also clears the JWT token on failure.
     clearAuth()
+    void logoutApi().catch(() => undefined)
     navigate("/login")
   }
 

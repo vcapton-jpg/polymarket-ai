@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils"
 import { PUBLIC_STATS, formatStat } from "@/lib/stats"
 import { readAuth, writeAuth } from "@/lib/trial"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { loginApi, setToken, fetchMe } from "@/lib/api/auth"
+import { meToAuthState } from "@/hooks/useAuth"
+import { ApiError } from "@/lib/api/client"
 
 export default function Login() {
   const navigate = useNavigate()
@@ -21,38 +24,47 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) return
     setError(null)
     setLoading(true)
-    setTimeout(() => {
-      try {
-        // Mock auth: persist session. A real hook would throw on bad creds —
-        // we keep the try/catch so the error surface is wired and ready.
-        // Preserve has_ever_signed_up on re-login so returning users keep
-        // the right entry point if they log out again. Go through writeAuth
-        // to fire AUTH_CHANGED_EVENT so useAuth subscribers update instantly.
-        const existing = readAuth()
-        writeAuth({
-          email,
-          plan: "free",
-          has_ever_signed_up: existing?.has_ever_signed_up ?? true,
-        })
-        const next = searchParams.get("next")
-        const onboarding = localStorage.getItem(STORAGE_KEYS.onboarding)
-        if (next) {
-          navigate(next)
-        } else if (onboarding !== "done" && onboarding !== "skipped") {
-          navigate("/welcome")
-        } else {
-          navigate("/signals")
-        }
-      } catch {
-        setError("Identifiants incorrects. Réessaie ou crée un compte.")
-        setLoading(false)
+    try {
+      const { token, user } = await loginApi(email, password)
+      setToken(token)
+      // Preserve has_ever_signed_up across logout cycles so returning
+      // users keep the right entry point if they log out again.
+      const existing = readAuth()
+      writeAuth({
+        email: user.email ?? email,
+        plan: user.plan === "pro" ? "pro" : "free",
+        trial_ends_at: user.trial_ends_at ?? undefined,
+        card_attached: user.card_attached,
+        has_ever_signed_up: existing?.has_ever_signed_up ?? true,
+      })
+      void fetchMe().then((me) => {
+        if (me) writeAuth(meToAuthState(me))
+      })
+
+      const next = searchParams.get("next")
+      const onboarding = localStorage.getItem(STORAGE_KEYS.onboarding)
+      if (next) {
+        navigate(next)
+      } else if (onboarding !== "done" && onboarding !== "skipped") {
+        navigate("/welcome")
+      } else {
+        navigate("/signals")
       }
-    }, 700)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Identifiants incorrects. Réessaie ou crée un compte.")
+      } else if (err instanceof ApiError) {
+        setError(err.message || "Connexion impossible. Réessaie.")
+      } else {
+        setError("Connexion impossible. Vérifie ta connexion et réessaie.")
+      }
+      setLoading(false)
+    }
   }
 
   return (

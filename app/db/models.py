@@ -421,8 +421,15 @@ class UserProfile(Base):
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    card_attached: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     preferences: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

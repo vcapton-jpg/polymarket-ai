@@ -8,8 +8,11 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { MOCK_SIGNALS } from "@/data/signals"
 import { cn } from "@/lib/utils"
-import { TRIAL_LENGTH_MS, writeAuth, type AuthState } from "@/lib/trial"
+import { writeAuth, type AuthState } from "@/lib/trial"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { registerApi, setToken, fetchMe } from "@/lib/api/auth"
+import { meToAuthState } from "@/hooks/useAuth"
+import { ApiError } from "@/lib/api/client"
 import { useMotionConfig } from "@/lib/motion"
 import { useToasts } from "@/lib/useToasts"
 
@@ -76,9 +79,8 @@ export default function Signup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Track mount so the 700 ms mock-delay doesn't setState on an unmounted tree.
-  // Cursor: when real `await auth.signup(...)` lands, this ref pattern stays
-  // valid — guard every post-await setState.
+  // Guard every post-await setState so the unmount-during-submit race
+  // doesn't leak React state updates into an already-detached tree.
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -86,49 +88,51 @@ export default function Signup() {
       mountedRef.current = false
     }
   }, [])
-  const timeoutRef = useRef<number | null>(null)
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current)
-    }
-  }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password || !accept) return
     setError(null)
     setLoading(true)
-    timeoutRef.current = window.setTimeout(() => {
-      timeoutRef.current = null
-      try {
-        // Normalise to the two plan states the trial layer understands.
-        // "api" signups fall through as "pro" (same gated features + card).
-        const planForAuth: AuthState["plan"] = plan === "free" ? "free" : "pro"
-        const auth: AuthState = {
-          email,
-          plan: planForAuth,
-          has_ever_signed_up: true,
-        }
-        if (planForAuth === "pro") {
-          auth.trial_ends_at = new Date(Date.now() + TRIAL_LENGTH_MS).toISOString()
-          auth.card_attached = false
-        }
-        writeAuth(auth)
-        localStorage.setItem(STORAGE_KEYS.onboarding, "pending")
-        // Clear any recovered draft email now that the account exists.
-        try {
-          localStorage.removeItem(SIGNUP_DRAFT_EMAIL_KEY)
-        } catch {
-          // ignore
-        }
-        if (mountedRef.current) setLoading(false)
-        navigate("/welcome")
-      } catch {
-        if (!mountedRef.current) return
-        setError("Inscription impossible. Vérifie tes informations ou réessaie.")
-        setLoading(false)
+    // Normalise to the two plan states the backend understands.
+    // "api" signups fall through as "pro" (same gated features + card later).
+    const planForAuth: AuthState["plan"] = plan === "free" ? "free" : "pro"
+    try {
+      const { token, user } = await registerApi(email, password, planForAuth)
+      setToken(token)
+      // Seed AuthState from the registration response (has plan +
+      // trial_ends_at already), then hydrate in background to pick up any
+      // server-side overrides (preferences, profile, etc.).
+      const initial: AuthState = {
+        email: user.email ?? email,
+        plan: user.plan === "pro" ? "pro" : "free",
+        trial_ends_at: user.trial_ends_at ?? undefined,
+        card_attached: user.card_attached,
+        has_ever_signed_up: true,
       }
-    }, 700)
+      writeAuth(initial)
+      void fetchMe().then((me) => {
+        if (me) writeAuth(meToAuthState(me))
+      })
+      localStorage.setItem(STORAGE_KEYS.onboarding, "pending")
+      try {
+        localStorage.removeItem(SIGNUP_DRAFT_EMAIL_KEY)
+      } catch {
+        // ignore
+      }
+      if (mountedRef.current) setLoading(false)
+      navigate("/welcome")
+    } catch (err) {
+      if (!mountedRef.current) return
+      if (err instanceof ApiError && err.status === 409) {
+        setError("Cet email est déjà inscrit. Connecte-toi plutôt.")
+      } else if (err instanceof ApiError) {
+        setError(err.message || "Inscription impossible. Réessaie.")
+      } else {
+        setError("Inscription impossible. Vérifie tes informations ou réessaie.")
+      }
+      setLoading(false)
+    }
   }
 
   return (
