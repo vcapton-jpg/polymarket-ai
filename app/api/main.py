@@ -56,6 +56,7 @@ from app.api.push import router as push_router  # noqa: E402
 app.include_router(push_router, prefix="/api")
 
 from app.api.routes.trading import router as trading_router  # noqa: E402
+from app.api.routes.trading_wallet import router as trading_wallet_router  # noqa: E402
 from app.api.routes.agents import router as agents_router  # noqa: E402
 from app.api.routes.api_keys import router as api_keys_router  # noqa: E402
 from app.api.routes.subscriptions import router as subs_router  # noqa: E402
@@ -65,6 +66,7 @@ from app.api.routes.performance_v2 import router as performance_v2_router  # noq
 from app.api.routes.quota import router as quota_router  # noqa: E402
 
 app.include_router(trading_router, prefix="/api")
+app.include_router(trading_wallet_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
 app.include_router(api_keys_router, prefix="/api")
 app.include_router(subs_router, prefix="/api")
