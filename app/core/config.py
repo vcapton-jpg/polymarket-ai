@@ -59,6 +59,28 @@ class Settings(BaseSettings):
     builder_private_key: Optional[str] = Field(default=None)
     polygon_chain_id: int = Field(default=137)
 
+    # Polymarket Builder attribution code (bytes32 hex from polymarket.com/settings?tab=builder)
+    polymarket_builder_code: str = Field(
+        default="0x0000000000000000000000000000000000000000000000000000000000000000",
+        description="Builder attribution code — 66-char hex bytes32",
+    )
+
+    # Polygon RPC for Safe deployment
+    polygon_rpc_url: str = Field(
+        default="https://polygon-rpc.com",
+        description="Polygon mainnet JSON-RPC endpoint",
+    )
+
+    # Gnosis Safe contract addresses on Polygon mainnet
+    gnosis_safe_proxy_factory: str = Field(
+        default="0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
+        description="GnosisSafeProxyFactory address on Polygon",
+    )
+    gnosis_safe_singleton: str = Field(
+        default="0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552",
+        description="GnosisSafe singleton (master copy) on Polygon",
+    )
+
     # ── Stripe ─────────────────────────────────────────────────────────
     stripe_secret_key: Optional[str] = Field(default=None)
     stripe_webhook_secret: Optional[str] = Field(default=None)
