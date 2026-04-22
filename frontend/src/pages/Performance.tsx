@@ -35,7 +35,6 @@ import { Link } from "react-router-dom"
 import { AppShell } from "@/components/layout/AppShell"
 import { KPIStat } from "@/components/portfolio/KPIStat"
 import { ChartSkeleton } from "@/components/ui/ChartSkeleton"
-import { MOCK_PERFORMANCE } from "@/data/performance"
 import {
   MOCK_PERSONAL_INSIGHTS,
   MOCK_SCORE_VS_MOVE,
@@ -43,6 +42,7 @@ import {
 } from "@/data/performance"
 import { MOCK_RESOLVED_POSITIONS } from "@/data/positions"
 import { useUserPreferences } from "@/lib/userPreferences"
+import { usePerformance } from "@/hooks/usePerformance"
 import { cn, categoryColor, categoryWithEmoji } from "@/lib/utils"
 import type { PersonalInsight } from "@/data/performance"
 
@@ -69,6 +69,7 @@ const SCATTER_EMPTY_STATE_THRESHOLD = 30
 
 export default function Performance() {
   const { formatMoney, language } = useUserPreferences()
+  const { stats: MOCK_PERFORMANCE, loading: loadingCharts } = usePerformance()
 
   const dateLocale = language === "fr" ? "fr-FR" : "en-US"
   const formatAxisDate = (iso: string): string => {
@@ -109,13 +110,10 @@ export default function Performance() {
         value: c.signalCount,
         color: categoryColor(c.category),
       })),
-    [],
+    [MOCK_PERFORMANCE.userWinRateByCategory],
   )
 
   const scatterHasEnough = resolvedCount >= SCATTER_EMPTY_STATE_THRESHOLD
-  // Placeholder for when Performance data is fetched async. Flip to `true`
-  // (e.g. during a SWR fetch) to preview the chart skeletons in-place.
-  const loadingCharts = false
 
   return (
     <AppShell
@@ -567,12 +565,13 @@ function KPICategoryTile({
 }
 
 function CategoryTable() {
+  const { stats } = usePerformance()
   const sorted = useMemo(
     () =>
-      [...MOCK_PERFORMANCE.userWinRateByCategory].sort(
+      [...stats.userWinRateByCategory].sort(
         (a, b) => b.winRate - a.winRate,
       ),
-    [],
+    [stats.userWinRateByCategory],
   )
 
   return (
@@ -637,7 +636,8 @@ function CategoryTable() {
 }
 
 function TelegramCard() {
-  const { telegramAlertsReceived, telegramAlertsFollowed, telegramFollowRate } = MOCK_PERFORMANCE
+  const { stats } = usePerformance()
+  const { telegramAlertsReceived, telegramAlertsFollowed, telegramFollowRate } = stats
   const pct = Math.round(telegramFollowRate * 100)
 
   return (
