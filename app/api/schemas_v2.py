@@ -42,7 +42,12 @@ class SourceOut(BaseModel):
 
 
 class SignalCardOut(BaseModel):
-    """Shape consumed by /signals list + SignalCard component."""
+    """Shape consumed by /signals list + SignalCard component.
+
+    `facts` and `sources` are present but empty on list responses so the
+    TypeScript `Signal` contract stays uniform (SignalCard.tsx reads
+    `signal.sources.length`). The detail endpoint fills them in.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -59,6 +64,8 @@ class SignalCardOut(BaseModel):
     urgency: Urgency
     tradability: Tradability
     catalyst: str
+    facts: list[FactOut] = []
+    sources: list[SourceOut] = []
     lifePercent: int
     polymarketUrl: str
     image: Optional[str] = None
@@ -66,10 +73,11 @@ class SignalCardOut(BaseModel):
 
 
 class SignalDetailOut(SignalCardOut):
-    """Shape consumed by /signals/:id detail page."""
+    """Shape consumed by /signals/:id detail page.
 
-    facts: list[FactOut] = []
-    sources: list[SourceOut] = []
+    Inherits all card fields and overrides `facts` + `sources` with the
+    enriched content from LlmAnalysis + EventNewsLink chain.
+    """
 
 
 class SignalListOut(BaseModel):

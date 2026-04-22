@@ -3,6 +3,29 @@ import { readAuth, writeAuth, type AuthState } from "@/lib/trial"
 import { AUTH_CHANGED_EVENT, STORAGE_KEYS } from "@/lib/storageKeys"
 import { fetchMe, hasToken, type MeResponse } from "@/lib/api/auth"
 
+/** Module-level in-flight promise + last-fetch timestamp so multiple
+ *  components calling useAuth() share a single /auth/me round-trip.
+ *  Without this, every consumer fires its own fetch on mount → the rate
+ *  limiter triggers on pages that mount 10+ useAuth users. */
+let mePromise: Promise<MeResponse | null> | null = null
+let lastFetchedAt = 0
+const ME_FETCH_DEDUP_MS = 30_000 // don't re-hit /auth/me more than once per 30s
+
+function getMeDeduped(): Promise<MeResponse | null> {
+  if (mePromise) return mePromise
+  const now = Date.now()
+  if (now - lastFetchedAt < ME_FETCH_DEDUP_MS) {
+    return Promise.resolve(null)
+  }
+  mePromise = fetchMe().finally(() => {
+    lastFetchedAt = Date.now()
+    // Null out after the promise settles so the next call outside the
+    // dedup window can kick off a fresh request.
+    mePromise = null
+  })
+  return mePromise
+}
+
 /**
  * Reactive auth accessor. The ONLY React component-level interface to the
  * authoritative `foresight.auth` blob. Every consumer that needs live auth
@@ -55,11 +78,13 @@ export function useAuth(): AuthState | null {
   // Hydrate from /auth/me at mount. This is what keeps the localStorage
   // AuthState blob aligned with the backend (plan flips, trial expiry,
   // stripe confirmation). Fire-and-forget; errors are swallowed in
-  // fetchMe() for 401s so a stale token self-heals.
+  // fetchMe() for 401s so a stale token self-heals. The call is
+  // deduplicated at the module level so multiple useAuth consumers
+  // don't each trigger their own round-trip.
   useEffect(() => {
     if (!hasToken()) return
     let cancelled = false
-    void fetchMe().then((me) => {
+    void getMeDeduped().then((me) => {
       if (cancelled || !me) return
       writeAuth(meToAuthState(me))
     })

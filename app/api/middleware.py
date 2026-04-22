@@ -12,7 +12,12 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 RATE_LIMIT_WINDOW = 60
-RATE_LIMIT_MAX_REQUESTS = 120
+# Raised from 120 -> 600 req/min: a V2 SPA session fans out to ~15 hooks
+# at mount (signals, quota, me, portfolio, performance, agents…), each
+# subscribing to AUTH_CHANGED_EVENT. A conservative upper bound needs to
+# absorb the login burst + background refetches without tripping the
+# limiter in dev. Re-tune once we move to per-user accounting.
+RATE_LIMIT_MAX_REQUESTS = 600
 PUBLIC_PATHS = {"/api/health", "/docs", "/openapi.json", "/ws/signals"}
 PUBLIC_PREFIXES = ("/api/analytics/track-record",)
 
