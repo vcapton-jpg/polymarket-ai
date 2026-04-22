@@ -195,7 +195,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
   }, [])
 
   const isFreePlan = useIsFreePlan()
-  const { walletConnected } = useWalletSetup()
+  const { walletConnected, step: walletStep, error: walletError, startSetup } = useWalletSetup()
   const [showWalletModal, setShowWalletModal] = useState(false)
 
   /** Extract the `market_id` path segment from a Polymarket URL so the
@@ -632,6 +632,9 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
         open={showWalletModal}
         onSuccess={() => setShowWalletModal(false)}
         onClose={() => setShowWalletModal(false)}
+        step={walletStep}
+        error={walletError}
+        startSetup={startSetup}
       />
     </motion.form>
   )

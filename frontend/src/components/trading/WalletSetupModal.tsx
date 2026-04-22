@@ -2,13 +2,17 @@ import { useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { CheckCircle, Loader2, Wallet, X } from "lucide-react"
 import { Button } from "@/components/ui/Button"
-import { useWalletSetup } from "@/hooks/useWalletSetup"
+import type { SetupStep } from "@/hooks/useWalletSetup"
 import { cn } from "@/lib/utils"
 
 type Props = {
   open: boolean
   onSuccess: () => void
   onClose: () => void
+  // Wallet setup state passed from parent
+  step: SetupStep
+  error: string | null
+  startSetup: () => Promise<void>
 }
 
 const STEPS = [
@@ -19,8 +23,7 @@ const STEPS = [
 
 const STEP_ORDER = ["idle", "connecting_wallet", "deploying_safe", "done", "error"] as const
 
-export function WalletSetupModal({ open, onSuccess, onClose }: Props) {
-  const { step, error, startSetup } = useWalletSetup()
+export function WalletSetupModal({ open, onSuccess, onClose, step, error, startSetup }: Props) {
 
   useEffect(() => {
     if (step === "done") {

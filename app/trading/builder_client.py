@@ -97,6 +97,8 @@ class BuilderTradeClient:
             tick_size: Price granularity ('0.1', '0.01', '0.001', '0.0001').
             neg_risk: Whether this is a neg-risk market.
         """
+        if not self._safe_address:
+            raise ValueError("Cannot place orders without a user Safe address")
         client = self._get_client()
 
         order_args = OrderArgsV2(
@@ -141,6 +143,8 @@ class BuilderTradeClient:
             tick_size: Price granularity.
             neg_risk: Whether this is a neg-risk market.
         """
+        if not self._safe_address:
+            raise ValueError("Cannot place orders without a user Safe address")
         client = self._get_client()
 
         order_args = MarketOrderArgsV2(

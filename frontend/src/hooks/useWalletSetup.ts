@@ -4,7 +4,7 @@ import { injected } from "wagmi/connectors"
 import { getWalletStatus, connectWallet, type WalletStatus } from "@/lib/api/wallet"
 import { hasToken } from "@/lib/api/auth"
 
-type SetupStep = "idle" | "connecting_wallet" | "deploying_safe" | "done" | "error"
+export type SetupStep = "idle" | "connecting_wallet" | "deploying_safe" | "done" | "error"
 
 type UseWalletSetupReturn = {
   walletConnected: boolean
