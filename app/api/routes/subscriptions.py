@@ -1,7 +1,7 @@
 """Subscription management routes — Stripe integration."""
 
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -15,6 +15,13 @@ from app.api.routes.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
+
+
+class CheckoutRequest(BaseModel):
+    """POST /subscriptions/checkout body. Matches V2 Pricing.tsx CTA."""
+
+    plan: Literal["pro", "trader"]
+    cycle: Literal["monthly", "annual"] = "monthly"
 
 
 PLANS = {
@@ -65,29 +72,41 @@ async def get_plans():
 
 
 @router.get("/current")
-async def get_current_plan(db: AsyncSession = Depends(get_db_session)):
-    result = await db.execute(select(UserProfile).limit(1))
-    user = result.scalar_one_or_none()
-    plan = user.plan if user else "free"
+async def get_current_plan(
+    user: UserProfile = Depends(get_current_user),
+):
+    """Authenticated plan lookup. The Pricing + Settings pages both call
+    this to decide which CTA to show; the response is authoritative.
+    """
+    plan = user.plan if user.plan in PLANS else "free"
     return {
         "plan": plan,
+        "trial_ends_at": user.trial_ends_at.isoformat() if user.trial_ends_at else None,
+        "card_attached": bool(user.card_attached),
         "details": PLANS.get(plan, PLANS["free"]),
     }
 
 
 @router.post("/checkout")
 async def create_checkout(
-    plan: str,
+    body: CheckoutRequest,
     user: UserProfile = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
+    """Create a Stripe Checkout session for the authenticated user.
+
+    STRIPE_MODE=test (dev default) still requires STRIPE_SECRET_KEY; when
+    unset we surface a 503 so the client can fall back to a friendly UX
+    instead of a silent browser popup.
+    """
     settings = get_settings()
     if not settings.stripe_secret_key:
-        raise HTTPException(status_code=503, detail="Stripe not configured")
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe not configured. Set STRIPE_SECRET_KEY and STRIPE_PRICE_* to enable checkout.",
+        )
 
-    if plan not in ("pro", "trader"):
-        raise HTTPException(status_code=400, detail="Invalid plan")
-
+    plan = body.plan
     import stripe
     stripe.api_key = settings.stripe_secret_key
 
@@ -114,7 +133,11 @@ async def create_checkout(
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=f"{base_url}/settings?checkout=success",
         cancel_url=f"{base_url}/pricing",
-        metadata={"user_id": str(user.id), "plan": plan},
+        metadata={
+            "user_id": str(user.id),
+            "plan": plan,
+            "cycle": body.cycle,
+        },
         allow_promotion_codes=True,
     )
 
@@ -122,8 +145,14 @@ async def create_checkout(
 
 
 @router.post("/portal")
-async def create_portal(db: AsyncSession = Depends(get_db_session)):
-    """Create a Stripe Customer Portal session for managing subscriptions."""
+async def create_portal(
+    user: UserProfile = Depends(get_current_user),
+):
+    """Create a Stripe Customer Portal session for managing subscriptions.
+
+    Requires the authenticated user to already have a Stripe customer
+    record (i.e. completed at least one checkout).
+    """
     settings = get_settings()
     if not settings.stripe_secret_key:
         raise HTTPException(status_code=503, detail="Stripe not configured")
@@ -131,9 +160,7 @@ async def create_portal(db: AsyncSession = Depends(get_db_session)):
     import stripe
     stripe.api_key = settings.stripe_secret_key
 
-    result = await db.execute(select(UserProfile).limit(1))
-    user = result.scalar_one_or_none()
-    if not user or not user.stripe_customer_id:
+    if not user.stripe_customer_id:
         raise HTTPException(status_code=400, detail="No active subscription")
 
     base_url = settings.app_base_url
@@ -171,8 +198,13 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db_ses
             user.plan = plan
             user.stripe_customer_id = session.get("customer")
             user.stripe_subscription_id = session.get("subscription")
+            # A completed checkout means the card is attached — the trial
+            # countdown becomes moot, so we clear it. useAuth() picks
+            # this up on the next /auth/me call.
+            user.card_attached = True
+            user.trial_ends_at = None
             await db.commit()
-            logger.info("User %d upgraded to %s", user_id, plan)
+            logger.info("User %d upgraded to %s (card attached)", user_id, plan)
 
     elif event["type"] == "customer.subscription.updated":
         sub = event["data"]["object"]

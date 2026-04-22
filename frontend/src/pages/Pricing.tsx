@@ -8,6 +8,8 @@ import { Footer } from "@/components/layout/Footer"
 import { Button } from "@/components/ui/Button"
 import { PoweredByPolymarket } from "@/components/signals/PoweredByPolymarket"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/useAuth"
+import { safeStartCheckout, type PlanKey } from "@/lib/api/subscriptions"
 
 const PRICING_CYCLE_KEY = "foresight.pricing_cycle"
 
@@ -135,7 +137,12 @@ export default function Pricing() {
 
           <div className="mt-14 grid gap-5 md:grid-cols-3">
             {PLANS.map((plan, i) => (
-              <PricingCard key={plan.name} plan={plan} index={i} annual={annual} />
+              <PricingCard
+                key={plan.name}
+                plan={plan}
+                index={i}
+                annual={annual}
+              />
             ))}
           </div>
 
@@ -215,9 +222,43 @@ function BillingToggle({
   )
 }
 
-function PricingCard({ plan, index, annual }: { plan: Plan; index: number; annual: boolean }) {
+function PricingCard({
+  plan,
+  index,
+  annual,
+}: {
+  plan: Plan
+  index: number
+  annual: boolean
+}) {
+  const auth = useAuth()
   const price = annual ? plan.annual : plan.monthly
   const cadence = annual ? (price === 0 ? "toujours" : "/ an") : price === 0 ? "toujours" : "/ mois"
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const isUpgradePlan = plan.name === "Pro" || plan.name === "API"
+  const planKey: PlanKey | null = isUpgradePlan
+    ? plan.name === "Pro"
+      ? "pro"
+      : null /* API plan is mailto-only, not Stripe */
+    : null
+  // Authenticated + this plan is a paid one we know how to checkout → skip
+  // the /signup path and go straight to Stripe.
+  const useStripeCheckout = !!auth && planKey !== null
+
+  async function handleStripeCheckout() {
+    if (!planKey) return
+    setSubmitting(true)
+    setCheckoutError(null)
+    const res = await safeStartCheckout(planKey, annual ? "annual" : "monthly")
+    if ("url" in res) {
+      window.location.assign(res.url)
+    } else {
+      setCheckoutError(res.error)
+      setSubmitting(false)
+    }
+  }
 
   return (
     <motion.div
@@ -282,8 +323,21 @@ function PricingCard({ plan, index, annual }: { plan: Plan; index: number; annua
 
       {/* External targets (mailto:, http*) must render as <a> — react-router's
           Link would try to treat them as internal paths. Internal routes
-          continue to use <Link> for SPA navigation. */}
-      {/^(mailto:|https?:\/\/)/.test(plan.cta.to) ? (
+          continue to use <Link> for SPA navigation.
+          Authenticated users on a paid plan skip /signup entirely and
+          submit a Stripe Checkout session right here. */}
+      {useStripeCheckout ? (
+        <Button
+          variant={plan.cta.variant}
+          size="lg"
+          className="w-full"
+          onClick={handleStripeCheckout}
+          disabled={submitting}
+        >
+          {submitting ? "Redirection…" : plan.cta.label}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+      ) : /^(mailto:|https?:\/\/)/.test(plan.cta.to) ? (
         <a href={plan.cta.to} className="block">
           <Button variant={plan.cta.variant} size="lg" className="w-full">
             {plan.cta.label}
@@ -297,6 +351,15 @@ function PricingCard({ plan, index, annual }: { plan: Plan; index: number; annua
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </Link>
+      )}
+
+      {checkoutError && (
+        <p
+          role="alert"
+          className="mt-2 text-center text-body-sm text-signal-no"
+        >
+          {checkoutError}
+        </p>
       )}
 
       {plan.highlighted && (
