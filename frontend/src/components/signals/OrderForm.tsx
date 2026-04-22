@@ -28,6 +28,8 @@ import {
 import { placeTrade } from "@/lib/api/trading"
 import { useIsFreePlan } from "@/hooks/useAuth"
 import { hasToken } from "@/lib/api/auth"
+import { useWalletSetup } from "@/hooks/useWalletSetup"
+import { WalletSetupModal } from "@/components/trading/WalletSetupModal"
 
 type Direction = "YES" | "NO"
 const DIRECTIONS: readonly Direction[] = ["YES", "NO"] as const
@@ -193,6 +195,8 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
   }, [])
 
   const isFreePlan = useIsFreePlan()
+  const { walletConnected } = useWalletSetup()
+  const [showWalletModal, setShowWalletModal] = useState(false)
 
   /** Extract the `market_id` path segment from a Polymarket URL so the
    *  trade request can reach the right CLOB market. URL shape is
@@ -206,6 +210,11 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     e.preventDefault()
     setTouched(true)
     if (!amountValid) return
+
+    if (!walletConnected) {
+      setShowWalletModal(true)
+      return
+    }
 
     // Free plan guard: Score 90+ signals are Pro-only. Send users with
     // a reachable /signup flow to /pricing instead of the Stripe path.
@@ -619,6 +628,11 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
           <PoweredByPolymarket size="xs" />
         </div>
       </div>
+      <WalletSetupModal
+        open={showWalletModal}
+        onSuccess={() => setShowWalletModal(false)}
+        onClose={() => setShowWalletModal(false)}
+      />
     </motion.form>
   )
 }
