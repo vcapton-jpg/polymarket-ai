@@ -116,6 +116,11 @@ if settings.x_scraper_inbox_interval_seconds > 0:
         "options": {"queue": "ingestion"},
     }
 
+_beat_schedule["poll-order-fills"] = {
+    "task": "app.workers.tasks_trading.poll_order_fills",
+    "schedule": 60,
+    "options": {"queue": "trading"},
+}
 _beat_schedule["sync-positions"] = {
     "task": "app.workers.tasks_trading.sync_positions",
     "schedule": 300,

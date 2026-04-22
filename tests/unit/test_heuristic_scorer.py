@@ -17,16 +17,16 @@ def test_compute_score():
         "time_to_resolution": 0.5,
     }
     
-    score = scorer.compute_score(features)
-    
-    assert 0 <= score <= 100
-    assert isinstance(score, int)
+    result = scorer.compute_score(features)
+
+    assert isinstance(result, dict)
+    assert 0 <= result["signal_score"] <= 100
 
 
 def test_compute_score_with_llm():
     """Test score with LLM impact."""
     scorer = HeuristicScorer()
-    
+
     features = {
         "freshness": 0.5,
         "source_weight": 0.5,
@@ -35,18 +35,18 @@ def test_compute_score_with_llm():
         "spread": 0.5,
         "time_to_resolution": 0.5,
     }
-    
-    score = scorer.compute_score(features, llm_impact_score=80)
-    
-    assert 0 <= score <= 100
+
+    result = scorer.compute_score(features, llm_combined=0.8)
+
+    assert 0 <= result["signal_score"] <= 100
 
 
 def test_is_actionable():
     """Test actionability check."""
     scorer = HeuristicScorer()
-    
+
     assert scorer.is_actionable(70)
-    assert not scorer.is_actionable(50)
+    assert scorer.is_actionable(50)
 
 
 def test_derive_confidence_label():

@@ -59,6 +59,66 @@ async def _sync_positions_async():
         return {"status": "ok", "updated": updated, "total": len(positions)}
 
 
+@celery_app.task(name="app.workers.tasks_trading.poll_order_fills")
+def poll_order_fills():
+    """Poll Polymarket for submitted orders and mark filled ones, then create positions."""
+    return run_async(_poll_order_fills_async())
+
+
+async def _poll_order_fills_async():
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.db.database import get_async_session
+    from app.db.models import Order, Portfolio
+    from app.trading.builder_client import get_trade_client
+    from app.trading.position_tracker import sync_positions_from_orders
+
+    async with get_async_session() as db:
+        result = await db.execute(select(Portfolio).limit(1))
+        portfolio = result.scalar_one_or_none()
+        if not portfolio:
+            return {"status": "no_portfolio"}
+
+        submitted = await db.execute(
+            select(Order).where(
+                Order.portfolio_id == portfolio.id,
+                Order.status == "submitted",
+                Order.polymarket_order_id.isnot(None),
+            )
+        )
+        orders = submitted.scalars().all()
+        if not orders:
+            return {"status": "no_submitted_orders"}
+
+        client = get_trade_client()
+        filled_count = 0
+        for order in orders:
+            try:
+                data = await client.get_order(order.polymarket_order_id)
+                if not data:
+                    continue
+                status = (data.get("status") or "").upper()
+                # MATCHED = fully filled, PARTIALLY_FILLED = partial
+                if status in ("MATCHED", "FILLED"):
+                    order.status = "filled"
+                    order.filled_at = datetime.now(timezone.utc)
+                    order.filled_price = float(data.get("price") or order.price)
+                    order.filled_size = float(data.get("size_matched") or data.get("size") or order.size)
+                    filled_count += 1
+                elif status in ("CANCELLED", "CANCELED"):
+                    order.status = "cancelled"
+            except Exception as e:
+                logger.warning("poll_order_fills error for %s: %s", order.polymarket_order_id, e)
+
+        if filled_count > 0:
+            await db.flush()
+            await sync_positions_from_orders(db, portfolio.id)
+
+        await db.commit()
+        logger.info("poll_order_fills: %d/%d filled", filled_count, len(orders))
+        return {"status": "ok", "filled": filled_count, "checked": len(orders)}
+
+
 @celery_app.task(name="app.workers.tasks_trading.check_risk_alerts")
 def check_risk_alerts():
     """Run risk manager checks on open positions."""
