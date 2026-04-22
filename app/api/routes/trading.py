@@ -9,6 +9,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.routes.auth import get_current_user
 from app.db.database import get_db_session
 from app.db.models import Market, Order, Portfolio, Position, UserProfile
 
@@ -90,8 +91,12 @@ async def _get_or_create_portfolio(db: AsyncSession) -> Portfolio:
 async def place_trade(
     req: TradeRequest,
     db: AsyncSession = Depends(get_db_session),
+    user: UserProfile = Depends(get_current_user),
 ):
     """Place a trade on Polymarket."""
+    if not user.polymarket_safe_address:
+        return TradeResponse(success=False, error="wallet_not_connected")
+
     portfolio = await _get_or_create_portfolio(db)
 
     market_result = await db.execute(select(Market).where(Market.market_id == req.market_id))
@@ -130,8 +135,8 @@ async def place_trade(
     db.add(order)
     await db.flush()
 
-    from app.trading.builder_client import get_trade_client
-    client = get_trade_client()
+    from app.trading.builder_client import BuilderTradeClient
+    client = BuilderTradeClient(user.polymarket_safe_address)
 
     try:
         if req.price:
