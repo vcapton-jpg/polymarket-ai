@@ -39,6 +39,23 @@ export type SignalSource = {
   role: "primary" | "supporting"
 }
 
+/**
+ * Post-resolution learning card for a signal. Populated by the backend once
+ * the underlying Polymarket market settles (or the window expires). The
+ * frontend renders it on `/signals/:id/outcome` so users can compare the
+ * original call to what actually happened, with a one-line lesson.
+ *
+ * `directionCorrect === null` means the market hasn't resolved yet;
+ * `finalPrice`/`basePrice`/`movePct` may be null when unavailable.
+ */
+export type SignalOutcome = {
+  directionCorrect: boolean | null
+  finalPrice: number | null
+  basePrice: number | null
+  movePct: number | null
+  learningPoint: string
+}
+
 export type TimelineEvent = {
   at: string
   source: string
@@ -73,6 +90,8 @@ export type Signal = {
   sourceTierMix?: Record<string, number> | null
   detailedSources?: SignalSource[]
   timeline?: TimelineEvent[]
+  /** Post-resolution learning card. Backend populates once resolved. */
+  outcome?: SignalOutcome | null
 }
 
 export type UserProfile = {

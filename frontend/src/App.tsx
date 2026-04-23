@@ -8,6 +8,7 @@ import { STORAGE_KEYS } from "./lib/storageKeys"
 const Homepage = lazy(() => import("./pages/Homepage"))
 const Signals = lazy(() => import("./pages/Signals"))
 const SignalDetail = lazy(() => import("./pages/SignalDetail"))
+const SignalOutcome = lazy(() => import("./pages/SignalOutcome"))
 const Portfolio = lazy(() => import("./pages/Portfolio"))
 const Performance = lazy(() => import("./pages/Performance"))
 const Apprendre = lazy(() => import("./pages/Apprendre"))
@@ -76,6 +77,7 @@ export default function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/signals" element={<RequireAuth><Signals /></RequireAuth>} />
               <Route path="/signals/:id" element={<RequireAuth><SignalDetail /></RequireAuth>} />
+              <Route path="/signals/:id/outcome" element={<RequireAuth><SignalOutcome /></RequireAuth>} />
               <Route path="/portfolio" element={<RequireAuth><Portfolio /></RequireAuth>} />
               <Route path="/performance" element={<RequireAuth><Performance /></RequireAuth>} />
               <Route path="/apprendre" element={<RequireAuth><Apprendre /></RequireAuth>} />
