@@ -303,3 +303,23 @@ def _safe_float(val):
         return float(val)
     except (ValueError, TypeError):
         return None
+
+
+# ── Task 8: Cooloff trigger hook ─────────────────────────────────────────
+from app.services.user_limits import register_trade_result  # noqa: E402
+
+
+async def register_user_outcome_for_signal(
+    user_id: int, won: bool, stake_eur: float
+) -> None:
+    """Call once per user who had a real position on a resolved signal.
+
+    Delegates to the UserLimits service to update consecutive_losses and
+    trigger cooloff when the 3-loss threshold is hit.
+
+    NOTE: wiring from ``check_resolved_markets()`` to this hook is deferred
+    until the positions→signal mapping is in place (see plan Task 13 and the
+    comment in the plan's Task 8 step 3). This function is already safe to
+    call once that mapping lands.
+    """
+    await register_trade_result(user_id=user_id, won=won, stake_eur=stake_eur)
