@@ -14,7 +14,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 
 from app.api.deps.admin import require_admin
-from app.api.schemas.admin_metrics import VariantAggregate, VariantsResponse
+from app.api.schemas.admin_metrics import (
+    RollingPoint, RollingResponse, VariantAggregate, VariantsResponse,
+)
 from app.db.database import get_session_factory
 from app.db.models import SignalPrediction
 from app.measurement.metrics import wilson_ci95
@@ -102,3 +104,61 @@ async def get_variants(
             as_of=now.isoformat(),
             variants=out,
         )
+
+
+@router.get("/variants/rolling", response_model=RollingResponse)
+async def get_rolling(
+    window: str = Query("30d"),
+    step: str = Query("1d"),
+    _admin=Depends(require_admin),
+) -> RollingResponse:
+    if step != "1d":
+        # YAGNI — only 1d step for now.
+        raise ValueError(f"unsupported step: {step!r}")
+
+    now = datetime.now(timezone.utc)
+    cutoff = _window_to_cutoff(window, now)
+
+    factory = get_session_factory()
+    async with factory() as s:
+        rows = (
+            await s.execute(
+                select(
+                    SignalPrediction.variant,
+                    SignalPrediction.resolved_at,
+                    SignalPrediction.direction_correct,
+                ).where(
+                    SignalPrediction.resolved_at >= cutoff,
+                    SignalPrediction.resolved_at.is_not(None),
+                    SignalPrediction.predicted_direction.is_not(None),
+                ).order_by(SignalPrediction.resolved_at)
+            )
+        ).all()
+
+    # Group events by variant, emit one point per day with end-of-day
+    # cumulative n + winrate.
+    by_variant: dict[str, list[tuple[datetime, bool]]] = {}
+    for v, ra, correct in rows:
+        by_variant.setdefault(v, []).append((ra, bool(correct)))
+
+    series: list[RollingPoint] = []
+    for v, events in by_variant.items():
+        events.sort(key=lambda t: t[0])
+        agg: dict[str, tuple[int, int]] = {}
+        n_run = 0
+        w_run = 0
+        for ra, correct in events:
+            n_run += 1
+            if correct:
+                w_run += 1
+            day = ra.date().isoformat()
+            agg[day] = (n_run, w_run)  # overwrite; final value = end-of-day cumulative
+        for day, (n_cum_d, w_cum_d) in sorted(agg.items()):
+            series.append(RollingPoint(
+                date=day,
+                variant=v,
+                n_cumulative=n_cum_d,
+                winrate_cumulative=(w_cum_d / n_cum_d) if n_cum_d else None,
+            ))
+
+    return RollingResponse(window=window, step=step, series=series)
