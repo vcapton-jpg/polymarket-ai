@@ -30,6 +30,20 @@ services:
       timeout: 5s
       retries: 5
 
+  rsshub:
+    image: diygod/rsshub:latest
+    container_name: foresight-rsshub
+    restart: unless-stopped
+    environment:
+      CACHE_TYPE: redis
+      REDIS_URL: redis://redis:6379/5
+      NODE_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "1200:1200"
+
   app:
     build: .
     container_name: foresight-app
