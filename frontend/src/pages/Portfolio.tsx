@@ -35,6 +35,14 @@ import { MOCK_PERFORMANCE } from "@/data/performance"
 import { useUserPreferences } from "@/lib/userPreferences"
 import { useManualPositions } from "@/lib/useManualPositions"
 import { useRemotePositions } from "@/hooks/useRemotePositions"
+import { useOnboardingStatus } from "@/hooks/useOnboarding"
+import { usePaperPortfolio } from "@/hooks/usePaperPortfolio"
+import { XPBadge } from "@/components/gamification/XPBadge"
+import {
+  computeBadges,
+  computeLevel,
+  computeXP,
+} from "@/lib/gamification"
 
 /** When `VITE_USE_MOCKS=1`, layer the bundled demo positions on top of
  *  whatever the API returns so the UI is never empty in showcase mode. */
@@ -77,6 +85,27 @@ export default function Portfolio() {
   const [nativePositions, setNativePositions] = useState<Position[]>([])
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const { data: remote, loading } = useRemotePositions()
+  const { data: onboardingStatus } = useOnboardingStatus()
+  const { data: paperPositions = [] } = usePaperPortfolio()
+
+  // Educational gamification — rewards learning (tutorial/quiz/outcome reads,
+  // paper practice), not profit. outcomeViews + realTrades are wired to 0
+  // today because their endpoints ship in a later task; the XP formula
+  // already accounts for them so the jump is expected, not surprising.
+  const xp = computeXP({
+    outcomeViews: 0,
+    paperTrades: paperPositions.length,
+    realTrades: 0,
+    tutorialDone: !!onboardingStatus?.tutorialDone,
+    quizPassed: !!onboardingStatus?.quizDone,
+  })
+  const level = computeLevel(xp)
+  const badges = computeBadges({
+    outcomeViews: 0,
+    paperTrades: paperPositions.length,
+    tutorialDone: !!onboardingStatus?.tutorialDone,
+    quizPassed: !!onboardingStatus?.quizDone,
+  })
   const { formatMoney } = useUserPreferences()
   const { positions: manualPositions } = useManualPositions()
   const location = useLocation()
@@ -243,6 +272,9 @@ export default function Portfolio() {
               <span className="num text-ink">{activePositions.length}</span> positions en cours ·{" "}
               <span className="num text-ink">{resolvedCount}</span> résolues
             </p>
+            <div className="mt-3">
+              <XPBadge xp={xp} level={level} />
+            </div>
           </div>
           {!isEmpty && (
             <div className="flex items-center gap-2">
@@ -287,6 +319,35 @@ export default function Portfolio() {
             formatMoney={formatMoney}
             onDismiss={() => setBannerPositionId(null)}
           />
+          {/* Section 0 — Badges (educational gamification). Earned
+              badges are full-opacity, unearned are muted so the set of
+              "things left to learn" is visible without feeling pushy. */}
+          <section aria-labelledby="badges-heading">
+            <h3
+              id="badges-heading"
+              className="mb-3 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim"
+            >
+              Badges
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {badges.map((b) => (
+                <div
+                  key={b.id}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs",
+                    b.earned
+                      ? "bg-signal-yes/10 text-signal-yes border border-signal-yes/30"
+                      : "bg-obsidian-850 text-ink-dim border border-line/60 opacity-60",
+                  )}
+                  title={b.earned ? "Obtenu" : "À débloquer"}
+                >
+                  <span aria-hidden="true">{b.icon}</span>
+                  <span>{b.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
           {/* Section 1 — KPIs */}
           <section>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
