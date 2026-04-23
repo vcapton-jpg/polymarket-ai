@@ -47,6 +47,10 @@ class SourceRegistry(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    news_items: Mapped[list["News"]] = relationship(
+        "News", back_populates="source"
+    )
+
 
 # ---------------------------------------------------------------------------
 # news  (raw articles — one row per URL)
@@ -75,7 +79,7 @@ class News(Base):
         index=True,
     )
     source: Mapped[Optional["SourceRegistry"]] = relationship(
-        "SourceRegistry", lazy="joined"
+        "SourceRegistry", back_populates="news_items", lazy="selectin"
     )
 
     clean: Mapped[Optional["NewsClean"]] = relationship(
@@ -661,3 +665,6 @@ class SignalPendingReasoning(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
+
+
+Index("ix_gdelt_events_raw_published_at", GdeltEventRaw.published_at.desc())
