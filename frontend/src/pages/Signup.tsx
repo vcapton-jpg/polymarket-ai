@@ -51,6 +51,8 @@ export default function Signup() {
   const [password, setPassword] = useState("")
   const [showPw, setShowPw] = useState(false)
   const [accept, setAccept] = useState(false)
+  const [age18, setAge18] = useState(false)
+  const [cguAccepted, setCguAccepted] = useState(false)
   const [showRiskDetails, setShowRiskDetails] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -91,7 +93,7 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password || !accept) return
+    if (!email || !password || !accept || !age18 || !cguAccepted) return
     setError(null)
     setLoading(true)
     // Normalise to the two plan states the backend understands.
@@ -360,6 +362,42 @@ export default function Signup() {
           </AnimatePresence>
         </div>
 
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={age18}
+            onChange={(e) => setAge18(e.target.checked)}
+            required
+            className={cn(
+              "mt-0.5 h-4 w-4 rounded border-line-strong bg-obsidian-800 text-brand-500",
+              "focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-0 cursor-pointer",
+            )}
+          />
+          <span className="text-body-sm leading-relaxed text-ink-muted">
+            {"J\u2019ai 18 ans ou plus. Les marchés prédictifs peuvent me faire perdre de l\u2019argent."}
+          </span>
+        </label>
+
+        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={cguAccepted}
+            onChange={(e) => setCguAccepted(e.target.checked)}
+            required
+            className={cn(
+              "mt-0.5 h-4 w-4 rounded border-line-strong bg-obsidian-800 text-brand-500",
+              "focus:ring-2 focus:ring-brand-500/30 focus:ring-offset-0 cursor-pointer",
+            )}
+          />
+          <span className="text-body-sm leading-relaxed text-ink-muted">
+            {"J\u2019accepte les "}
+            <a href="/cgu" target="_blank" className="underline">CGU</a>
+            {" et la "}
+            <a href="/risques" target="_blank" className="underline">politique de risque</a>
+            {"."}
+          </span>
+        </label>
+
         {error && (
           <p id="signup-error" role="alert" className="text-signal-no text-body-sm mb-2">
             {error}
@@ -371,7 +409,7 @@ export default function Signup() {
           variant="primary"
           size="lg"
           className="w-full mt-2"
-          disabled={loading || !email || !password || !accept}
+          disabled={loading || !email || !password || !accept || !age18 || !cguAccepted}
         >
           {loading ? (
             <>
