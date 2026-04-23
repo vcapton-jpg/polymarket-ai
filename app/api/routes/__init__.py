@@ -25,8 +25,10 @@ from app.api.schemas_v2 import (
     SignalCardOut,
     SignalDetailOut,
     SignalListOut,
+    SignalSourceOut,
 )
 from app.api.signal_mapper import (
+    build_detailed_sources,
     derive_direction,
     to_signal_card,
     to_signal_detail,
@@ -177,6 +179,27 @@ async def get_signal_detail(
     news_links = signal.event.news_links if signal.event else []
 
     return to_signal_detail(signal, analysis, news_links)
+
+
+@router.get("/signals/{signal_id}/sources", response_model=list[SignalSourceOut])
+async def get_signal_sources(
+    signal_id: int,
+    db: AsyncSession = Depends(get_db_session),
+):
+    query = (
+        select(Signal)
+        .options(
+            selectinload(Signal.event).selectinload(Event.news_links)
+            .selectinload(EventNewsLink.news_clean)
+            .selectinload(NewsClean.news),
+        )
+        .where(Signal.id == signal_id)
+    )
+    signal = (await db.execute(query)).scalar_one_or_none()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    news_links = signal.event.news_links if signal.event else []
+    return build_detailed_sources(news_links)
 
 
 # ── Markets ───────────────────────────────────────────────────────────
