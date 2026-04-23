@@ -150,6 +150,32 @@ class Settings(BaseSettings):
     x_scraper_processed_dir: str = Field(default="data/x_scraper_processed")
     x_scraper_inbox_interval_seconds: int = Field(default=120)
 
+    # ── Sourcing (chantier #2) ────────────────────────────────────────
+    sourcing_alpha: float = Field(
+        default=0.7,
+        description="Weight of cosine similarity in the composite article score.",
+    )
+    sourcing_beta: float = Field(
+        default=0.3,
+        description="Weight of recency decay in the composite article score.",
+    )
+    sourcing_recency_tau_hours: float = Field(
+        default=24.0,
+        description="Exponential-decay time constant (hours) for article recency.",
+    )
+    sourcing_pool_window_hours: int = Field(
+        default=72,
+        description="Hard cutoff for the candidate article pool, in hours.",
+    )
+    sourcing_top_k: int = Field(
+        default=5,
+        description="Number of articles re-ranked and fed to the shadow reasoning call.",
+    )
+    sourcing_shadow_enabled: bool = Field(
+        default=True,
+        description="Kill switch for the signal_v2_reranked Celery task.",
+    )
+
     # ── Application ───────────────────────────────────────────────────────
     app_name: str = "Foresight"
     app_version: str = "1.0.0"
