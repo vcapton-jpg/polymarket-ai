@@ -68,6 +68,15 @@ class News(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     ingestion_lag_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    source_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("sources_registry.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    source: Mapped[Optional["SourceRegistry"]] = relationship(
+        "SourceRegistry", lazy="joined"
+    )
 
     clean: Mapped[Optional["NewsClean"]] = relationship(
         back_populates="news", uselist=False, cascade="all, delete-orphan"
@@ -221,6 +230,8 @@ class EventNewsLink(Base):
     role: Mapped[str] = mapped_column(
         String(30), nullable=False, default="supporting"
     )
+    key_excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    relevance_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     event: Mapped["Event"] = relationship(back_populates="news_links")
     news_clean: Mapped["NewsClean"] = relationship(back_populates="event_links")
@@ -371,6 +382,9 @@ class Signal(Base):
     score_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     window_estimate: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     yes_probability_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    llm_model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    source_tier_mix: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -608,3 +622,42 @@ Index("ix_events_processing_status", Event.processing_status)
 Index("ix_events_bucket", Event.bucket)
 Index("ix_signals_created_at", Signal.created_at.desc())
 Index("ix_signals_score", Signal.signal_score.desc())
+
+
+# ---------------------------------------------------------------------------
+# gdelt_events_raw  (GDELT 2.0 DOC API staging)
+# ---------------------------------------------------------------------------
+class GdeltEventRaw(Base):
+    __tablename__ = "gdelt_events_raw"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    gdelt_event_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    published_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    actor1: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    actor2: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    event_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    tone: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+# ---------------------------------------------------------------------------
+# signals_pending_reasoning  (LLM 429 circuit-breaker staging)
+# ---------------------------------------------------------------------------
+class SignalPendingReasoning(Base):
+    __tablename__ = "signals_pending_reasoning"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    market_id: Mapped[str] = mapped_column(Text, nullable=False)
+    inputs: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
