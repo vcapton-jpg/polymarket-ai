@@ -25,52 +25,45 @@ type Plan = {
   highlighted?: boolean
 }
 
+/**
+ * Pivot L&T pricing: two consumer tiers (Free, Pro) aligned to the
+ * education-first positioning. Free unlocks paper trading + the
+ * onboarding loop; Pro raises real-money caps and opens the unlimited
+ * feed. The legacy API tier was dropped here — B2B integrations will
+ * ship via a dedicated contact flow once the consumer funnel is stable.
+ */
 const PLANS: Plan[] = [
   {
     name: "Free",
     monthly: 0,
     annual: 0,
-    tagline: "Pour découvrir la méthode.",
+    tagline: "Pour apprendre, sans risque.",
     features: [
-      "Accès au dashboard complet",
-      "5 signaux par jour",
-      "Livraison différée (15 min après détection)",
-      "Catégories\u00A0: 2 au choix",
-      "Pas d’alertes Telegram",
-      "Historique personnel\u00A0: 30 jours",
+      "Paper trading illimité",
+      "Tutoriel + quiz risque",
+      "Feed signaux (10/jour)",
+      "Outcome explainer après résolution",
+      "Budget hebdo max\u00A0: 20\u00A0€ réel",
+      "Mise max par trade\u00A0: 5\u00A0€",
     ],
-    cta: { label: "Commencer gratuitement", to: "/signup?plan=free", variant: "outline" },
+    cta: { label: "Commencer gratuit", to: "/signup?plan=free", variant: "outline" },
   },
   {
     name: "Pro",
-    monthly: 29,
-    annual: 290,
-    tagline: "Pour trader sérieusement.",
+    monthly: 9,
+    annual: 79,
+    tagline: "Pour trader sérieusement, avec des limites saines.",
     features: [
-      "Signaux illimités",
-      "Livraison temps réel (< 90 s après détection)",
-      "Toutes les catégories (6) débloquées",
-      "Alertes Telegram (entrée + sortie)",
-      "Sizing adapté à ton profil",
-      "Historique personnel complet",
-      "Analytics de performance",
+      "Tout le Free",
+      "Feed illimité (temps réel)",
+      "Analytics avancés (winrate, baselines, edges)",
+      "Alertes push temps réel",
+      "Budget hebdo max\u00A0: 200\u00A0€ réel",
+      "Mise max par trade\u00A0: 50\u00A0€",
+      "Historique paper + réel exportable CSV",
     ],
-    cta: { label: "Essayer Pro 7\u00A0jours gratuits", to: "/signup?plan=pro", variant: "primary" },
+    cta: { label: "Passer Pro", to: "/signup?plan=pro", variant: "primary" },
     highlighted: true,
-  },
-  {
-    name: "API",
-    monthly: 99,
-    annual: 990,
-    tagline: "Pour intégrer dans ta stack.",
-    features: [
-      "Tout Pro",
-      "Accès API REST + Webhooks",
-      "Rate limit dédié",
-      "Slack integration",
-      "Support prioritaire",
-    ],
-    cta: { label: "Parler à l’équipe API", to: "mailto:contact@foresight.app", variant: "secondary" },
   },
 ]
 
@@ -135,7 +128,7 @@ export default function Pricing() {
             </div>
           </motion.div>
 
-          <div className="mt-14 grid gap-5 md:grid-cols-3">
+          <div className="mt-14 grid gap-5 md:grid-cols-2 md:max-w-3xl md:mx-auto">
             {PLANS.map((plan, i) => (
               <PricingCard
                 key={plan.name}
