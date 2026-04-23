@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # Google Sign-In (OAuth 2.0 Web client ID — same value as VITE_GOOGLE_CLIENT_ID on frontend)
     google_client_id: Optional[str] = Field(default=None)
     signal_api_key: Optional[str] = Field(default=None)
+    # Comma-separated list of emails allowed to hit /api/admin/* endpoints.
+    # Not a role column — temporary until we need >1 permission tier.
+    admin_emails: str = Field(default="")
 
     # ── Push Notifications (VAPID) ────────────────────────────────────
     vapid_private_key: Optional[str] = Field(default=None)
