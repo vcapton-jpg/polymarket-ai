@@ -30,6 +30,7 @@ import type { Currency } from "@/lib/formatCurrency"
 import { MOCK_POSITIONS } from "@/data/positions"
 import { useManualPositions } from "@/lib/useManualPositions"
 import { OfflineBanner } from "@/components/layout/OfflineBanner"
+import { BudgetBar } from "@/components/layout/BudgetBar"
 import { ToastViewport } from "@/lib/useToasts"
 import { useVendreNotifications } from "@/lib/useVendreNotifications"
 import { cn } from "@/lib/utils"
@@ -388,6 +389,11 @@ export function AppShell({
             </button>
           </div>
         </header>
+
+        {/* Pivot L&T: sticky weekly-budget gauge under the header. Auto-
+            hides until /me/limits returns data (Task 23), so existing
+            users who never saw the pivot onboarding stay unaffected. */}
+        <BudgetBar />
 
         <main id="main" className={trialActive ? "pt-12" : undefined}>
           <div className="mx-auto w-full max-w-[1440px]">{children}</div>
