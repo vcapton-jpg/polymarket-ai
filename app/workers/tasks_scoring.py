@@ -681,3 +681,56 @@ async def _score_event_market_async(event, market, articles, *, analyzer=None):
                 await s.commit()
             return None
         raise
+
+
+async def _backfill_reasoning_async(limit: int = 50, *, analyzer=None) -> int:
+    from sqlalchemy import delete, select
+    from app.db.database import get_session_factory
+    from app.db.models import SignalPendingReasoning
+    from app.signal.signal_builder import build_signal
+    from app.llm.reasoning_analyzer import create_reasoning_analyzer
+
+    analyzer = analyzer or create_reasoning_analyzer()
+
+    session_factory = get_session_factory()
+    done = 0
+    async with session_factory() as s:
+        rows = (await s.execute(
+            select(SignalPendingReasoning).order_by(SignalPendingReasoning.created_at).limit(limit)
+        )).scalars().all()
+
+    for row in rows:
+        inputs = row.inputs or {}
+        try:
+            result = await build_signal(
+                event=inputs["event"],
+                market=inputs["market"],
+                articles=inputs["articles"],
+                analyzer=analyzer,
+                persist=True,
+            )
+        except Exception as e:
+            if _is_quota_error(e):
+                logger.warning("backfill_reasoning: quota still exceeded, stopping")
+                break
+            async with session_factory() as s2:
+                s2.add(row)
+                row.attempts = (row.attempts or 0) + 1
+                row.last_error = str(e)[:500]
+                await s2.commit()
+            continue
+
+        async with session_factory() as s2:
+            await s2.execute(
+                delete(SignalPendingReasoning).where(SignalPendingReasoning.id == row.id)
+            )
+            await s2.commit()
+        if result is not None:
+            done += 1
+    logger.info("backfill_reasoning: drained=%d", done)
+    return done
+
+
+@celery_app.task(name="app.workers.tasks_scoring.backfill_reasoning")
+def backfill_reasoning() -> int:
+    return _run_async(_backfill_reasoning_async())
