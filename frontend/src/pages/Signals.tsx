@@ -407,9 +407,11 @@ export default function Signals() {
               <>
                 <Divider />
 
-                {/* Score */}
+                {/* Catalyseur (score-based filter) — renamed from "Score"
+                    to reflect the L&T framing: the number measures how
+                    strong the news catalyst is, not a grade. */}
                 <div id="adv-filters-panel" className="flex items-center gap-1.5">
-                  <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Score</span>
+                  <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Catalyseur</span>
                   {SCORE_STEPS.map((s) => (
                     <FilterPill
                       key={s.value}
@@ -808,7 +810,7 @@ function MobileFiltersDrawer({
           </div>
 
           <div>
-            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Score minimum</p>
+            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Catalyseur minimum</p>
             <div className="flex flex-wrap gap-1.5">
               {SCORE_STEPS.map((s) => (
                 <FilterPill key={s.value} active={minScore === s.value} onClick={() => setMinScore(s.value)}>

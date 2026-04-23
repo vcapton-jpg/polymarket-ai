@@ -4,6 +4,7 @@ import { LayoutGroup } from "framer-motion"
 import { RequireAuth } from "./components/auth/RequireAuth"
 import { readAuth } from "./lib/trial"
 import { STORAGE_KEYS } from "./lib/storageKeys"
+import { useOnboardingStatus } from "./hooks/useOnboarding"
 
 const Homepage = lazy(() => import("./pages/Homepage"))
 const Signals = lazy(() => import("./pages/Signals"))
@@ -44,19 +45,48 @@ const ONBOARDING_EXEMPT_PATHS = new Set([
  * App-level guard: if the user is authenticated but hasn't finished (or
  * skipped) onboarding, force-redirect to /welcome. Runs on every route
  * transition; no-op on public/auth/onboarding routes.
+ *
+ * Pivot L&T adds a second layer for `/signals*` (and other gated app
+ * routes): consult `/onboarding/status` and redirect to the first
+ * missing gate (tutorial → quiz → budget) so partially-onboarded users
+ * can't skip to the real-trading UI. The server rejects the order
+ * anyway, but the gate gives a smoother UX than a 403.
  */
 function RequireOnboarding() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { data: status } = useOnboardingStatus()
 
   useEffect(() => {
     if (ONBOARDING_EXEMPT_PATHS.has(location.pathname)) return
     if (!readAuth()) return
+
+    // Legacy local-first gate: if the user never entered Welcome, push
+    // them there. Kept so the flow still works when /onboarding/status
+    // is unreachable (offline, backend down).
     const onboarding = localStorage.getItem(STORAGE_KEYS.onboarding)
     if (onboarding !== "done" && onboarding !== "skipped") {
       navigate("/welcome", { replace: true })
+      return
     }
-  }, [location.pathname, navigate])
+
+    // Server-authoritative gate for the app-level routes. Only kicks in
+    // when we actually have status data — undefined means the query
+    // hasn't resolved, and we'd rather let the page render than loop.
+    if (!status) return
+    const needsGate =
+      location.pathname.startsWith("/signals") ||
+      location.pathname.startsWith("/portfolio") ||
+      location.pathname.startsWith("/performance")
+    if (!needsGate) return
+    if (!status.tutorialDone) {
+      navigate("/welcome/tutorial", { replace: true })
+    } else if (!status.quizDone) {
+      navigate("/welcome/quiz", { replace: true })
+    } else if (!status.budgetDone) {
+      navigate("/welcome/budget", { replace: true })
+    }
+  }, [location.pathname, navigate, status])
 
   return null
 }

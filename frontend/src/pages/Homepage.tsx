@@ -76,36 +76,36 @@ function Hero() {
           </p>
 
           <h1 className="text-display-1 text-ink text-balance tracking-tight">
-            Sois le premier à transformer l’information en{" "}
+            Apprends à trader les événements du monde avec{" "}
             <span className="italic bg-gradient-to-r from-brand-300 via-brand-400 to-brand-500 bg-clip-text text-transparent">
-              opportunité
+              5&nbsp;€
             </span>
             .
           </h1>
 
           <p className="mx-auto mt-5 max-w-[680px] text-title-sm leading-[1.6] text-ink-muted md:text-title-md">
-            Foresight détecte les signaux sur Polymarket en 90 secondes — avant que le
-            marché ne les intègre. Basé sur les faits et l’historique.
+            Chaque signal = un cas d’étude en temps réel. Paper trading gratuit
+            pour t’entraîner. Trading réel quand tu es prêt — pas avant.
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/signup?plan=free&intent=feed">
+            <Link to="/signup?plan=free&intent=learn">
               <Button variant="primary" size="xl" className="w-full sm:w-auto">
-                Voir les signaux en direct
+                Commencer gratuit
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <a href="#how" className="w-full sm:w-auto">
+            <Link to="/signal-variants" className="w-full sm:w-auto">
               <Button variant="outline" size="xl" className="w-full">
-                Comment ça marche
+                Voir un exemple
               </Button>
-            </a>
+            </Link>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4 md:gap-6 text-body-sm text-ink-dim">
             <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-brand-400" />Pas de carte bancaire</span>
             <PoweredByPolymarket size="sm" />
-            <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-brand-400" />Accès immédiat</span>
+            <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-brand-400" />Paper trading illimité</span>
           </div>
         </motion.div>
 

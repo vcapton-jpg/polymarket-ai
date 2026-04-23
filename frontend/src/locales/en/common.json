@@ -141,7 +141,19 @@
     "count_plural": "",
     "none": "",
     "sortedBy": "",
-    "disclaimer": ""
+    "disclaimer": "",
+    "catalystStrength": "",
+    "watchOnPolymarket": ""
+  },
+  "onboarding": {
+    "tutorialTitle": "",
+    "quizTitle": "",
+    "budgetTitle": ""
+  },
+  "limits": {
+    "weeklyBudget": "",
+    "maxStake": "",
+    "cooloffActive": ""
   },
   "time": {
     "now": "",

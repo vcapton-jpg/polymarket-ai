@@ -141,7 +141,19 @@
     "count_plural": "{{count}} opportunités détectées",
     "none": "Aucun signal actif",
     "sortedBy": "Trié par {{sort}}",
-    "disclaimer": "Signal informatif — tu prends la décision finale."
+    "disclaimer": "Signal informatif — tu prends la décision finale.",
+    "catalystStrength": "Catalyseur",
+    "watchOnPolymarket": "Voir sur Polymarket"
+  },
+  "onboarding": {
+    "tutorialTitle": "Tutoriel — 5 scénarios",
+    "quizTitle": "Quiz risque",
+    "budgetTitle": "Définis tes limites"
+  },
+  "limits": {
+    "weeklyBudget": "Budget hebdo",
+    "maxStake": "Mise max",
+    "cooloffActive": "Pause active"
   },
   "time": {
     "now": "à l'instant",
