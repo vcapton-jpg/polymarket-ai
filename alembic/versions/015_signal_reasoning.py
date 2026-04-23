@@ -24,7 +24,7 @@ def upgrade() -> None:
         "signals_pending_reasoning",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("event_id", sa.Integer(), nullable=False),
-        sa.Column("market_id", sa.String(length=128), nullable=False),
+        sa.Column("market_id", sa.Text(), nullable=False),
         sa.Column("inputs", postgresql.JSONB(), nullable=False),
         sa.Column("attempts", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("last_error", sa.Text(), nullable=True),

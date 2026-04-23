@@ -17,7 +17,12 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "news",
-        sa.Column("source_id", sa.Integer(), sa.ForeignKey("sources_registry.id"), nullable=True),
+        sa.Column(
+            "source_id",
+            sa.Integer(),
+            sa.ForeignKey("sources_registry.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
     )
     op.create_index("ix_news_source_id", "news", ["source_id"])
     op.execute(

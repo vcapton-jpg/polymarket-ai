@@ -1,22 +1,13 @@
 """Migration 014 — news.source_id backfill coverage."""
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
-from app.core.config import get_settings
-
-
-def _make_session():
-    """Create a fresh async session (new engine) to avoid event-loop conflicts."""
-    settings = get_settings()
-    engine = create_async_engine(settings.database_url, echo=False)
-    return sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+from app.db.database import async_session_factory
 
 
 @pytest.mark.asyncio
 async def test_news_source_id_column_exists_after_upgrade():
-    async with _make_session()() as s:
+    async with async_session_factory() as s:
         rows = (await s.execute(text(
             "SELECT column_name FROM information_schema.columns "
             "WHERE table_name='news' AND column_name='source_id'"
@@ -26,7 +17,7 @@ async def test_news_source_id_column_exists_after_upgrade():
 
 @pytest.mark.asyncio
 async def test_news_source_id_index_exists():
-    async with _make_session()() as s:
+    async with async_session_factory() as s:
         rows = (await s.execute(text(
             "SELECT indexname FROM pg_indexes "
             "WHERE tablename='news' AND indexname='ix_news_source_id'"
@@ -36,7 +27,7 @@ async def test_news_source_id_index_exists():
 
 @pytest.mark.asyncio
 async def test_news_source_id_backfill_coverage():
-    async with _make_session()() as s:
+    async with async_session_factory() as s:
         total = (await s.execute(text(
             "SELECT COUNT(*) FROM news n "
             "JOIN sources_registry sr ON n.source_name = sr.source_name"
