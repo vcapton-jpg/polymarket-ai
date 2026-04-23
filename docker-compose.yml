@@ -70,6 +70,8 @@ services:
       - ./app:/app/app
       - ./prompts:/app/prompts
       - ./alembic:/app/alembic
+      - ./tests:/app/tests
+      - ./pyproject.toml:/app/pyproject.toml
 
   # ── Worker: ingestion (RSS, World News, X-scraper inbox) ─────────
   worker-ingestion:
