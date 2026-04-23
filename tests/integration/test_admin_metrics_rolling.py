@@ -38,6 +38,9 @@ async def test_rolling_returns_per_day_series(
         await s_pre.execute(delete(Market).where(Market.market_id == "0xroll"))
         await s_pre.commit()
 
+    # Use a unique variant name so production "signal" rows in the live DB
+    # don't pollute the cumulative-count assertions.
+    V_ROLL = "test_v12_rolling"
     try:
         async with async_db_factory() as s:
             s.add(Market(market_id="0xroll", question="q", active=True))
@@ -51,7 +54,7 @@ async def test_rolling_returns_per_day_series(
                 s.add(sig)
                 await s.flush()
                 s.add(SignalPrediction(
-                    signal_id=sig.id, variant="signal",
+                    signal_id=sig.id, variant=V_ROLL,
                     predicted_direction="BUY_YES", predicted_probability=0.7,
                     direction_correct=True,
                     created_at=now - timedelta(days=d),
@@ -68,7 +71,7 @@ async def test_rolling_returns_per_day_series(
         assert r.status_code == 200, r.text
         body = r.json()
         series = body["series"]
-        sig_pts = [p for p in series if p["variant"] == "signal"]
+        sig_pts = [p for p in series if p["variant"] == V_ROLL]
         assert len(sig_pts) >= 3
         ns = [p["n_cumulative"] for p in sig_pts]
         assert ns == sorted(ns)

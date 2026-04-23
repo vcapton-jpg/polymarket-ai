@@ -54,6 +54,11 @@ async def test_variants_endpoint_returns_aggregates(
         await s_pre.execute(delete(Signal).where(Signal.event_id == 301))
         await s_pre.execute(delete(Event).where(Event.id == 301))
         await s_pre.commit()
+    # Use unique variant names so real signal data in the live DB (from the
+    # production hook writing "signal" + "baseline_*" rows on every new signal)
+    # doesn't pollute this test's aggregate assertions.
+    V_SIG = "test_v11_signal"
+    V_BASE = "test_v11_baseline_market_price"
     try:
         async with async_db_factory() as s:
             s.add(Market(market_id="0xadm", question="q", active=True))
@@ -67,14 +72,14 @@ async def test_variants_endpoint_returns_aggregates(
                 s.add(sig)
                 await s.flush()
                 s.add(SignalPrediction(
-                    signal_id=sig.id, variant="signal",
+                    signal_id=sig.id, variant=V_SIG,
                     predicted_direction="BUY_YES", predicted_probability=0.7,
                     direction_correct=(i < 7), brier_score=(0.3 if i < 7 else 0.49),
                     simulated_pnl_eur=(3.0 if i < 7 else -6.0),
                     resolved_at=now - timedelta(days=1),
                 ))
                 s.add(SignalPrediction(
-                    signal_id=sig.id, variant="baseline_market_price",
+                    signal_id=sig.id, variant=V_BASE,
                     predicted_direction="BUY_YES", predicted_probability=0.6,
                     direction_correct=(i < 5), brier_score=(0.16 if i < 5 else 0.36),
                     simulated_pnl_eur=(4.0 if i < 5 else -6.0),
@@ -90,10 +95,10 @@ async def test_variants_endpoint_returns_aggregates(
         body = r.json()
         assert body["window"] == "30d"
         variants = {v["variant"]: v for v in body["variants"]}
-        assert "signal" in variants
-        assert "baseline_market_price" in variants
+        assert V_SIG in variants
+        assert V_BASE in variants
 
-        sig_v = variants["signal"]
+        sig_v = variants[V_SIG]
         assert sig_v["n"] == 10
         assert sig_v["winrate"] == pytest.approx(0.7, abs=1e-4)
         assert 0.0 <= sig_v["winrate_ci95_low"] <= sig_v["winrate"] <= sig_v["winrate_ci95_high"] <= 1.0
