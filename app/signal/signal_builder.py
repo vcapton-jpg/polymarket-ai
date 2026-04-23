@@ -341,6 +341,12 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
         )
         return
 
+    import app.measurement  # noqa: F401  (side-effect: registers baselines)
+    from datetime import datetime, timezone
+    from app.measurement.pipeline import record_baselines, schedule_shadow_variants
+    from app.measurement.scoring_context import build_scoring_context
+    from app.measurement.variant_registry import get_registry
+
     session_factory = get_session_factory()
     async with session_factory() as s:
         sig = Signal(
@@ -354,6 +360,8 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
             source_tier_mix=assembled["source_tier_mix"],
         )
         s.add(sig)
+        await s.flush()  # populate sig.id for the measurement FK
+
         for exc in assembled["article_excerpts"]:
             result = await s.execute(
                 update(EventNewsLink)
@@ -368,4 +376,25 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
                     "persist_signal: no EventNewsLink matched event_id=%s clean_id=%s — excerpt dropped",
                     assembled["event_id"], exc["news_clean_id"],
                 )
+
+        ctx = await build_scoring_context(
+            signal_id=sig.id,
+            market_id=sig.market_id,
+            event_id=sig.event_id,
+            market_price=float(sig.market_price_at_signal or 0.0),
+            articles=articles,
+            t0=datetime.now(timezone.utc),
+            market_price_24h_ago=None,  # wired by a future chantier
+        )
+        try:
+            await record_baselines(
+                s, signal_id=sig.id, ctx=ctx, registry=get_registry()
+            )
+        except Exception:
+            logger.exception(
+                "measurement.record_baselines failed signal_id=%s — skipping; signal itself will still commit",
+                sig.id,
+            )
         await s.commit()
+
+    schedule_shadow_variants(sig.id)  # stub for chantier #3
