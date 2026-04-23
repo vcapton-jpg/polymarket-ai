@@ -425,6 +425,36 @@ class SignalOutcome(Base):
 
 
 # ---------------------------------------------------------------------------
+# signal_predictions  (one row per signal × variant — measurement layer)
+# ---------------------------------------------------------------------------
+class SignalPrediction(Base):
+    __tablename__ = "signal_predictions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    signal_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("signals.id", ondelete="CASCADE"), nullable=False
+    )
+    variant: Mapped[str] = mapped_column(Text, nullable=False)
+    predicted_direction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    predicted_probability: Mapped[Optional[float]] = mapped_column(
+        Numeric(5, 4), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    direction_correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    brier_score: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
+    simulated_pnl_eur: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("signal_id", "variant", name="uq_signal_predictions_signal_variant"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # user_profiles
 # ---------------------------------------------------------------------------
 class UserProfile(Base):
