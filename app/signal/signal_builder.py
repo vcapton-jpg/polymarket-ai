@@ -281,24 +281,14 @@ async def build_signal(
     (missing reasoning or missing valid excerpts).
     When persist=True and the caller passes a session, it commits to DB.
     """
-    try:
-        llm = await analyzer.analyze(
-            event_title=event["title"],
-            event_summary=event.get("summary", ""),
-            articles=articles,
-            market_question=market["question"],
-            market_price=float(market.get("price", 0.0)),
-            market_direction_hint=market.get("direction_hint"),
-        )
-    except Exception as e:
-        # Let quota / rate-limit errors propagate so upstream callers
-        # (e.g. the scoring circuit-breaker) can stage pending-reasoning
-        # rows for backfill instead of silently rejecting.
-        from app.workers.tasks_scoring import _is_quota_error
-        if _is_quota_error(e):
-            raise
-        logger.warning("build_signal: analyzer failed, rejecting: %s", e)
-        return None
+    llm = await analyzer.analyze(
+        event_title=event["title"],
+        event_summary=event.get("summary", ""),
+        articles=articles,
+        market_question=market["question"],
+        market_price=float(market.get("price", 0.0)),
+        market_direction_hint=market.get("direction_hint"),
+    )
 
     if llm is None:
         logger.info(
