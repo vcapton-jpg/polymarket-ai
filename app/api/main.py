@@ -18,6 +18,10 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # Seed the 5 tutorial Market rows referenced by the Learn & Trade
+    # onboarding scenarios. Idempotent — safe on every boot.
+    from app.db.tutorial_markets import seed_tutorial_markets  # noqa: WPS433
+    await seed_tutorial_markets(engine)
     logger.info("Foresight API started — tables ready")
     yield
     await engine.dispose()

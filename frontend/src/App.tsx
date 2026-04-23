@@ -19,12 +19,23 @@ const Faq = lazy(() => import("./pages/Faq"))
 const Login = lazy(() => import("./pages/Login"))
 const Signup = lazy(() => import("./pages/Signup"))
 const SignalVariants = lazy(() => import("./pages/SignalVariants"))
+const Tutorial = lazy(() => import("./pages/onboarding/Tutorial"))
 
 /**
  * Paths that never require onboarding completion (public marketing pages
  * + the onboarding flow itself + auth entry points).
  */
-const ONBOARDING_EXEMPT_PATHS = new Set(["/", "/welcome", "/login", "/signup", "/pricing", "/signal-variants"])
+const ONBOARDING_EXEMPT_PATHS = new Set([
+  "/",
+  "/welcome",
+  "/welcome/tutorial",
+  "/welcome/quiz",
+  "/welcome/budget",
+  "/login",
+  "/signup",
+  "/pricing",
+  "/signal-variants",
+])
 
 /**
  * App-level guard: if the user is authenticated but hasn't finished (or
@@ -68,6 +79,7 @@ export default function App() {
               <Route path="/apprendre" element={<RequireAuth><Apprendre /></RequireAuth>} />
               <Route path="/apprendre/:slug" element={<RequireAuth><LearnSection /></RequireAuth>} />
               <Route path="/welcome" element={<RequireAuth><Welcome /></RequireAuth>} />
+              <Route path="/welcome/tutorial" element={<RequireAuth><Tutorial /></RequireAuth>} />
               <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
             </Routes>
           </LayoutGroup>

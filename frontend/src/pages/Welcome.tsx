@@ -179,9 +179,14 @@ export default function Welcome() {
       } catch {
         // Ignore — onboarding flag below is still authoritative.
       }
+      // Pivot 2026-04-23 (Learn & Trade): after the profile step, every
+      // user goes through the tutorial → quiz → budget gates before
+      // seeing signals. The `onboarding=done` flag marks the profile
+      // step as completed; the per-stage gates (tutorial_done,
+      // quiz_done, budget_done) are tracked on the backend and drive
+      // the redirect logic in Task 18.
       localStorage.setItem(STORAGE_KEYS.onboarding, "done")
-      const destination = profile.type === "Découvreur" ? "/apprendre" : "/signals"
-      navigate(destination)
+      navigate("/welcome/tutorial")
       return
     }
     if (!isLastQuestion) {
@@ -224,8 +229,10 @@ export default function Welcome() {
   }
 
   const skip = () => {
+    // "Passer" skips the optional profile quiz — but the tutorial is
+    // mandatory in the Learn & Trade pivot, so we land on it directly.
     localStorage.setItem(STORAGE_KEYS.onboarding, "skipped")
-    navigate("/signals")
+    navigate("/welcome/tutorial")
   }
 
   const select = (value: string) => {
