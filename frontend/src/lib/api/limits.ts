@@ -39,9 +39,11 @@ function hydrate(w: WireUserLimits): UserLimits {
 }
 
 /**
- * Fetch the authenticated user's L&T limits (budget, cooloff, flags).
- * Consumes `GET /api/me/limits` — implemented in plan Task 23.
- * Until that endpoint ships, callers should handle the 404.
+ * Fetch the authenticated user's Learn & Trade limits (budget, cooloff, flags).
+ *
+ * Consumes `GET /api/me/limits`. The server returns safe locked defaults
+ * (20€/10€, quiz_passed=false, age_confirmed_18=false) when no row exists,
+ * so callers don't need to handle 404 — just render against the values.
  */
 export async function fetchUserLimits(): Promise<UserLimits> {
   const wire = await apiGet<WireUserLimits>("/me/limits")

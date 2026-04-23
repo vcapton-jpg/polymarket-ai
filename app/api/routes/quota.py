@@ -17,8 +17,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.api.routes.auth import get_current_user
+from app.api.schemas.learn_and_trade import UserLimitsOut
 from app.core.config import get_settings
-from app.db.models import UserProfile
+from app.db.database import get_session_factory
+from app.db.models import UserLimits, UserProfile
 
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -89,3 +91,32 @@ async def consume_quota(user: UserProfile = Depends(get_current_user)) -> QuotaO
         limit=FREE_DAILY_LIMIT,
         resets_at=_next_reset_iso(),
     )
+
+
+@router.get("/limits", response_model=UserLimitsOut)
+async def get_my_limits(
+    user: UserProfile = Depends(get_current_user),
+) -> UserLimitsOut:
+    """Authoritative Learn & Trade limits for the current user.
+
+    Returns safe, locked defaults (quiz/age = False, 20€/10€ caps) when no
+    row exists — the frontend treats this as "not unlocked yet" rather than
+    failing. The backfill script creates rows for pre-pivot users; new users
+    get a row on first `/api/onboarding/budget` submission.
+    """
+    factory = get_session_factory()
+    async with factory() as s:
+        limits = await s.get(UserLimits, user.id)
+    if limits is None:
+        return UserLimitsOut(
+            budget_weekly_eur=20.00,
+            max_stake_eur=10.00,
+            level=1,
+            real_trades_count=0,
+            consecutive_losses=0,
+            week_spent_eur=0.00,
+            cooloff_until=None,
+            quiz_passed=False,
+            age_confirmed_18=False,
+        )
+    return UserLimitsOut.model_validate(limits, from_attributes=True)
