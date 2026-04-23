@@ -222,18 +222,3 @@ class BuilderTradeClient:
         return None
 
 
-# ── Singleton / backward-compat helpers ──────────────────────────────────────
-
-_instance: Optional[BuilderTradeClient] = None
-
-
-def get_trade_client() -> BuilderTradeClient:
-    """Return a shared :class:`BuilderTradeClient` without a funder.
-
-    Retained for backward compatibility with legacy tasks that call
-    ``get_trade_client().get_order(...)`` where no per-user Safe is needed.
-    """
-    global _instance
-    if _instance is None:
-        _instance = BuilderTradeClient(safe_address="")
-    return _instance

@@ -59,9 +59,12 @@ async def connect_wallet(
 
     try:
         safe_address = await _deployer.deploy_safe(eoa)
-    except Exception as e:
-        logger.error("Safe deployment failed for %s: %s", eoa, e)
-        raise HTTPException(status_code=500, detail=f"Safe deployment failed: {e}")
+    except Exception:
+        logger.exception("Safe deployment failed for %s", eoa)
+        raise HTTPException(
+            status_code=500,
+            detail="Safe deployment failed. Please try again or contact support.",
+        )
 
     user.wallet_address = eoa
     user.polymarket_safe_address = safe_address

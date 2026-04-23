@@ -47,12 +47,22 @@ export function useWalletSetup(): UseWalletSetupReturn {
     setError(null)
     try {
       setStep("connecting_wallet")
+
+      const hasProvider =
+        typeof window !== "undefined" &&
+        (window as unknown as { ethereum?: unknown }).ethereum !== undefined
+      if (!hasProvider) {
+        throw new Error(
+          "MetaMask n'est pas installé. Installe l'extension depuis metamask.io puis réessaie.",
+        )
+      }
+
       let eoa = connectedAddress
       if (!eoa) {
         const result = await connectAsync({ connector: injected() })
         eoa = result.accounts[0]
       }
-      if (!eoa) throw new Error("Wallet connection refused")
+      if (!eoa) throw new Error("Connexion au wallet refusée")
 
       setStep("deploying_safe")
       const resp = await connectWallet(eoa as string)
@@ -60,7 +70,10 @@ export function useWalletSetup(): UseWalletSetupReturn {
       setStatus({ connected: true, eoa_address: eoa as string, safe_address: resp.safe_address })
       setStep("done")
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
+      const raw = e instanceof Error ? e.message : String(e)
+      const msg = raw.includes("Provider not found")
+        ? "MetaMask n'est pas installé. Installe l'extension depuis metamask.io puis réessaie."
+        : raw
       setError(msg)
       setStep("error")
     }

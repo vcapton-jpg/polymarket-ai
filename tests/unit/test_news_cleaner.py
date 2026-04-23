@@ -78,15 +78,17 @@ def test_should_ingest():
         "content": "Word " * 50,
         "language": "en",
         "word_count": 50,
+        "quality_passed": True,
     }
-    
+
     assert cleaner.should_ingest(article_pass)
-    
+
     article_fail = {
         "title": "Test",
         "content": "Short",
         "language": "en",
         "word_count": 1,
+        "quality_passed": False,
     }
-    
+
     assert not cleaner.should_ingest(article_fail)

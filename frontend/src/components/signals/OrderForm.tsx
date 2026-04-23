@@ -206,16 +206,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     return match ? match[1] : null
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setTouched(true)
-    if (!amountValid) return
-
-    if (!walletConnected) {
-      setShowWalletModal(true)
-      return
-    }
-
+  const executeTrade = () => {
     // Free plan guard: Score 90+ signals are Pro-only. Send users with
     // a reachable /signup flow to /pricing instead of the Stripe path.
     if (isFreePlan && signal.score >= 90) {
@@ -271,10 +262,6 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       // quota / disabled storage — continue with toast+nav anyway
     }
 
-    // Backend submission. We require an authenticated session for real
-    // orders; unauth'd users stay in optimistic-demo mode (localStorage
-    // only). A market_id is required — if we can't parse it we stay
-    // local too.
     const marketId = extractMarketId(signal.polymarketUrl)
     const signalIdNum = /^\d+$/.test(signal.id) ? Number(signal.id) : undefined
     if (hasToken() && marketId) {
@@ -294,6 +281,15 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
                 ? `ID ${res.polymarket_order_id}`
                 : undefined,
               duration: 3000,
+            })
+          } else if (res.error === "wallet_not_connected") {
+            setSubmitted(false)
+            setShowWalletModal(true)
+            addToast({
+              type: "info",
+              title: "Wallet requis",
+              description: "Connecte ton wallet pour exécuter sur Polymarket.",
+              duration: 4000,
             })
           } else {
             addToast({
@@ -326,6 +322,26 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       navTimeoutRef.current = null
       navigate(`/portfolio#position-${positionId}`)
     }, 1500)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTouched(true)
+    if (!amountValid) return
+
+    if (!walletConnected) {
+      setShowWalletModal(true)
+      return
+    }
+
+    executeTrade()
+  }
+
+  const handleWalletSuccess = () => {
+    setShowWalletModal(false)
+    if (amountValid) {
+      executeTrade()
+    }
   }
 
   return (
@@ -630,7 +646,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       </div>
       <WalletSetupModal
         open={showWalletModal}
-        onSuccess={() => setShowWalletModal(false)}
+        onSuccess={handleWalletSuccess}
         onClose={() => setShowWalletModal(false)}
         step={walletStep}
         error={walletError}

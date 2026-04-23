@@ -95,6 +95,10 @@ class SafeDeployer:
 
         Idempotent: returns address without re-deploying if already deployed.
         """
+        if not self._settings.builder_private_key:
+            raise RuntimeError(
+                "BUILDER_PRIVATE_KEY not configured — cannot deploy Safes"
+            )
         singleton = self._settings.gnosis_safe_singleton
         safe_addr = compute_safe_address(
             owner_eoa, singleton, factory=self._settings.gnosis_safe_proxy_factory

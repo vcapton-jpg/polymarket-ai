@@ -68,9 +68,10 @@ def poll_order_fills():
 async def _poll_order_fills_async():
     from datetime import datetime, timezone
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
     from app.db.database import get_async_session
-    from app.db.models import Order, Portfolio
-    from app.trading.builder_client import get_trade_client
+    from app.db.models import Order, Portfolio, UserProfile
+    from app.trading.builder_client import BuilderTradeClient
     from app.trading.position_tracker import sync_positions_from_orders
 
     async with get_async_session() as db:
@@ -80,19 +81,28 @@ async def _poll_order_fills_async():
             return {"status": "no_portfolio"}
 
         submitted = await db.execute(
-            select(Order).where(
+            select(Order)
+            .where(
                 Order.portfolio_id == portfolio.id,
                 Order.status == "submitted",
                 Order.polymarket_order_id.isnot(None),
             )
+            .options(selectinload(Order.portfolio).selectinload(Portfolio.user))
         )
         orders = submitted.scalars().all()
         if not orders:
             return {"status": "no_submitted_orders"}
 
-        client = get_trade_client()
+        clients: dict[str, BuilderTradeClient] = {}
         filled_count = 0
         for order in orders:
+            safe = order.portfolio.user.polymarket_safe_address if order.portfolio and order.portfolio.user else None
+            if not safe:
+                logger.warning("Skipping order %s — user has no Safe address", order.polymarket_order_id)
+                continue
+            if safe not in clients:
+                clients[safe] = BuilderTradeClient(safe_address=safe)
+            client = clients[safe]
             try:
                 data = await client.get_order(order.polymarket_order_id)
                 if not data:
