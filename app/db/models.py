@@ -455,6 +455,30 @@ class SignalPrediction(Base):
 
 
 # ---------------------------------------------------------------------------
+# signal_articles  (audit trail — which articles every variant saw)
+# ---------------------------------------------------------------------------
+class SignalArticle(Base):
+    __tablename__ = "signal_articles"
+
+    signal_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("signals.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    variant: Mapped[str] = mapped_column(String(64), primary_key=True)
+    news_clean_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("news_clean.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    rank: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    score: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    cosine_score: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    recency_weight: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+# ---------------------------------------------------------------------------
 # user_profiles
 # ---------------------------------------------------------------------------
 class UserProfile(Base):
