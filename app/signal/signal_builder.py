@@ -395,6 +395,27 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
                 "measurement.record_baselines failed signal_id=%s — skipping; signal itself will still commit",
                 sig.id,
             )
+
+        # --- Sourcing audit (chantier #2) ------------------------------------
+        try:
+            from app.sourcing.prod_trace import record_prod_signal_articles
+            # Prefer the richer `article_excerpts` (which carries the LLM-selected
+            # quote) but fall back to the raw `articles` list when the LLM didn't
+            # emit excerpts — the audit row must exist regardless.
+            audit_input = assembled.get("article_excerpts") or [
+                {"news_clean_id": a.get("news_clean_id"), "excerpt": None}
+                for a in (articles or [])
+                if a.get("news_clean_id") is not None
+            ]
+            await record_prod_signal_articles(
+                s, signal_id=sig.id, articles=audit_input
+            )
+        except Exception:
+            logger.exception(
+                "sourcing.record_prod_signal_articles failed signal_id=%s — skipping",
+                sig.id,
+            )
+
         await s.commit()
 
     schedule_shadow_variants(sig.id)  # stub for chantier #3
