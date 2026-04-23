@@ -356,10 +356,14 @@ def build_timeline(
             continue
         news: News = clean.news
         when = news.publish_date
-        if when and when.tzinfo is None:
+        if when is None:
+            # Skip entries without a publish date — an empty `at` would crash
+            # the frontend's `new Date("")` + formatDistanceToNow() render.
+            continue
+        if when.tzinfo is None:
             when = when.replace(tzinfo=timezone.utc)
         items.append(TimelineEventOut(
-            at=when.isoformat() if when else "",
+            at=when.isoformat(),
             source=news.source_name or "unknown",
             type="news",
             headline=news.title,

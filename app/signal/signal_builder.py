@@ -307,6 +307,7 @@ async def build_signal(
     assembled = {
         "event_id": event["id"],
         "market_id": market["id"],
+        "market_price": float(market.get("price", 0.0)),
         "catalyst": llm.get("catalyst"),
         "reasoning": llm["reasoning"],
         "llm_model_version": getattr(analyzer, "model_version", None),
@@ -327,13 +328,27 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
     from app.db.database import get_session_factory
     from app.db.models import EventNewsLink, Signal
 
+    # LLM emits "YES" / "NO" / "UNCLEAR"; DB + list-endpoint filter use BUY_YES / BUY_NO.
+    dir_raw = (assembled.get("direction_recommendation") or "").upper()
+    if dir_raw == "YES":
+        db_direction = "BUY_YES"
+    elif dir_raw == "NO":
+        db_direction = "BUY_NO"
+    else:
+        logger.info(
+            "signals.rejected_unclear_direction event_id=%s market_id=%s recommendation=%r",
+            assembled["event_id"], assembled["market_id"], dir_raw,
+        )
+        return
+
     session_factory = get_session_factory()
     async with session_factory() as s:
         sig = Signal(
             event_id=assembled["event_id"],
             market_id=assembled["market_id"],
             signal_score=float(assembled.get("impact_score") or 0.0) * 100.0,
-            direction=(assembled.get("direction_recommendation") or "UNKNOWN").upper(),
+            direction=db_direction,
+            market_price_at_signal=assembled.get("market_price"),
             reasoning=assembled["reasoning"],
             llm_model_version=assembled["llm_model_version"],
             source_tier_mix=assembled["source_tier_mix"],
