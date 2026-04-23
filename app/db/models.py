@@ -668,3 +668,120 @@ class SignalPendingReasoning(Base):
 
 
 Index("ix_gdelt_events_raw_published_at", GdeltEventRaw.published_at.desc())
+
+
+# ---------------------------------------------------------------------------
+# Learn & Trade (2026-04-23 pivot)
+# ---------------------------------------------------------------------------
+class UserLimits(Base):
+    __tablename__ = "user_limits"
+
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    budget_weekly_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=20.00)
+    max_stake_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=10.00)
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    real_trades_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consecutive_losses: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cooloff_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    quiz_passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    age_confirmed_18: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cgu_accepted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    week_spent_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0.00)
+    week_reset_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        onupdate=func.now(),
+    )
+
+
+class PaperPosition(Base):
+    __tablename__ = "paper_positions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    signal_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("signals.id", ondelete="SET NULL"), nullable=True
+    )
+    market_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
+    )
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)  # "YES" | "NO"
+    stake_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    entry_price: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    current_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    pnl_eur: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    is_tutorial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    opened_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class OnboardingProgress(Base):
+    __tablename__ = "onboarding_progress"
+
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    profile_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    tutorial_trades_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tutorial_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    quiz_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    budget_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    unlocked_real_trading_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        onupdate=func.now(),
+    )
+
+
+class QuizAttempt(Base):
+    __tablename__ = "quiz_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    answers: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class OutcomeView(Base):
+    __tablename__ = "outcome_views"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    signal_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("signals.id", ondelete="CASCADE"), nullable=False
+    )
+    viewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
