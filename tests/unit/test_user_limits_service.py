@@ -8,6 +8,7 @@ rebuilds against the current pytest-asyncio event loop.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import pytest
 import sqlalchemy as sa
@@ -189,3 +190,92 @@ async def test_win_resets_consecutive_losses(async_db_factory):
             assert row.consecutive_losses == 0
     finally:
         await cleanup()
+
+
+@pytest.mark.asyncio
+async def test_register_trade_opened_debits_budget_and_counts(async_db_factory):
+    user_id = 900010
+    factory = async_db_factory
+    async with factory() as s:
+        s.add(UserProfile(id=user_id, email=f"test{user_id}@example.com"))
+        await s.commit()
+        s.add(UserLimits(
+            user_id=user_id,
+            budget_weekly_eur=Decimal("20.00"),
+            week_spent_eur=Decimal("5.00"),
+            real_trades_count=3,
+        ))
+        await s.commit()
+    try:
+        from app.services.user_limits import register_trade_opened
+        await register_trade_opened(user_id=user_id, stake_eur=7.50)
+        async with factory() as s:
+            row = await s.get(UserLimits, user_id)
+            assert row.week_spent_eur == Decimal("12.50")
+            assert row.real_trades_count == 4
+    finally:
+        async with factory() as s:
+            await s.execute(sa.delete(UserLimits).where(UserLimits.user_id == user_id))
+            await s.execute(sa.delete(UserProfile).where(UserProfile.id == user_id))
+            await s.commit()
+
+
+@pytest.mark.asyncio
+async def test_register_trade_opened_resets_week_after_7_days(async_db_factory):
+    user_id = 900011
+    factory = async_db_factory
+    stale_week = datetime.now(timezone.utc) - timedelta(days=8)
+    async with factory() as s:
+        s.add(UserProfile(id=user_id, email=f"test{user_id}@example.com"))
+        await s.commit()
+        s.add(UserLimits(
+            user_id=user_id,
+            week_spent_eur=Decimal("18.00"),
+            week_reset_at=stale_week,
+        ))
+        await s.commit()
+    try:
+        from app.services.user_limits import register_trade_opened
+        await register_trade_opened(user_id=user_id, stake_eur=5.00)
+        async with factory() as s:
+            row = await s.get(UserLimits, user_id)
+            # After reset: week_spent_eur should be 5.00 (just the new stake), not 23.00
+            assert row.week_spent_eur == Decimal("5.00")
+            assert row.week_reset_at > stale_week + timedelta(days=7)
+    finally:
+        async with factory() as s:
+            await s.execute(sa.delete(UserLimits).where(UserLimits.user_id == user_id))
+            await s.execute(sa.delete(UserProfile).where(UserProfile.id == user_id))
+            await s.commit()
+
+
+@pytest.mark.asyncio
+async def test_over_weekly_budget_decision_populates_remaining(async_db_factory):
+    """Covers float-precision regression: budget 20 - spent 17.80 - stake 2.20 should REJECT cleanly."""
+    user_id = 900012
+    factory = async_db_factory
+    async with factory() as s:
+        s.add(UserProfile(id=user_id, email=f"test{user_id}@example.com"))
+        await s.commit()
+        s.add(UserLimits(
+            user_id=user_id, quiz_passed=True, age_confirmed_18=True,
+            budget_weekly_eur=Decimal("20.00"), week_spent_eur=Decimal("17.80"),
+        ))
+        s.add(OnboardingProgress(user_id=user_id, tutorial_done=True, quiz_done=True, budget_done=True))
+        await s.commit()
+    try:
+        decision = await can_trade_real(user_id=user_id, stake_eur=2.20)
+        # 20.00 - 17.80 = 2.20 → stake equal to remaining should be ALLOWED (not > remaining)
+        assert decision.allowed is True, f"Should allow exact-match stake, got reason={decision.reason}"
+        assert decision.remaining_budget_eur == pytest.approx(0.0, abs=0.005)
+
+        decision_over = await can_trade_real(user_id=user_id, stake_eur=2.21)
+        assert decision_over.allowed is False
+        assert decision_over.reason == "over_weekly_budget"
+        assert decision_over.remaining_budget_eur == pytest.approx(2.20, abs=0.005)
+    finally:
+        async with factory() as s:
+            await s.execute(sa.delete(OnboardingProgress).where(OnboardingProgress.user_id == user_id))
+            await s.execute(sa.delete(UserLimits).where(UserLimits.user_id == user_id))
+            await s.execute(sa.delete(UserProfile).where(UserProfile.id == user_id))
+            await s.commit()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Optional
 
 from app.db.database import get_session_factory
@@ -46,16 +47,23 @@ async def can_trade_real(user_id: int, stake_eur: float) -> TradeDecision:
     if limits.cooloff_until is not None and limits.cooloff_until > now:
         return TradeDecision(allowed=False, reason="in_cooloff")
 
-    if stake_eur > float(limits.max_stake_eur):
+    # Use Decimal for all monetary arithmetic to avoid IEEE-754 rounding.
+    # str() conversion prevents float -> Decimal precision loss on input.
+    stake = Decimal(str(stake_eur))
+    max_stake = Decimal(limits.max_stake_eur)
+    budget_weekly = Decimal(limits.budget_weekly_eur)
+    week_spent = Decimal(limits.week_spent_eur)
+
+    if stake > max_stake:
         return TradeDecision(allowed=False, reason="over_max_stake")
 
-    remaining = float(limits.budget_weekly_eur) - float(limits.week_spent_eur)
-    if stake_eur > remaining:
+    remaining = budget_weekly - week_spent
+    if stake > remaining:
         return TradeDecision(
-            allowed=False, reason="over_weekly_budget", remaining_budget_eur=remaining
+            allowed=False, reason="over_weekly_budget", remaining_budget_eur=float(remaining)
         )
 
-    return TradeDecision(allowed=True, remaining_budget_eur=remaining - stake_eur)
+    return TradeDecision(allowed=True, remaining_budget_eur=float(remaining - stake))
 
 
 async def register_trade_result(user_id: int, won: bool, stake_eur: float) -> None:
@@ -66,8 +74,11 @@ async def register_trade_result(user_id: int, won: bool, stake_eur: float) -> No
         if limits is None:
             return
         now = datetime.now(timezone.utc)
-        if limits.week_reset_at is not None and (now - limits.week_reset_at) > timedelta(days=7):
-            limits.week_spent_eur = 0.00
+        # Treat missing week_reset_at as "just reset now" to avoid the None-check
+        # footgun where fresh rows (server_default not yet populated) silently skip reset.
+        week_reset_at = limits.week_reset_at or now
+        if (now - week_reset_at) > timedelta(days=7):
+            limits.week_spent_eur = Decimal("0.00")
             limits.week_reset_at = now
 
         if won:
@@ -88,9 +99,12 @@ async def register_trade_opened(user_id: int, stake_eur: float) -> None:
         if limits is None:
             return
         now = datetime.now(timezone.utc)
-        if limits.week_reset_at is not None and (now - limits.week_reset_at) > timedelta(days=7):
-            limits.week_spent_eur = 0.00
+        # Treat missing week_reset_at as "just reset now" to avoid the None-check
+        # footgun where fresh rows (server_default not yet populated) silently skip reset.
+        week_reset_at = limits.week_reset_at or now
+        if (now - week_reset_at) > timedelta(days=7):
+            limits.week_spent_eur = Decimal("0.00")
             limits.week_reset_at = now
-        limits.week_spent_eur = float(limits.week_spent_eur) + stake_eur
+        limits.week_spent_eur = Decimal(limits.week_spent_eur) + Decimal(str(stake_eur))
         limits.real_trades_count = (limits.real_trades_count or 0) + 1
         await s.commit()
