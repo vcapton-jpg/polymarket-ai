@@ -79,6 +79,7 @@ async def fetch_sources(sources: list[dict]) -> list[dict]:
                     "title": article["title"],
                     "text": article["text"],
                     "source_name": src["source_name"],
+                    "source_id": src.get("id"),
                     "source_tier": src["tier"],
                     "source_weight": src["weight"],
                     "publish_date": article["publish_date"],

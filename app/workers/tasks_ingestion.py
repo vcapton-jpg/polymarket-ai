@@ -381,6 +381,7 @@ async def _fetch_rss_async() -> dict:
                 title=art["title"],
                 text=art.get("text"),
                 source_name=art["source_name"],
+                source_id=art.get("source_id"),
                 source_tier=art["source_tier"],
                 source_weight=art["source_weight"],
                 publish_date=art.get("publish_date"),
