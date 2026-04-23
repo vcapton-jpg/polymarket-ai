@@ -1,7 +1,11 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
+import app.db.database as _db_mod
+from app.core.config import get_settings
 
 
 # Base de données SQLite en mémoire pour les tests
@@ -12,6 +16,38 @@ def db_session():
     session = Session()
     yield session
     session.close()
+
+
+# ---------------------------------------------------------------------------
+# Async Postgres fixtures — shared by unit + integration tests.
+#
+# `app.db.database.get_session_factory()` caches on PID only, which breaks
+# pytest-asyncio's per-function event loops. These fixtures give each test
+# a fresh engine bound to the current loop and dispose it cleanly on teardown.
+# ---------------------------------------------------------------------------
+@pytest.fixture
+async def async_db_engine():
+    """Per-test async engine bound to the current event loop. Disposed on teardown."""
+    engine = create_async_engine(get_settings().database_url, echo=False)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+async def async_db_factory(async_db_engine):
+    """Per-test async session factory built on the per-test engine."""
+    return async_sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_db_cache():
+    """Force app.db.database to rebuild engine/factory per test to match pytest-asyncio's per-function loops."""
+    _db_mod._engine = None
+    _db_mod._session_factory = None
+    _db_mod._owner_pid = None
+    yield
 
 
 # Mock OpenAI sans appel réseau

@@ -1,41 +1,6 @@
-"""Shared async DB fixtures for unit tests that hit Postgres.
+"""Unit-test-only fixtures.
 
-`app.db.database.get_session_factory()` caches on PID only, which breaks
-pytest-asyncio's per-function event loops. These fixtures give each test a
-fresh engine bound to the current loop and dispose it cleanly on teardown.
+The shared async Postgres fixtures (`async_db_engine`, `async_db_factory`,
+`_reset_db_cache`) live in `tests/conftest.py` so integration tests can
+reuse them too.
 """
-
-from __future__ import annotations
-
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from app.core.config import get_settings
-
-
-@pytest.fixture
-async def async_db_engine():
-    """Per-test async engine bound to the current event loop. Disposed on teardown."""
-    engine = create_async_engine(get_settings().database_url, echo=False)
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
-
-
-@pytest.fixture
-async def async_db_factory(async_db_engine):
-    """Per-test async session factory built on the per-test engine."""
-    return async_sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
-
-
-import app.db.database as _db_mod
-
-
-@pytest.fixture(autouse=True)
-def _reset_db_cache():
-    """Force app.db.database to rebuild engine/factory per test to match pytest-asyncio's per-function loops."""
-    _db_mod._engine = None
-    _db_mod._session_factory = None
-    _db_mod._owner_pid = None
-    yield

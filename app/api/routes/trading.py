@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.api.routes.auth import get_current_user
 from app.db.database import get_db_session
 from app.db.models import Market, Order, Portfolio, Position, UserProfile
+from app.services.user_limits import can_trade_real, register_trade_opened
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trading", tags=["trading"])
@@ -94,6 +95,14 @@ async def place_trade(
     user: UserProfile = Depends(get_current_user),
 ):
     """Place a trade on Polymarket."""
+    # Pivot 2026-04-23: gate real-money trading on UserLimits
+    # (age/quiz/budget/cooloff/onboarding). Runs BEFORE the wallet
+    # check so unmet-limit users are rejected consistently regardless
+    # of wallet state.
+    decision = await can_trade_real(user_id=user.id, stake_eur=float(req.amount))
+    if not decision.allowed:
+        raise HTTPException(status_code=403, detail={"reason": decision.reason})
+
     if not user.polymarket_safe_address:
         return TradeResponse(success=False, error="wallet_not_connected")
 
@@ -160,6 +169,17 @@ async def place_trade(
         order.error_msg = str(e)
 
     await db.commit()
+
+    # Debit the user's weekly budget after the order is persisted.
+    # register_trade_opened() manages its own session, so running it
+    # post-commit keeps the two writes decoupled. Trade-off: if this
+    # call fails the order is already persisted — acceptable because
+    # (a) can_trade_real already validated the budget, so we know the
+    # debit is within bounds; (b) this counter feeds client-side UX,
+    # not authoritative enforcement (which happens in can_trade_real
+    # on the next attempt).
+    if order.status == "submitted":
+        await register_trade_opened(user_id=user.id, stake_eur=float(req.amount))
 
     return TradeResponse(
         success=order.status == "submitted",
