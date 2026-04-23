@@ -24,6 +24,9 @@ const SignalVariants = lazy(() => import("./pages/SignalVariants"))
 const Tutorial = lazy(() => import("./pages/onboarding/Tutorial"))
 const Quiz = lazy(() => import("./pages/onboarding/Quiz"))
 const BudgetSetup = lazy(() => import("./pages/onboarding/BudgetSetup"))
+const Cgu = lazy(() => import("./pages/Cgu"))
+const Risques = lazy(() => import("./pages/Risques"))
+const MentionsLegales = lazy(() => import("./pages/MentionsLegales"))
 
 /**
  * Paths that never require onboarding completion (public marketing pages
@@ -39,6 +42,9 @@ const ONBOARDING_EXEMPT_PATHS = new Set([
   "/signup",
   "/pricing",
   "/signal-variants",
+  "/cgu",
+  "/risques",
+  "/mentions-legales",
 ])
 
 /**
@@ -103,6 +109,9 @@ export default function App() {
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/faq" element={<Faq />} />
               <Route path="/signal-variants" element={<SignalVariants />} />
+              <Route path="/cgu" element={<Cgu />} />
+              <Route path="/risques" element={<Risques />} />
+              <Route path="/mentions-legales" element={<MentionsLegales />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/signals" element={<RequireAuth><Signals /></RequireAuth>} />

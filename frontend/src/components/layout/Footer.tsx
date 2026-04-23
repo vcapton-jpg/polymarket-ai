@@ -13,9 +13,10 @@ export function Footer() {
         </div>
 
         <nav className="flex flex-wrap items-center gap-5 text-body-sm text-ink-muted">
-          <Link to="#" className="hover:text-ink transition-premium">Mentions légales</Link>
-          <Link to="#" className="hover:text-ink transition-premium">CGU</Link>
-          <Link to="#" className="hover:text-ink transition-premium">Contact</Link>
+          <Link to="/mentions-legales" className="hover:text-ink transition-premium">Mentions légales</Link>
+          <Link to="/cgu" className="hover:text-ink transition-premium">CGU</Link>
+          <Link to="/risques" className="hover:text-ink transition-premium">Risques</Link>
+          <a href="mailto:contact@foresight.app" className="hover:text-ink transition-premium">Contact</a>
         </nav>
 
         <div className="flex items-center gap-2 rounded-full border border-line-strong bg-obsidian-800/60 px-3 py-1.5 text-label-sm">
