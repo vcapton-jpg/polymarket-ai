@@ -1,4 +1,5 @@
-"""Sourcing layer — article ranker, candidate-pool builder, audit writer.
+"""Sourcing layer — article ranker, candidate-pool builder, audit writer."""
 
-Re-exports are added in Task 5 once ArticleRanker is implemented.
-"""
+from app.sourcing.article_ranker import ArticleRanker, RankedArticle
+
+__all__ = ["ArticleRanker", "RankedArticle"]
