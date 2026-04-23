@@ -291,7 +291,7 @@ async def build_signal(
             market_direction_hint=market.get("direction_hint"),
         )
     except Exception as e:
-        logger.info("build_signal: analyzer failed, rejecting: %s", e)
+        logger.warning("build_signal: analyzer failed, rejecting: %s", e)
         return None
 
     if llm is None:
@@ -336,14 +336,15 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
         sig = Signal(
             event_id=assembled["event_id"],
             market_id=assembled["market_id"],
-            catalyst=assembled["catalyst"],
+            signal_score=float(assembled.get("impact_score") or 0.0) * 100.0,
+            direction=(assembled.get("direction_recommendation") or "UNKNOWN").upper(),
             reasoning=assembled["reasoning"],
             llm_model_version=assembled["llm_model_version"],
             source_tier_mix=assembled["source_tier_mix"],
         )
         s.add(sig)
         for exc in assembled["article_excerpts"]:
-            await s.execute(
+            result = await s.execute(
                 update(EventNewsLink)
                 .where(
                     EventNewsLink.event_id == assembled["event_id"],
@@ -351,4 +352,9 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
                 )
                 .values(key_excerpt=exc["excerpt"], relevance_score=exc["relevance"])
             )
+            if result.rowcount == 0:
+                logger.warning(
+                    "persist_signal: no EventNewsLink matched event_id=%s clean_id=%s — excerpt dropped",
+                    assembled["event_id"], exc["news_clean_id"],
+                )
         await s.commit()
