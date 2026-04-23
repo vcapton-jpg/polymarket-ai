@@ -24,6 +24,9 @@ import {
 import { OrderForm } from "@/components/signals/OrderForm"
 import { ManualPositionModal } from "@/components/signals/ManualPositionModal"
 import { PoweredByPolymarket } from "@/components/signals/PoweredByPolymarket"
+import { WhyThisMatters } from "@/components/signals/WhyThisMatters"
+import { SourcesList } from "@/components/signals/SourcesList"
+import { SignalTimeline } from "@/components/signals/SignalTimeline"
 import { getSignalById, MOCK_SIGNALS } from "@/data/signals"
 import { fetchSignalDetailFromApi } from "@/lib/apiSignals"
 import type { Signal } from "@/types/signal"
@@ -373,6 +376,14 @@ export default function SignalDetail() {
           </section>
         </motion.section>
 
+        {/* WHY THIS MATTERS — LLM reasoning + source-tier mix (auto-hides when missing) */}
+        <div className="mt-6">
+          <WhyThisMatters
+            reasoning={signal.reasoning}
+            sourceTierMix={signal.sourceTierMix}
+          />
+        </div>
+
         {/* FACTS */}
         <section className="mt-8 grid gap-4 md:grid-cols-2">
           {signal.facts.map((f, i) => (
@@ -400,7 +411,19 @@ export default function SignalDetail() {
 
         </section>
 
-        {/* DETECTION TIMELINE */}
+        {/* DETECTION TIMELINE — when backend provides a real timeline, render the
+            new SignalTimeline; otherwise fall back to the mocked legacy block. */}
+        {signal.timeline && signal.timeline.length > 0 ? (
+          <section className="mt-10">
+            <div className="mb-4">
+              <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">Détection</p>
+              <h2 className="font-display text-[1.25rem] font-semibold text-ink">
+                Pourquoi on t’a sorti ce signal
+              </h2>
+            </div>
+            <SignalTimeline events={signal.timeline} />
+          </section>
+        ) : (
         <section className="mt-10">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -465,8 +488,20 @@ export default function SignalDetail() {
             </ol>
           </div>
         </section>
+        )}
 
-        {/* SOURCES */}
+        {/* SOURCES — prefer rich backend sources when available */}
+        {signal.detailedSources && signal.detailedSources.length > 0 ? (
+          <section className="mt-10">
+            <div className="mb-4">
+              <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">Sources</p>
+              <h2 className="font-display text-[1.25rem] font-semibold text-ink">
+                {signal.detailedSources.length} sources indépendantes
+              </h2>
+            </div>
+            <SourcesList sources={signal.detailedSources} />
+          </section>
+        ) : (
         <section className="mt-10">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -512,6 +547,7 @@ export default function SignalDetail() {
             ))}
           </div>
         </section>
+        )}
 
         {/* SECONDARY ACTIONS — share, copy, open raw market */}
         <section className="mt-10 rounded-2xl border border-line-strong bg-obsidian-850/40 p-5 md:p-6">

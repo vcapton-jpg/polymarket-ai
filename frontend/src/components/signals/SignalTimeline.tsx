@@ -3,7 +3,7 @@ import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import type { TimelineEvent } from "@/types/signal"
 
-type Props = { timeline: TimelineEvent[] }
+type Props = { events: TimelineEvent[] }
 
 const PAGE_SIZE = 8
 
@@ -12,12 +12,12 @@ const typeIcon: Record<TimelineEvent["type"], string> = {
   market_move: "📈",
 }
 
-export function SignalTimeline({ timeline }: Props) {
+export function SignalTimeline({ events }: Props) {
   const [expanded, setExpanded] = useState(false)
 
-  if (!timeline || timeline.length === 0) return null
+  if (!events || events.length === 0) return null
 
-  const sorted = [...timeline].sort(
+  const sorted = [...events].sort(
     (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
   )
 

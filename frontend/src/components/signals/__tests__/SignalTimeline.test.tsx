@@ -15,13 +15,13 @@ const makeEvents = (count: number): TimelineEvent[] =>
 
 describe("SignalTimeline", () => {
   it("renders nothing when timeline is empty", () => {
-    const { container } = render(<SignalTimeline timeline={[]} />)
+    const { container } = render(<SignalTimeline events={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it("shows first 8 events and a toggle button when more than 8", async () => {
     const events = makeEvents(11)
-    render(<SignalTimeline timeline={events} />)
+    render(<SignalTimeline events={events} />)
     // First 8 visible
     expect(screen.getByText("Headline 1")).toBeInTheDocument()
     expect(screen.getByText("Headline 8")).toBeInTheDocument()
@@ -35,7 +35,7 @@ describe("SignalTimeline", () => {
 
   it("renders all events without toggle when 8 or fewer", () => {
     const events = makeEvents(5)
-    render(<SignalTimeline timeline={events} />)
+    render(<SignalTimeline events={events} />)
     expect(screen.getByText("Headline 5")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /voir plus/i })).not.toBeInTheDocument()
   })
