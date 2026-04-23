@@ -705,6 +705,6 @@ async def _fetch_gdelt_async(queries: list[str] | None = None) -> int:
     return inserted
 
 
-@celery_app.task(name="tasks.fetch_gdelt")
+@celery_app.task(name="app.workers.tasks_ingestion.fetch_gdelt")
 def fetch_gdelt() -> int:
     return _run_async(_fetch_gdelt_async())

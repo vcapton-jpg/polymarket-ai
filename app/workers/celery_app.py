@@ -97,7 +97,7 @@ _beat_schedule = {
     },
     # ── Ingestion — GDELT 2.0 ────────────────────────────────────────────────
     "fetch-gdelt-every-5min": {
-        "task": "tasks.fetch_gdelt",
+        "task": "app.workers.tasks_ingestion.fetch_gdelt",
         "schedule": 300.0,
         "options": {"queue": "ingestion"},
     },

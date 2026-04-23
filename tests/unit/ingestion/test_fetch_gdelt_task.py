@@ -21,9 +21,7 @@ CANNED = [
 ]
 
 
-@pytest.mark.asyncio
-async def test_fetch_gdelt_autocreates_source_and_inserts_news():
-    session_factory = get_session_factory()
+async def _cleanup(session_factory):
     async with session_factory() as s:
         await s.execute(text(
             "DELETE FROM news WHERE source_name='newdomain.example.com'"
@@ -33,22 +31,31 @@ async def test_fetch_gdelt_autocreates_source_and_inserts_news():
         ))
         await s.commit()
 
-    with patch(
-        "app.workers.tasks_ingestion.GdeltClient.fetch_recent",
-        new=AsyncMock(return_value=CANNED),
-    ):
-        inserted = await _fetch_gdelt_async(queries=["trump"])
 
-    assert inserted >= 1
-    async with session_factory() as s:
-        src = (await s.execute(
-            select(SourceRegistry).where(SourceRegistry.source_name == "newdomain.example.com")
-        )).scalar_one()
-        assert src.tier == 3
-        assert abs((src.weight or 0) - 0.4) < 1e-6
-        assert src.source_type == "gdelt_auto"
+@pytest.mark.asyncio
+async def test_fetch_gdelt_autocreates_source_and_inserts_news():
+    session_factory = get_session_factory()
+    await _cleanup(session_factory)
 
-        n = (await s.execute(
-            select(News).where(News.source_name == "newdomain.example.com")
-        )).scalar_one()
-        assert n.source_id == src.id
+    try:
+        with patch(
+            "app.workers.tasks_ingestion.GdeltClient.fetch_recent",
+            new=AsyncMock(return_value=CANNED),
+        ):
+            inserted = await _fetch_gdelt_async(queries=["trump"])
+
+        assert inserted >= 1
+        async with session_factory() as s:
+            src = (await s.execute(
+                select(SourceRegistry).where(SourceRegistry.source_name == "newdomain.example.com")
+            )).scalar_one()
+            assert src.tier == 3
+            assert abs((src.weight or 0) - 0.4) < 1e-6
+            assert src.source_type == "gdelt_auto"
+
+            n = (await s.execute(
+                select(News).where(News.source_name == "newdomain.example.com")
+            )).scalar_one()
+            assert n.source_id == src.id
+    finally:
+        await _cleanup(session_factory)
