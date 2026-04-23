@@ -20,6 +20,33 @@ export type Source = {
   minutesAgo: number
 }
 
+/**
+ * Rich per-article source exposed by GET /api/signals/{id} and
+ * /api/signals/{id}/sources. Populated by the Axis-A reasoning pipeline
+ * (LLM excerpt + EventNewsLink.relevance_score). Frontend uses this on
+ * the detail page alongside the legacy `sources: Source[]` field.
+ */
+export type SignalSource = {
+  newsId: number
+  title: string
+  url: string
+  sourceName: string
+  sourceTier: 1 | 2 | 3
+  sourceWeight?: number | null
+  publishDate?: string | null
+  excerpt?: string | null
+  relevanceScore?: number | null
+  role: "primary" | "supporting"
+}
+
+export type TimelineEvent = {
+  at: string
+  source: string
+  type: "news" | "market_move"
+  headline?: string | null
+  detail?: string | null
+}
+
 export type Signal = {
   id: string
   category: SignalCategory
@@ -41,6 +68,11 @@ export type Signal = {
   polymarketUrl: string
   /** Market thumbnail from Polymarket Gamma API (image field on event/market). */
   image?: string
+  reasoning?: string | null
+  llmModelVersion?: string | null
+  sourceTierMix?: Record<string, number> | null
+  detailedSources?: SignalSource[]
+  timeline?: TimelineEvent[]
 }
 
 export type UserProfile = {
