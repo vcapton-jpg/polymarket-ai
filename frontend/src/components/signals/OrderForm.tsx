@@ -30,6 +30,7 @@ import { useIsFreePlan } from "@/hooks/useAuth"
 import { hasToken } from "@/lib/api/auth"
 import { useWalletSetup } from "@/hooks/useWalletSetup"
 import { WalletSetupModal } from "@/components/trading/WalletSetupModal"
+import { useUserLimits } from "@/hooks/useUserLimits"
 
 type Direction = "YES" | "NO"
 const DIRECTIONS: readonly Direction[] = ["YES", "NO"] as const
@@ -197,6 +198,34 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
   const isFreePlan = useIsFreePlan()
   const { walletConnected, step: walletStep, error: walletError, startSetup } = useWalletSetup()
   const [showWalletModal, setShowWalletModal] = useState(false)
+
+  // ── L&T limits enforcement ────────────────────────────────────────────
+  // When the authenticated user has limits (budget + cooloff), the form
+  // switches to a slider capped at `effectiveMax = min(maxStakeEur, remaining)`.
+  // Cooloff short-circuits the form with a blocker. If /me/limits isn't
+  // available (anonymous preview, 404 before Task 23), we fall back to the
+  // legacy USDC input.
+  const { data: limits } = useUserLimits()
+  const maxStake = limits?.maxStakeEur ?? null
+  const remaining = limits
+    ? Math.max(0, limits.budgetWeeklyEur - limits.weekSpentEur)
+    : null
+  const effectiveMax =
+    maxStake !== null && remaining !== null
+      ? Math.max(1, Math.min(maxStake, remaining))
+      : null
+  const inCooloff = limits?.cooloffUntil
+    ? new Date(limits.cooloffUntil) > new Date()
+    : false
+  const useLimitsUi = limits !== undefined
+  // Re-clamp the controlled amount once limits arrive — prevents the
+  // default (e.g. 25 USDC) from exceeding the cap.
+  useEffect(() => {
+    if (effectiveMax === null) return
+    const current = parseAmountInput(amountRaw) ?? 0
+    if (current > effectiveMax) setAmountRaw(String(effectiveMax))
+    else if (current < 1) setAmountRaw(String(Math.min(5, effectiveMax)))
+  }, [effectiveMax, amountRaw])
 
   /** Extract the `market_id` path segment from a Polymarket URL so the
    *  trade request can reach the right CLOB market. URL shape is
@@ -428,7 +457,58 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
         )}
       </fieldset>
 
-      {/* Amount + presets */}
+      {/* Cooloff blocker — takes over the whole amount section when active */}
+      {inCooloff && limits?.cooloffUntil && (
+        <div className="mb-4 rounded-lg border border-signal-no/40 bg-signal-no/10 p-4 text-sm">
+          <p className="font-semibold text-signal-no">Tu es en pause (cooloff).</p>
+          <p className="mt-1 text-ink">
+            Reprise :{" "}
+            <span className="num font-semibold">
+              {new Date(limits.cooloffUntil).toLocaleString("fr-FR")}
+            </span>
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            Trois pertes consécutives — on te protège contre la spirale. Utilise cette
+            pause pour lire les outcomes et revenir avec du recul.
+          </p>
+        </div>
+      )}
+
+      {/* L&T slider — primary input when limits are loaded and not in cooloff */}
+      {useLimitsUi && !inCooloff && effectiveMax !== null && (
+        <div className="mb-4 space-y-2">
+          <label
+            htmlFor="stake-slider"
+            className="mb-1.5 flex items-center justify-between font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim"
+          >
+            <span>Mise (€)</span>
+            <span className="normal-case tracking-normal text-ink-dim">
+              ≈ {formatMoney(amount)}
+            </span>
+          </label>
+          <input
+            id="stake-slider"
+            type="range"
+            aria-label="Mise"
+            min={1}
+            max={effectiveMax}
+            step={1}
+            value={Math.min(Math.max(1, amount), effectiveMax)}
+            onChange={(e) => {
+              setAmountRaw(e.target.value)
+              setTouched(true)
+            }}
+            className="w-full cursor-pointer"
+          />
+          <p className="num text-xl font-bold text-ink">{amount}€</p>
+          <p className="num text-xs text-ink-muted">
+            {`Max par trade : ${maxStake}€ · reste ${remaining}€ cette semaine`}
+          </p>
+        </div>
+      )}
+
+      {/* Legacy USDC input — fallback when limits aren't loaded */}
+      {!useLimitsUi && (
       <div className="mb-4">
         <label
           htmlFor="order-amount"
@@ -545,6 +625,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
           </div>
         </div>
       </div>
+      )}
 
       {/* Honest Gain/Perte — 2-up equal prominence */}
       <div className="mb-2 grid grid-cols-2 gap-3">
@@ -571,7 +652,12 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
         type="submit"
         variant="primary"
         size="lg"
-        disabled={!amountValid || submitted}
+        disabled={
+          !amountValid ||
+          submitted ||
+          inCooloff ||
+          (effectiveMax !== null && amount > effectiveMax)
+        }
         className="w-full"
       >
         {submitted ? (
