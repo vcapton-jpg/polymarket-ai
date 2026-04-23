@@ -5,8 +5,8 @@ inserts one row per registered baseline plus one 'signal' row for the
 production prediction. Uses ON CONFLICT DO NOTHING so a retry during backfill
 is safe.
 
-`schedule_shadow_variants` is a stub — chantiers #3/#4 will register shadow
-variants that run async via Celery.
+`schedule_shadow_variants` enqueues the per-signal `sourcing_shadow_rerun`
+Celery task (chantier #2).
 """
 
 from __future__ import annotations
@@ -76,8 +76,21 @@ async def record_baselines(
 
 
 def schedule_shadow_variants(signal_id: int) -> None:
-    """Fire-and-forget shadow variant dispatch. Stub until chantier #3."""
-    logger.debug("schedule_shadow_variants(signal_id=%s) — no shadows registered", signal_id)
+    """Fire-and-forget shadow variant dispatch.
+
+    Chantier #2: enqueues `sourcing_shadow_rerun` on the 'scoring' queue. The
+    import is local so module load doesn't pull in Celery at API startup, and
+    wrapped in a try/except so a broken broker never prevents a signal from
+    committing.
+    """
+    try:
+        from app.workers.tasks_sourcing import sourcing_shadow_rerun
+        sourcing_shadow_rerun.delay(signal_id)
+    except Exception:
+        logger.exception(
+            "schedule_shadow_variants: failed to enqueue signal_id=%s — continuing",
+            signal_id,
+        )
 
 
 def _binary_from_resolved(price_resolved: float) -> int | None:

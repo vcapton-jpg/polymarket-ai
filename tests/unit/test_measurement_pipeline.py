@@ -126,7 +126,36 @@ async def test_record_baselines_is_idempotent_per_signal_variant(async_db_factor
         await _cleanup(async_db_factory, _MKT3, _EVT3)
 
 
-def test_schedule_shadow_variants_is_a_noop_stub():
-    """Task 6 ships the hook; chantier #3 fills the shadow registry."""
-    # Must not raise, must not require a signal to exist.
-    schedule_shadow_variants(999_999)
+def test_schedule_shadow_variants_enqueues_celery_task(monkeypatch):
+    """schedule_shadow_variants must call sourcing_shadow_rerun.delay(signal_id)."""
+    from app.measurement import pipeline as pmod
+
+    called = {}
+
+    class _FakeTask:
+        def delay(self, signal_id):
+            called["signal_id"] = signal_id
+
+    # Patch the import site — schedule_shadow_variants does a local import, so
+    # we patch the module attribute it imports from.
+    import app.workers.tasks_sourcing as ts
+    monkeypatch.setattr(ts, "sourcing_shadow_rerun", _FakeTask())
+
+    pmod.schedule_shadow_variants(12345)
+    assert called == {"signal_id": 12345}
+
+
+def test_schedule_shadow_variants_swallows_import_error(monkeypatch, caplog):
+    """If Celery is unreachable, the scheduler logs and returns — no raise."""
+    from app.measurement import pipeline as pmod
+
+    # Simulate a broker failure by raising from .delay
+    class _BrokenTask:
+        def delay(self, signal_id):
+            raise RuntimeError("broker down")
+
+    import app.workers.tasks_sourcing as ts
+    monkeypatch.setattr(ts, "sourcing_shadow_rerun", _BrokenTask())
+
+    # Must not raise
+    pmod.schedule_shadow_variants(54321)
