@@ -21,6 +21,7 @@ const Signup = lazy(() => import("./pages/Signup"))
 const SignalVariants = lazy(() => import("./pages/SignalVariants"))
 const Tutorial = lazy(() => import("./pages/onboarding/Tutorial"))
 const Quiz = lazy(() => import("./pages/onboarding/Quiz"))
+const BudgetSetup = lazy(() => import("./pages/onboarding/BudgetSetup"))
 
 /**
  * Paths that never require onboarding completion (public marketing pages
@@ -82,6 +83,7 @@ export default function App() {
               <Route path="/welcome" element={<RequireAuth><Welcome /></RequireAuth>} />
               <Route path="/welcome/tutorial" element={<RequireAuth><Tutorial /></RequireAuth>} />
               <Route path="/welcome/quiz" element={<RequireAuth><Quiz /></RequireAuth>} />
+              <Route path="/welcome/budget" element={<RequireAuth><BudgetSetup /></RequireAuth>} />
               <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
             </Routes>
           </LayoutGroup>
