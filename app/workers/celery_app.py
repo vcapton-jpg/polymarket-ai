@@ -95,6 +95,12 @@ _beat_schedule = {
         "schedule": 600,
         "options": {"queue": "scoring"},
     },
+    # ── Ingestion — GDELT 2.0 ────────────────────────────────────────────────
+    "fetch-gdelt-every-5min": {
+        "task": "tasks.fetch_gdelt",
+        "schedule": 300.0,
+        "options": {"queue": "ingestion"},
+    },
     # ── Outcomes — backfill missing prices ────────────────────────────
     "catchup-outcomes": {
         "task": "app.workers.tasks_outcomes.catchup_outcomes",

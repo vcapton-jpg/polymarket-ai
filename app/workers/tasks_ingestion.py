@@ -7,6 +7,7 @@ Phase 2: fetch_rss_feeds, fetch_worldnews           (implemented)
 import logging
 from datetime import datetime, timezone
 
+from app.ingestion.gdelt_client import GdeltClient
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
 
@@ -623,3 +624,87 @@ def _parse_date(val) -> datetime | None:
         return parse_dt(str(val))
     except Exception:
         return None
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Phase 3 — GDELT 2.0 (Tier 3, auto-source-registry)
+# ══════════════════════════════════════════════════════════════════════════
+
+async def _resolve_or_create_source(session, source_name: str) -> int:
+    from sqlalchemy import select
+    from app.db.models import SourceRegistry
+
+    row = (await session.execute(
+        select(SourceRegistry).where(SourceRegistry.source_name == source_name)
+    )).scalar_one_or_none()
+    if row:
+        return row.id
+    row = SourceRegistry(
+        source_name=source_name,
+        tier=3,
+        weight=0.4,
+        active=True,
+        source_type="gdelt_auto",
+        url=f"https://{source_name}",
+    )
+    session.add(row)
+    await session.flush()
+    logger.info("sources_registry: auto-created source '%s' from GDELT", source_name)
+    return row.id
+
+
+async def _fetch_gdelt_async(queries: list[str] | None = None) -> int:
+    """Run one GDELT ingestion pass. Returns count of inserted news rows."""
+    from sqlalchemy import select
+    from app.db.database import get_session_factory
+    from app.db.models import News, SourceRegistry
+
+    async_session_factory = get_session_factory()
+    client = GdeltClient()
+    inserted = 0
+
+    async with async_session_factory() as s:
+        if queries is None:
+            rows = (await s.execute(
+                select(SourceRegistry).where(
+                    SourceRegistry.source_type == "gdelt_query",
+                    SourceRegistry.active.is_(True),
+                )
+            )).scalars().all()
+            queries = [r.source_name for r in rows] or ["trump", "fomc", "ceasefire", "crypto regulation"]
+
+        for q in queries:
+            try:
+                arts = await client.fetch_recent(q, timespan="15min")
+            except Exception as e:
+                logger.exception("GDELT fetch failed for %r: %s", q, e)
+                continue
+
+            for a in arts:
+                exists = (await s.execute(
+                    select(News.id).where(News.url == a["url"])
+                )).scalar_one_or_none()
+                if exists:
+                    continue
+                source_id = await _resolve_or_create_source(s, a["source_name"])
+                n = News(
+                    url=a["url"],
+                    title=a["title"],
+                    text=a.get("text", ""),
+                    source_name=a["source_name"],
+                    source_tier=3,
+                    source_weight=0.4,
+                    source_id=source_id,
+                    publish_date=a["publish_date"],
+                )
+                s.add(n)
+                inserted += 1
+        await s.commit()
+
+    logger.info("fetch_gdelt: inserted=%d across queries=%d", inserted, len(queries))
+    return inserted
+
+
+@celery_app.task(name="tasks.fetch_gdelt")
+def fetch_gdelt() -> int:
+    return _run_async(_fetch_gdelt_async())
