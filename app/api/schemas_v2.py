@@ -97,6 +97,16 @@ class TimelineEventOut(BaseModel):
     detail: Optional[str] = None
 
 
+class OutcomeOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    directionCorrect: Optional[bool] = None
+    finalPrice: Optional[float] = None
+    basePrice: Optional[float] = None
+    movePct: Optional[float] = None
+    learningPoint: str
+
+
 class SignalDetailOut(SignalCardOut):
     """Shape consumed by /signals/:id detail page.
 
@@ -109,6 +119,7 @@ class SignalDetailOut(SignalCardOut):
     sourceTierMix: Optional[dict[str, int]] = None
     detailedSources: list[SignalSourceOut] = []
     timeline: list[TimelineEventOut] = []
+    outcome: Optional[OutcomeOut] = None
 
 
 class SignalListOut(BaseModel):

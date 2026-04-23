@@ -14,6 +14,7 @@ from typing import Iterable, Literal, Optional
 
 from app.api.schemas_v2 import (
     FactOut,
+    OutcomeOut,
     SignalCardOut,
     SignalDetailOut,
     SignalSourceOut,
@@ -28,6 +29,7 @@ from app.db.models import (
     News,
     NewsClean,
     Signal,
+    SignalOutcome,
 )
 
 
@@ -438,4 +440,57 @@ def to_signal_detail(
         sourceTierMix=signal.source_tier_mix,
         detailedSources=build_detailed_sources(links),
         timeline=build_timeline(links),
+        outcome=build_outcome_explainer(signal, signal.outcome),
+    )
+
+
+def build_outcome_explainer(
+    signal: Signal, outcome: Optional[SignalOutcome]
+) -> Optional[OutcomeOut]:
+    """Build the FR-language 'outcome explainer' block shown after a signal resolves.
+
+    Returns None when the signal hasn't resolved yet (no outcome row or no
+    price_resolved). Otherwise returns an OutcomeOut with a human-readable
+    learningPoint tailored to whether the signal's direction matched the
+    post-resolution price move.
+    """
+    if outcome is None or outcome.price_resolved is None:
+        return None
+
+    base = (
+        float(signal.market_price_at_signal)
+        if signal.market_price_at_signal is not None
+        else None
+    )
+    final = float(outcome.price_resolved)
+    move_pct: Optional[float] = None
+    if base is not None and base > 0:
+        move_pct = ((final - base) / base) * 100
+
+    correct = outcome.direction_correct
+    base_str = f"{base:.2f}" if base is not None else "inconnu"
+    final_str = f"{final:.2f}"
+    if correct is True:
+        lp = (
+            f"Le signal recommandait {signal.direction} à un prix marché de "
+            f"{base_str}. Le marché a résolu à {final_str}. Direction correcte."
+        )
+    elif correct is False:
+        lp = (
+            f"Le signal recommandait {signal.direction} à un prix marché de "
+            f"{base_str}. Le marché a résolu à {final_str}. Direction incorrecte — "
+            f"les news n'ont pas fait bouger le prix dans le sens attendu."
+        )
+    else:
+        lp = (
+            f"Marché résolu à {final_str}. L'évaluation directionnelle du signal "
+            f"n'a pas pu être déterminée."
+        )
+
+    return OutcomeOut(
+        directionCorrect=correct,
+        finalPrice=final,
+        basePrice=base,
+        movePct=move_pct,
+        learningPoint=lp,
     )
