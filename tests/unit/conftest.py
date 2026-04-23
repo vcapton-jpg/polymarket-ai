@@ -27,3 +27,15 @@ async def async_db_engine():
 async def async_db_factory(async_db_engine):
     """Per-test async session factory built on the per-test engine."""
     return async_sessionmaker(async_db_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+import app.db.database as _db_mod
+
+
+@pytest.fixture(autouse=True)
+def _reset_db_cache():
+    """Force app.db.database to rebuild engine/factory per test to match pytest-asyncio's per-function loops."""
+    _db_mod._engine = None
+    _db_mod._session_factory = None
+    _db_mod._owner_pid = None
+    yield
