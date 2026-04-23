@@ -73,6 +73,7 @@ from app.api.routes.paper import router as paper_router  # noqa: E402
 from app.api.routes.onboarding import router as onboarding_router  # noqa: E402
 from app.api.routes.quiz import router as quiz_router  # noqa: E402
 from app.api.routes.outcome_views import router as outcome_views_router  # noqa: E402
+from app.api.routes.admin_metrics import router as admin_metrics_router  # noqa: E402
 
 app.include_router(trading_router, prefix="/api")
 app.include_router(trading_wallet_router, prefix="/api")
@@ -88,6 +89,7 @@ app.include_router(paper_router, prefix="/api")
 app.include_router(onboarding_router, prefix="/api")
 app.include_router(quiz_router, prefix="/api")
 app.include_router(outcome_views_router, prefix="/api")
+app.include_router(admin_metrics_router, prefix="/api")
 
 from app.api.routes.b2b import router as b2b_router  # noqa: E402
 

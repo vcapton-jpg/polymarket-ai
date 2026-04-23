@@ -24,8 +24,9 @@ async def auth_headers_for_user(async_db_factory):
     created_ids: list[int] = []
     markets_to_cleanup: list[str] = []
 
-    async def _factory() -> tuple[int, dict[str, str]]:
-        email = f"trade-test-{uuid.uuid4().hex[:10]}@example.com"
+    async def _factory(email: str | None = None) -> tuple[int, dict[str, str]]:
+        if email is None:
+            email = f"trade-test-{uuid.uuid4().hex[:10]}@example.com"
         safe_addr = "0x" + uuid.uuid4().hex[:40].ljust(40, "a")
         async with async_db_factory() as s:
             user = UserProfile(
