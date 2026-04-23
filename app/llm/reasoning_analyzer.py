@@ -91,6 +91,7 @@ class ReasoningAnalyzer:
                 "news_clean_id": a["news_clean_id"],
                 "title": a["title"],
                 "source_name": a["source_name"],
+                "source_tier": a.get("source_tier"),
                 "publish_date": a.get("publish_date"),
                 "clean_text": a["clean_text"][:800],
             }
@@ -130,10 +131,10 @@ class ReasoningAnalyzer:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
-            logger.warning("ReasoningAnalyzer: invalid JSON from LLM")
+            logger.warning("ReasoningAnalyzer: invalid JSON from LLM: %r", raw[:200])
             return None
 
-        errs, cleaned = validate_output(parsed, articles)
+        errs, cleaned = validate_output(parsed, articles_for_prompt)
         if errs:
             logger.info("ReasoningAnalyzer rejected: %s", errs)
             return None
