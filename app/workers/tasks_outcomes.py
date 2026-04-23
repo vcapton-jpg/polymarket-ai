@@ -261,6 +261,18 @@ async def _check_resolved_async() -> dict:
                 else:
                     outcome.outcome_label = None
 
+                # Measurement: refresh all variant rows for this signal.
+                try:
+                    from app.measurement.pipeline import record_prediction_resolution
+                    await record_prediction_resolution(
+                        session, signal_id=signal.id, price_resolved=float(final_price)
+                    )
+                except Exception:
+                    logger.exception(
+                        "measurement.record_prediction_resolution failed signal_id=%s — skipping",
+                        signal.id,
+                    )
+
                 resolved += 1
 
             await session.commit()
