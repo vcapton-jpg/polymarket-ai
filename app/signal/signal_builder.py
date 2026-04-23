@@ -265,3 +265,90 @@ class SignalBuilder:
 
 def create_signal_builder() -> SignalBuilder:
     return SignalBuilder()
+
+
+async def build_signal(
+    *,
+    event: dict,
+    market: dict,
+    articles: list[dict],
+    analyzer,
+    persist: bool = True,
+) -> dict | None:
+    """Build a signal enforcing the post-Axis-A invariant.
+
+    Returns the assembled signal dict on success, None if the signal is rejected
+    (missing reasoning or missing valid excerpts).
+    When persist=True and the caller passes a session, it commits to DB.
+    """
+    try:
+        llm = await analyzer.analyze(
+            event_title=event["title"],
+            event_summary=event.get("summary", ""),
+            articles=articles,
+            market_question=market["question"],
+            market_price=float(market.get("price", 0.0)),
+            market_direction_hint=market.get("direction_hint"),
+        )
+    except Exception as e:
+        logger.info("build_signal: analyzer failed, rejecting: %s", e)
+        return None
+
+    if llm is None:
+        logger.info(
+            "signals.rejected_no_reasoning event_id=%s market_id=%s",
+            event.get("id"), market.get("id"),
+        )
+        return None
+
+    if not llm.get("article_excerpts"):
+        logger.info(
+            "signals.rejected_no_excerpts event_id=%s market_id=%s",
+            event.get("id"), market.get("id"),
+        )
+        return None
+
+    assembled = {
+        "event_id": event["id"],
+        "market_id": market["id"],
+        "catalyst": llm.get("catalyst"),
+        "reasoning": llm["reasoning"],
+        "llm_model_version": getattr(analyzer, "model_version", None),
+        "source_tier_mix": llm.get("source_tier_mix"),
+        "impact_score": llm.get("impact_score"),
+        "confidence": llm.get("confidence"),
+        "direction_recommendation": llm.get("direction_recommendation"),
+        "article_excerpts": llm["article_excerpts"],
+    }
+
+    if persist:
+        await _persist_signal(assembled, articles)
+    return assembled
+
+
+async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
+    from sqlalchemy import update
+    from app.db.database import get_session_factory
+    from app.db.models import EventNewsLink, Signal
+
+    session_factory = get_session_factory()
+    async with session_factory() as s:
+        sig = Signal(
+            event_id=assembled["event_id"],
+            market_id=assembled["market_id"],
+            catalyst=assembled["catalyst"],
+            reasoning=assembled["reasoning"],
+            llm_model_version=assembled["llm_model_version"],
+            source_tier_mix=assembled["source_tier_mix"],
+        )
+        s.add(sig)
+        for exc in assembled["article_excerpts"]:
+            await s.execute(
+                update(EventNewsLink)
+                .where(
+                    EventNewsLink.event_id == assembled["event_id"],
+                    EventNewsLink.clean_id == exc["news_clean_id"],
+                )
+                .values(key_excerpt=exc["excerpt"], relevance_score=exc["relevance"])
+            )
+        await s.commit()
