@@ -90,6 +90,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("outcome_views")
+    op.drop_index("ix_quiz_attempts_user", table_name="quiz_attempts")
     op.drop_table("quiz_attempts")
     op.drop_table("onboarding_progress")
     op.drop_index("ix_paper_positions_user", table_name="paper_positions")
