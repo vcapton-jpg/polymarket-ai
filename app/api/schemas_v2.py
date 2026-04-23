@@ -72,12 +72,43 @@ class SignalCardOut(BaseModel):
     createdAt: datetime
 
 
+class SignalSourceOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    newsId: int
+    title: str
+    url: str
+    sourceName: str
+    sourceTier: Literal[1, 2, 3]
+    sourceWeight: Optional[float] = None
+    publishDate: Optional[str] = None
+    excerpt: Optional[str] = None
+    relevanceScore: Optional[float] = None
+    role: Literal["primary", "supporting"] = "supporting"
+
+
+class TimelineEventOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    at: str
+    source: str
+    type: Literal["news", "market_move"] = "news"
+    headline: Optional[str] = None
+    detail: Optional[str] = None
+
+
 class SignalDetailOut(SignalCardOut):
     """Shape consumed by /signals/:id detail page.
 
     Inherits all card fields and overrides `facts` + `sources` with the
     enriched content from LlmAnalysis + EventNewsLink chain.
     """
+
+    reasoning: Optional[str] = None
+    llmModelVersion: Optional[str] = None
+    sourceTierMix: Optional[dict[str, int]] = None
+    detailedSources: list[SignalSourceOut] = []
+    timeline: list[TimelineEventOut] = []
 
 
 class SignalListOut(BaseModel):

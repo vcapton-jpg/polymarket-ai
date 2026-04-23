@@ -12,7 +12,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Iterable, Literal, Optional
 
-from app.api.schemas_v2 import FactOut, SignalCardOut, SignalDetailOut, SourceOut
+from app.api.schemas_v2 import (
+    FactOut,
+    SignalCardOut,
+    SignalDetailOut,
+    SignalSourceOut,
+    SourceOut,
+    TimelineEventOut,
+)
 from app.db.models import (
     Event,
     EventMarketAnalysis,
@@ -301,6 +308,66 @@ def build_sources(
     return out
 
 
+def build_detailed_sources(
+    news_links: Iterable[EventNewsLink],
+) -> list[SignalSourceOut]:
+    """Build the rich per-article source list for the detail view.
+
+    Orders by EventNewsLink.relevance_score (descending, NULLs last). The
+    highest-scored source gets role=primary; the rest are supporting.
+    """
+    links = [
+        link for link in news_links
+        if getattr(link, "news_clean", None) and link.news_clean.news
+    ]
+    links.sort(
+        key=lambda l: (l.relevance_score if l.relevance_score is not None else -1.0),
+        reverse=True,
+    )
+    out: list[SignalSourceOut] = []
+    for i, link in enumerate(links[:10]):
+        news: News = link.news_clean.news
+        publish = news.publish_date
+        if publish and publish.tzinfo is None:
+            publish = publish.replace(tzinfo=timezone.utc)
+        out.append(SignalSourceOut(
+            newsId=news.id,
+            title=news.title or "",
+            url=news.url or "",
+            sourceName=news.source_name or "unknown",
+            sourceTier=_tier_for(news.source_tier),
+            sourceWeight=(float(news.source_weight) if news.source_weight is not None else None),
+            publishDate=publish.isoformat() if publish else None,
+            excerpt=link.key_excerpt,
+            relevanceScore=(float(link.relevance_score) if link.relevance_score is not None else None),
+            role="primary" if i == 0 else "supporting",
+        ))
+    return out
+
+
+def build_timeline(
+    news_links: Iterable[EventNewsLink],
+) -> list[TimelineEventOut]:
+    """Flatten news_links into chronological timeline entries."""
+    items: list[TimelineEventOut] = []
+    for link in news_links:
+        clean = getattr(link, "news_clean", None)
+        if not clean or not clean.news:
+            continue
+        news: News = clean.news
+        when = news.publish_date
+        if when and when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        items.append(TimelineEventOut(
+            at=when.isoformat() if when else "",
+            source=news.source_name or "unknown",
+            type="news",
+            headline=news.title,
+        ))
+    items.sort(key=lambda e: e.at, reverse=True)
+    return items
+
+
 # ── Top-level mappers ────────────────────────────────────────────────
 def _catalyst_for(signal: Signal) -> str:
     ev = signal.event
@@ -356,8 +423,15 @@ def to_signal_detail(
     news_links: Iterable[EventNewsLink],
 ) -> SignalDetailOut:
     base = _common_fields(signal)
+    # Materialise once — both mappers iterate news_links.
+    links = list(news_links)
     return SignalDetailOut(
         **base,
         facts=build_facts(signal, analysis),
-        sources=build_sources(news_links),
+        sources=build_sources(links),
+        reasoning=signal.reasoning,
+        llmModelVersion=signal.llm_model_version,
+        sourceTierMix=signal.source_tier_mix,
+        detailedSources=build_detailed_sources(links),
+        timeline=build_timeline(links),
     )
