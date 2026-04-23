@@ -31,7 +31,7 @@ def _cosine(a: list[float] | None, b: list[float] | None) -> float:
     sqrt-division — it's a no-op on normalized vectors and avoids distorting
     magnitude when callers pass non-unit test vectors.
     """
-    if not a or not b:
+    if a is None or b is None or len(a) == 0 or len(b) == 0:
         return 0.0
     dot = sum(x * y for x, y in zip(a, b))
     return max(0.0, dot)
