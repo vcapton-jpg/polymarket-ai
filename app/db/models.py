@@ -679,20 +679,34 @@ class UserLimits(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), primary_key=True
     )
-    budget_weekly_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=20.00)
-    max_stake_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=10.00)
-    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    real_trades_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    consecutive_losses: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    budget_weekly_eur: Mapped[float] = mapped_column(
+        Numeric(10, 2), nullable=False, default=20.00, server_default="20.00"
+    )
+    max_stake_eur: Mapped[float] = mapped_column(
+        Numeric(10, 2), nullable=False, default=10.00, server_default="10.00"
+    )
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    real_trades_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    consecutive_losses: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     cooloff_until: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    quiz_passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    age_confirmed_18: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    quiz_passed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    age_confirmed_18: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     cgu_accepted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    week_spent_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0.00)
+    week_spent_eur: Mapped[float] = mapped_column(
+        Numeric(10, 2), nullable=False, default=0.00, server_default="0.00"
+    )
     week_reset_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -722,10 +736,14 @@ class PaperPosition(Base):
     stake_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     entry_price: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
     current_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    resolved: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     pnl_eur: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
-    is_tutorial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_tutorial: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     opened_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -740,11 +758,21 @@ class OnboardingProgress(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), primary_key=True
     )
-    profile_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    tutorial_trades_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    tutorial_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    quiz_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    budget_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    profile_done: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    tutorial_trades_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    tutorial_done: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    quiz_done: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    budget_done: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     unlocked_real_trading_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

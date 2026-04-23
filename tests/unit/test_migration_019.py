@@ -3,25 +3,12 @@
 from __future__ import annotations
 import pytest
 from sqlalchemy import inspect
-from sqlalchemy.ext.asyncio import create_async_engine
-
-from app.core.config import get_settings
-
-
-def _make_engine():
-    """Create a fresh async engine to avoid event-loop conflicts."""
-    settings = get_settings()
-    return create_async_engine(settings.database_url, echo=False)
 
 
 @pytest.mark.asyncio
-async def test_migration_019_creates_tables():
-    engine = _make_engine()
-    try:
-        async with engine.connect() as conn:
-            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
-    finally:
-        await engine.dispose()
+async def test_migration_019_creates_tables(async_db_engine):
+    async with async_db_engine.connect() as conn:
+        tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
 
     expected = {
         "user_limits",
@@ -35,15 +22,11 @@ async def test_migration_019_creates_tables():
 
 
 @pytest.mark.asyncio
-async def test_user_limits_has_budget_columns():
-    engine = _make_engine()
-    try:
-        async with engine.connect() as conn:
-            cols_info = await conn.run_sync(
-                lambda sync_conn: inspect(sync_conn).get_columns("user_limits")
-            )
-    finally:
-        await engine.dispose()
+async def test_user_limits_has_budget_columns(async_db_engine):
+    async with async_db_engine.connect() as conn:
+        cols_info = await conn.run_sync(
+            lambda sync_conn: inspect(sync_conn).get_columns("user_limits")
+        )
     cols = {c["name"] for c in cols_info}
 
     required = {
