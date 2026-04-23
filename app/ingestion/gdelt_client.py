@@ -67,7 +67,7 @@ class GdeltClient:
 def _domain_of(url: str) -> str:
     try:
         from urllib.parse import urlparse
-        return (urlparse(url).hostname or "").lower().lstrip("www.")
+        return (urlparse(url).hostname or "").lower().removeprefix("www.")
     except Exception:
         return ""
 

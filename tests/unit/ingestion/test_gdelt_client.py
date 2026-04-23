@@ -1,9 +1,10 @@
 """GDELT client — payload parsing and dedupe."""
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
-from app.ingestion.gdelt_client import GdeltClient
+from app.ingestion.gdelt_client import GdeltClient, _domain_of
 
 
 SAMPLE_PAYLOAD = {
@@ -63,3 +64,17 @@ async def test_fetch_recent_parses_seendate():
         arts = await client.fetch_recent("trump")
     a0 = arts[0]
     assert a0["publish_date"].isoformat().startswith("2026-04-23T14:03")
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_returns_empty_on_http_error():
+    client = GdeltClient()
+    err = httpx.ConnectError("boom")
+    with patch.object(client, "_get", new=AsyncMock(side_effect=err)):
+        arts = await client.fetch_recent("trump")
+    assert arts == []
+
+
+def test_domain_of_strips_www_prefix_only():
+    assert _domain_of("https://www.worldnews.com/a") == "worldnews.com"
+    assert _domain_of("https://worldnews.com/a") == "worldnews.com"
