@@ -291,6 +291,12 @@ async def build_signal(
             market_direction_hint=market.get("direction_hint"),
         )
     except Exception as e:
+        # Let quota / rate-limit errors propagate so upstream callers
+        # (e.g. the scoring circuit-breaker) can stage pending-reasoning
+        # rows for backfill instead of silently rejecting.
+        from app.workers.tasks_scoring import _is_quota_error
+        if _is_quota_error(e):
+            raise
         logger.warning("build_signal: analyzer failed, rejecting: %s", e)
         return None
 

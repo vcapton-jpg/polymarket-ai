@@ -637,3 +637,47 @@ def _safe_float(val, scale: int = 1) -> Optional[float]:
         return float(val) / scale
     except (ValueError, TypeError):
         return None
+
+
+def _is_quota_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return (
+        "insufficient_quota" in msg
+        or "quota" in msg
+        or "429" in msg
+        or "rate limit" in msg
+    )
+
+
+async def _score_event_market_async(event, market, articles, *, analyzer=None):
+    from app.llm.reasoning_analyzer import create_reasoning_analyzer
+    from app.signal.signal_builder import build_signal
+    from app.db.database import get_session_factory
+    from app.db.models import SignalPendingReasoning
+
+    analyzer = analyzer or create_reasoning_analyzer()
+
+    try:
+        return await build_signal(
+            event=event, market=market, articles=articles,
+            analyzer=analyzer, persist=True,
+        )
+    except Exception as e:
+        if _is_quota_error(e):
+            logger.warning(
+                "llm.quota_exceeded event_id=%s market_id=%s — staging for backfill",
+                event.get("id"), market.get("id"),
+            )
+            session_factory = get_session_factory()
+            async with session_factory() as s:
+                s.add(SignalPendingReasoning(
+                    event_id=event["id"],
+                    market_id=market["id"],
+                    inputs={
+                        "event": event, "market": market, "articles": articles,
+                    },
+                    last_error=str(e)[:500],
+                ))
+                await s.commit()
+            return None
+        raise
