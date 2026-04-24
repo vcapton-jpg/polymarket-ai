@@ -52,7 +52,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
     from app.llm.impact_analyzer import create_impact_analyzer
     from app.processing.embedding_service import get_embedding
     from app.processing.freshness import signal_event_still_fresh
-    from app.retrieval.hybrid_search import hybrid_search_markets
+    from app.retrieval import hybrid_search_markets  # dispatcher (v1 by default)
     from app.signal.signal_builder import create_signal_builder
 
     settings = get_settings()
@@ -117,6 +117,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             session, embedding, event_text,
             event_bucket=event.bucket,
             event_entities=event.key_entities,
+            event_last_seen=event.last_seen,
         )
 
         if not candidates:
