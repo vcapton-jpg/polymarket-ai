@@ -6,6 +6,8 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.processing.embedding_reader import active_column_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,6 +28,7 @@ async def search_markets_by_embedding(
     if event_embedding is None:
         return []
 
+    col = active_column_name("market")
     embedding_str = "[" + ",".join(str(x) for x in event_embedding) + "]"
 
     params: dict = {
@@ -36,7 +39,7 @@ async def search_markets_by_embedding(
 
     try:
         result = await session.execute(
-            text("""
+            text(f"""
                 SELECT
                     market_id,
                     question,
@@ -49,13 +52,13 @@ async def search_markets_by_embedding(
                     spread,
                     last_trade_price,
                     market_retrieval_text,
-                    1 - (embedding <=> cast(:embedding as vector)) AS cosine_score
+                    1 - ({col} <=> cast(:embedding as vector)) AS cosine_score
                 FROM markets
-                WHERE embedding IS NOT NULL
+                WHERE {col} IS NOT NULL
                   AND active = true
                   AND closed = false
-                  AND 1 - (embedding <=> cast(:embedding as vector)) >= :min_sim
-                ORDER BY embedding <=> cast(:embedding as vector)
+                  AND 1 - ({col} <=> cast(:embedding as vector)) >= :min_sim
+                ORDER BY {col} <=> cast(:embedding as vector)
                 LIMIT :limit
             """),
             params,

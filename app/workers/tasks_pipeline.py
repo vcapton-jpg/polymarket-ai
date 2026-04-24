@@ -431,6 +431,7 @@ async def _build_events_async() -> dict:
     from app.db.models import ArticleEntity, Event, EventNewsLink, News, NewsClean
     from app.event_engine.event_builder import build_event_from_cluster
     from app.event_engine.simple_clusterer import create_simple_clusterer
+    from app.processing.embedding_reader import get_active_embedding
     from app.processing.freshness import is_fresh_enough
 
     settings = get_settings()
@@ -471,7 +472,7 @@ async def _build_events_async() -> dict:
                 "source_name": news.source_name if news else "",
                 "publish_date": news.publish_date if news else None,
                 "ingestion_date": news.ingestion_date if news else None,
-                "embedding": list(nc.embedding) if nc.embedding is not None else None,
+                "embedding": (lambda v: list(v) if v is not None else None)(get_active_embedding(nc, "news")),
                 "entities": [
                     {"entity_type": e.entity_type, "entity_value": e.entity_value}
                     for e in ents

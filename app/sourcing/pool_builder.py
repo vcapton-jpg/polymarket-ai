@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import EventNewsLink, News, NewsClean
+from app.processing.embedding_reader import active_column_name
 
 
 async def fetch_candidate_articles(
@@ -33,10 +34,12 @@ async def fetch_candidate_articles(
     """
     cutoff_lo = t0 - timedelta(hours=window_hours)
 
+    emb_col = getattr(NewsClean, active_column_name("news"))
+
     stmt = (
         select(
             NewsClean.id.label("news_clean_id"),
-            NewsClean.embedding,
+            emb_col.label("embedding"),
             News.publish_date,
             NewsClean.clean_text,
             News.source_name,
@@ -50,7 +53,7 @@ async def fetch_candidate_articles(
             News.publish_date.is_not(None),
             News.publish_date >= cutoff_lo,
             News.publish_date <= t0,
-            NewsClean.embedding.is_not(None),
+            emb_col.is_not(None),
         )
         .order_by(News.publish_date.desc())
     )
