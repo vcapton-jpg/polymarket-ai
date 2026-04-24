@@ -159,9 +159,10 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 from app.workers.tasks_ranking_shadow import record_shadow_ranking
                 record_shadow_ranking.delay(event_id=event_id)
             except Exception:
-                logger.debug(
+                logger.warning(
                     "ranking shadow enqueue failed event_id=%s — continuing",
                     event_id,
+                    exc_info=True,
                 )
 
         # ── Step 3: Parallel LLM impact analysis ─────────────────────
