@@ -366,6 +366,8 @@ class EventMarketRankingShadow(Base):
         ForeignKey("events.id", ondelete="CASCADE"),
         nullable=False,
     )
+    # No FK on market_id — shadow rows are disposable observations; we don't
+    # want a market deletion to cascade away v1/v2 divergence history.
     market_id: Mapped[str] = mapped_column(Text, nullable=False)
     variant: Mapped[str] = mapped_column(Text, nullable=False)
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -384,6 +386,7 @@ class EventMarketRankingShadow(Base):
             "event_id", "variant", "rank",
             name="uq_ranking_shadow_event_variant_rank",
         ),
+        Index("ix_ranking_shadow_event_variant", "event_id", "variant"),
     )
 
 
