@@ -1,0 +1,92 @@
+{
+  "news": {
+    "variant": "v1",
+    "surface": "news",
+    "metrics": {},
+    "per_source": {},
+    "generated_at": "2026-04-24T02:22:51.125909+00:00",
+    "git_sha": "unknown",
+    "n_pairs": 0,
+    "n_skipped": 0
+  },
+  "market": {
+    "variant": "v1",
+    "surface": "market",
+    "metrics": {},
+    "per_source": {},
+    "generated_at": "2026-04-24T02:22:51.130765+00:00",
+    "git_sha": "unknown",
+    "n_pairs": 0,
+    "n_skipped": 0
+  },
+  "event": {
+    "variant": "v1",
+    "surface": "event",
+    "metrics": {
+      "retrieval@5": {
+        "mean": 0.10035842293906813,
+        "ci_low": 0.07921146953405021,
+        "ci_high": 0.12340501792114698,
+        "n": 465
+      },
+      "retrieval@10": {
+        "mean": 0.10023553507424478,
+        "ci_low": 0.07896569380440352,
+        "ci_high": 0.12328213005632363,
+        "n": 465
+      },
+      "ndcg@10": {
+        "mean": 0.11501712046304893,
+        "ci_low": 0.09229955968145484,
+        "ci_high": 0.14010870049089502,
+        "n": 465
+      }
+    },
+    "per_source": {
+      "db_heuristic": {
+        "retrieval@5": {
+          "mean": 0.10279001468428783,
+          "ci_low": 0.08102055800293687,
+          "ci_high": 0.12529368575624084,
+          "n": 454
+        },
+        "retrieval@10": {
+          "mean": 0.10266414936018463,
+          "ci_low": 0.08089469267883366,
+          "ci_high": 0.12516782043213762,
+          "n": 454
+        },
+        "ndcg@10": {
+          "mean": 0.1178038788883651,
+          "ci_low": 0.0945070398062035,
+          "ci_high": 0.14257903008445755,
+          "n": 454
+        }
+      },
+      "downstream_pnl": {
+        "retrieval@5": {
+          "mean": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0,
+          "n": 11
+        },
+        "retrieval@10": {
+          "mean": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0,
+          "n": 11
+        },
+        "ndcg@10": {
+          "mean": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0,
+          "n": 11
+        }
+      }
+    },
+    "generated_at": "2026-04-24T02:24:38.971089+00:00",
+    "git_sha": "unknown",
+    "n_pairs": 465,
+    "n_skipped": 47
+  }
+}
