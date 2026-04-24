@@ -181,6 +181,18 @@ class Settings(BaseSettings):
         default=10.0,
         description="Hard cap on spend per LLM-judge eval run (GPT-4o-mini).",
     )
+    embeddings_variant_news: str = Field(
+        default="v1",
+        description="Active embedding variant for news_clean. 'v1' or 'v2'.",
+    )
+    embeddings_variant_market: str = Field(
+        default="v1",
+        description="Active embedding variant for markets. 'v1' or 'v2'.",
+    )
+    embeddings_variant_event: str = Field(
+        default="v1",
+        description="Active embedding variant for events. 'v1' or 'v2'.",
+    )
 
     # ── Application ───────────────────────────────────────────────────────
     app_name: str = "Foresight"
