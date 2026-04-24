@@ -1,63 +1,48 @@
-"""Heuristic scorer for signals — two-dimensional: signal_strength + trade_quality."""
+"""Heuristic scorer — now a thin orchestrator over pure sub-scorers.
+
+Chantier #5: the actual math lives in `strength_scorer.py`, `trade_scorer.py`,
+and the knobs in `weights.py`. This class preserves the legacy public API
+(constructor, `compute_score`, `is_actionable`, `derive_*_label`) so every
+existing call-site in `SignalBuilder` works untouched.
+"""
 
 import logging
-from typing import Optional
 
 from app.core.config import get_settings
+from app.scoring.strength_scorer import compute_signal_strength
+from app.scoring.trade_scorer import compute_trade_quality
+from app.scoring.weights import HeuristicWeights
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
-
-STRENGTH_WEIGHT = 0.75
-TRADE_WEIGHT = 0.25
 
 
 class HeuristicScorer:
-
-    def __init__(self):
+    def __init__(self, weights: HeuristicWeights | None = None):
+        settings = get_settings()
         self.threshold = settings.signal_score_threshold
-
-        self.strength_weights = {
-            "freshness": 0.15,
-            "source_weight": 0.10,
-            "confirmation": 0.15,
-        }
-        self.strength_llm_weight = 0.60
-
-        self.trade_weights = {
-            "liquidity": 0.40,
-            "spread": 0.35,
-            "time_to_resolution": 0.25,
-        }
+        self.weights = weights or HeuristicWeights.load_from_settings(settings)
 
     def compute_score(
         self,
         features: dict,
-        llm_combined: Optional[float] = None,
+        llm_combined: float | None = None,
     ) -> dict:
-        """Compute two-dimensional score.
+        """Two-dimensional score: strength + trade → final.
 
-        Returns dict with signal_strength, trade_quality, and final signal_score.
+        Output values are int in [0, 100] for backward compatibility with
+        existing DB columns (Numeric(5,1)) and UI rendering.
         """
-        strength_base = sum(
-            features.get(key, 0.5) * w
-            for key, w in self.strength_weights.items()
+        strength_float = compute_signal_strength(features, self.weights, llm_combined)
+        trade_float = compute_trade_quality(features, self.weights)
+
+        signal_strength = max(0, min(100, int(strength_float * 100)))
+        trade_quality = max(0, min(100, int(trade_float * 100)))
+
+        raw_final = (
+            signal_strength * self.weights.strength_weight
+            + trade_quality * self.weights.trade_weight
         )
-        if llm_combined is not None:
-            strength_raw = strength_base + llm_combined * self.strength_llm_weight
-        else:
-            strength_raw = strength_base / (1.0 - self.strength_llm_weight)
-
-        signal_strength = max(0, min(100, int(strength_raw * 100)))
-
-        trade_raw = sum(
-            features.get(key, 0.5) * w
-            for key, w in self.trade_weights.items()
-        )
-        trade_quality = max(0, min(100, int(trade_raw * 100)))
-
-        signal_score = int(signal_strength * STRENGTH_WEIGHT + trade_quality * TRADE_WEIGHT)
-        signal_score = max(0, min(100, signal_score))
+        signal_score = max(0, min(100, int(raw_final)))
 
         return {
             "signal_score": signal_score,
@@ -71,16 +56,16 @@ class HeuristicScorer:
     def derive_confidence_label(self, score: int, source_count: int) -> str:
         if score >= 80 and source_count >= 2:
             return "high"
-        elif score >= 65:
+        if score >= 65:
             return "medium"
         return "low"
 
     def derive_urgency_label(self, score: int, time_factor: float) -> str:
         if time_factor >= 0.8:
             return "critical"
-        elif time_factor >= 0.5:
+        if time_factor >= 0.5:
             return "high"
-        elif time_factor >= 0.2:
+        if time_factor >= 0.2:
             return "medium"
         return "low"
 
@@ -90,12 +75,11 @@ class HeuristicScorer:
         spread_penalty: float,
     ) -> str:
         score = (liquidity_factor * 0.6) + (spread_penalty * 0.4)
-
         if score >= 0.8:
             return "excellent"
-        elif score >= 0.6:
+        if score >= 0.6:
             return "good"
-        elif score >= 0.4:
+        if score >= 0.4:
             return "fair"
         return "poor"
 
