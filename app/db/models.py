@@ -7,6 +7,7 @@ from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -350,6 +351,39 @@ class EventMarketFeatures(Base):
 
     __table_args__ = (
         UniqueConstraint("event_id", "market_id", name="uq_event_market_features"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# event_market_ranking_shadow  (chantier #4 — opposite-variant observation)
+# ---------------------------------------------------------------------------
+class EventMarketRankingShadow(Base):
+    __tablename__ = "event_market_ranking_shadow"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    event_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    market_id: Mapped[str] = mapped_column(Text, nullable=False)
+    variant: Mapped[str] = mapped_column(Text, nullable=False)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    rrf_score: Mapped[float] = mapped_column(Float, nullable=False)
+    cosine_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    entity_matches: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    date_proximity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    bucket_match: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("variant IN ('v1','v2')", name="ck_ranking_shadow_variant"),
+        UniqueConstraint(
+            "event_id", "variant", "rank",
+            name="uq_ranking_shadow_event_variant_rank",
+        ),
     )
 
 
