@@ -60,3 +60,50 @@ def test_news_v2_empty_body():
     got = compose_news_v2("T", "")
     # Nothing meaningful to do; should not crash and output should be well-formed.
     assert got.text.startswith("T")
+
+
+# ── A3: market v2 ────────────────────────────────────────────────────
+from app.processing.text_composers import compose_market_v2
+
+
+def test_market_v2_composition_version_is_stable():
+    got = compose_market_v2({"question": "q", "description": "d", "tags": [], "category": "Politics"})
+    assert got.composition_version == "market_v2_with_category"
+
+
+def test_market_v2_with_category_injects_bracket_marker():
+    mkt = {
+        "question": "Will X win?",
+        "description": "Context here.",
+        "tags": ["politics", "2028"],
+        "category": "Politics",
+    }
+    got = compose_market_v2(mkt)
+    assert "[category: Politics]" in got.text
+    # Preserves question and tags.
+    assert got.text.startswith("Will X win?.")
+    assert "politics 2028" in got.text
+
+
+def test_market_v2_without_category_omits_bracket():
+    mkt = {"question": "q", "description": "", "tags": [], "category": None}
+    got = compose_market_v2(mkt)
+    assert "[category:" not in got.text
+
+
+def test_market_v2_empty_category_treated_as_absent():
+    mkt = {"question": "q", "description": "", "tags": [], "category": ""}
+    got = compose_market_v2(mkt)
+    assert "[category:" not in got.text
+
+
+def test_market_v2_strips_boilerplate_same_as_v1():
+    mkt = {
+        "question": "q",
+        "description": "real content\n\n\nstill here.",
+        "tags": [],
+        "category": "X",
+    }
+    got = compose_market_v2(mkt)
+    # \n{2,} → \n collapse matches v1 behavior.
+    assert "\n\n\n" not in got.text

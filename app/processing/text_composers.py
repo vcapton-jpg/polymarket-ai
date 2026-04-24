@@ -79,6 +79,33 @@ def compose_market_v1(mkt: dict) -> ComposedText:
 # ══════════════════════════════════════════════════════════════════════
 
 
+def compose_market_v2(mkt: dict) -> ComposedText:
+    """A3 — v1 plus an explicit [category: X] marker between description and tags."""
+    from app.workers.tasks_ingestion import _BOILERPLATE_RE
+
+    question = (mkt.get("question") or "").strip()
+    desc_raw = mkt.get("description") or ""
+    desc_clean = _BOILERPLATE_RE.sub("", desc_raw).strip()
+    desc_clean = re.sub(r"\n{2,}", "\n", desc_clean)[:400]
+    category = (mkt.get("category") or "").strip()
+    tags_str = " ".join(mkt.get("tags") or [])
+
+    parts = [f"{question}."]
+    if desc_clean:
+        parts.append(desc_clean)
+    if category:
+        parts.append(f"[category: {category}]")
+    if tags_str:
+        parts.append(tags_str)
+    text = " ".join(p for p in parts if p).strip()
+    return ComposedText(text=text, composition_version="market_v2_with_category")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Event
+# ══════════════════════════════════════════════════════════════════════
+
+
 def compose_event_v1(title: str, summary: str, entities: list[str]) -> ComposedText:
     """Canonical v1 shape, matching app/event_engine/event_builder.py:56-58:
 
