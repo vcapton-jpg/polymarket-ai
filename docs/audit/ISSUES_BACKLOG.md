@@ -118,7 +118,7 @@ Issu de la section 1.5 de l'audit externe. Reclassé ici avec statut.
 
 | # | Correction | Impact | Coût | Chantier | Statut |
 |---|---|---|---|---|---|
-| 1 | Aligner `clustering_cosine_threshold` doc ↔ code | 5 | 1 | 1 | 🔴 À faire |
+| 1 | Aligner `clustering_cosine_threshold` doc ↔ code | 5 | 1 | 1 | 🟢 Shipped (ebfb6ce) |
 | 2 | `min_articles_per_event` 1→2 + `min_unique_sources_per_event=2` | 4 | 1 | 2 | 🔴 À faire |
 | 3 | Remplacer simhash par near-dup embeddings (cosine ≥0.95) | 5 | 2 | 2 | 🔴 À faire |
 | 4 | Ajouter 3 baselines sur `signal_outcomes` + calcul parallèle | 5 | 2 | 3 | 🔴 À faire |
