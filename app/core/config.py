@@ -194,6 +194,40 @@ class Settings(BaseSettings):
         description="Active embedding variant for events. 'v1' or 'v2'.",
     )
 
+    # ── Ranking v2 (chantier #4) ──────────────────────────────────────
+    ranking_variant_event_to_market: str = Field(
+        default="v1",
+        description="Active ranking variant for event→market retrieval. 'v1' (current) or 'v2' (tuned).",
+    )
+    ranking_shadow_enabled: bool = Field(
+        default=True,
+        description="Kill switch for the event_market_ranking_shadow Celery task.",
+    )
+    ranking_v2_rrf_k: int = Field(
+        default=60,
+        description="RRF k-constant for hybrid_search_v2.",
+    )
+    ranking_v2_w_entity: float = Field(
+        default=0.5,
+        description="Weight of the entity-match bonus in hybrid_search_v2.",
+    )
+    ranking_v2_w_date: float = Field(
+        default=0.0,
+        description="Weight of the date-proximity bonus in hybrid_search_v2. Defaults to 0 → v2 ≡ v1.",
+    )
+    ranking_v2_w_bucket: float = Field(
+        default=0.0,
+        description="Weight of the bucket-match bonus in hybrid_search_v2. Defaults to 0 → v2 ≡ v1.",
+    )
+    ranking_v2_tau_days: float = Field(
+        default=14.0,
+        description="Exponential-decay time constant (days) for date-proximity boost.",
+    )
+    ranking_v2_min_sim: float = Field(
+        default=0.45,
+        description="Minimum cosine similarity threshold for v2 vector retrieval.",
+    )
+
     # ── Application ───────────────────────────────────────────────────────
     app_name: str = "Foresight"
     app_version: str = "1.0.0"
