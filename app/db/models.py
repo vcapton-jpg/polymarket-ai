@@ -106,6 +106,11 @@ class NewsClean(Base):
     embedding_computed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    embedding_v2: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2_composition: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    embedding_v2_computed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     news: Mapped["News"] = relationship(back_populates="clean")
     entities: Mapped[list["ArticleEntity"]] = relationship(
@@ -163,6 +168,11 @@ class Market(Base):
     volume_24h_pct: Mapped[Optional[float]] = mapped_column(Numeric(5, 4), nullable=True)
     market_retrieval_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     embedding: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2_composition: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    embedding_v2_computed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -197,6 +207,11 @@ class Event(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     embedding: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2_composition: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    embedding_v2_computed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     processing_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )
