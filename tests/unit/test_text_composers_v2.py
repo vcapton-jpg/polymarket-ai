@@ -107,3 +107,42 @@ def test_market_v2_strips_boilerplate_same_as_v1():
     got = compose_market_v2(mkt)
     # \n{2,} → \n collapse matches v1 behavior.
     assert "\n\n\n" not in got.text
+
+
+# ── A4: event v2 ─────────────────────────────────────────────────────
+from app.processing.text_composers import compose_event_v2
+
+
+def test_event_v2_composition_version_is_stable():
+    got = compose_event_v2("T", "s", [], bucket=None)
+    assert got.composition_version == "event_v2_bucket_prefix"
+
+
+def test_event_v2_with_bucket_prepends_bracket():
+    got = compose_event_v2("Title", "Summary", ["Alice"], bucket="geopolitics")
+    assert got.text.startswith("[geopolitics]")
+    assert "Title" in got.text
+    assert "Alice" in got.text
+
+
+def test_event_v2_without_bucket_no_bracket_prefix():
+    got = compose_event_v2("Title", "Summary", ["Alice"], bucket=None)
+    assert not got.text.startswith("[")
+
+
+def test_event_v2_empty_bucket_string_treated_as_absent():
+    got = compose_event_v2("Title", "Summary", ["Alice"], bucket="")
+    assert not got.text.startswith("[")
+
+
+def test_event_v2_summary_truncated_at_400():
+    long = "X" * 600
+    got = compose_event_v2("T", long, [], bucket="politics")
+    # summary slice is [:400]; rest are "T" (title) and prefix.
+    assert got.text.count("X") == 400
+
+
+def test_event_v2_clips_entities_to_5():
+    got = compose_event_v2("T", "s", ["a", "b", "c", "d", "e", "f", "g"], bucket="x")
+    assert "a" in got.text and "e" in got.text
+    assert "f" not in got.text and "g" not in got.text

@@ -122,3 +122,21 @@ def compose_event_v1(title: str, summary: str, entities: list[str]) -> ComposedT
     parts.extend((entities or [])[:5])
     text = " ".join(p for p in parts if p)
     return ComposedText(text=text, composition_version="event_v1_title_summary_entities")
+
+
+def compose_event_v2(
+    title: str, summary: str, entities: list[str], *, bucket: str | None
+) -> ComposedText:
+    """A4 — v1 plus a [bucket] prefix. Summary truncated at 400 (not 300 like v1)
+    to capture more of the event body now that the bucket anchors the domain."""
+    parts: list[str] = []
+    if bucket:
+        parts.append(f"[{bucket}]")
+    if title:
+        parts.append(title.strip())
+    if summary:
+        parts.append((summary or "").strip()[:400])
+    for ent in (entities or [])[:5]:
+        parts.append(ent)
+    text = " ".join(p for p in parts if p).strip()
+    return ComposedText(text=text, composition_version="event_v2_bucket_prefix")
