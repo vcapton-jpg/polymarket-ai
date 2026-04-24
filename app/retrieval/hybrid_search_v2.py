@@ -131,7 +131,6 @@ async def hybrid_search_markets_v2(
 
         # date proximity — requires event_last_seen to be meaningful
         if event_last_seen is not None and w_date > 0:
-            from app.retrieval.hybrid_search_v2 import date_proximity
             dp = date_proximity(entry.get("end_date"), event_last_seen, tau_days)
             if dp > 0:
                 rrf_score += dp * w_date
@@ -139,7 +138,6 @@ async def hybrid_search_markets_v2(
 
         # bucket match
         if w_bucket > 0:
-            from app.retrieval.hybrid_search_v2 import bucket_match
             mkt_bucket = entry.get("bucket")
             bm = bucket_match(mkt_bucket, event_bucket)
             if bm > 0:

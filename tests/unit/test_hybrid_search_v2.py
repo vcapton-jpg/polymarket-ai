@@ -138,7 +138,11 @@ async def test_v2_equivalence_when_w_date_and_w_bucket_zero(monkeypatch, _fake_v
         "app.retrieval.hybrid_search.search_markets_by_embedding",
         _mock,
     )
-    get_settings_cache_clear = _clear_settings()
+    # pin w_entity to v1's ENTITY_BOOST_PER_MATCH so equivalence does not rely on default drift
+    monkeypatch.setenv("RANKING_V2_W_ENTITY", "0.5")
+    monkeypatch.setenv("RANKING_V2_W_DATE", "0")
+    monkeypatch.setenv("RANKING_V2_W_BUCKET", "0")
+    _clear_settings()
 
     from app.retrieval.hybrid_search import hybrid_search_markets as v1
     from app.retrieval.hybrid_search_v2 import hybrid_search_markets_v2 as v2
