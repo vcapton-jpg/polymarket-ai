@@ -24,6 +24,18 @@ from app.eval.labels import EvalPair, load_pairs  # noqa: F401 (EvalPair re-expo
 NOW = datetime(2026, 4, 24, 12, 0, 0, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def _disable_llm_judge_by_default(monkeypatch):
+    """By default, neutralise the LLM-judge source so tests don't hit OpenAI.
+    Tests that specifically exercise the LLM-judge path re-monkeypatch it."""
+    from app.eval import labels as labels_module
+
+    async def _fake_noop(**_kw):
+        return {"relevance": "unclear"}
+
+    monkeypatch.setattr(labels_module, "_llm_judge_prompt_one_pair", _fake_noop)
+
+
 @pytest.fixture
 async def labels_corpus(async_db_factory):
     """Seeds a tiny corpus exercising all three DB-heuristic surfaces."""
@@ -138,3 +150,99 @@ async def test_load_pairs_invalid_surface_raises(async_db_factory):
     async with async_db_factory() as s:
         with pytest.raises(ValueError, match="surface"):
             await load_pairs(s, surface="not_a_real_surface")
+
+
+# ── downstream_pnl ───────────────────────────────────────────────────
+@pytest.fixture
+async def downstream_pnl_corpus(async_db_factory):
+    """Winning signal on (ev_pnl, m_pnl) that should become a downstream positive."""
+    from app.db.models import Signal, SignalPrediction
+    async with async_db_factory() as s:
+        ev = Event(id=8001, event_title="EvPnl", first_seen=NOW, last_seen=NOW, bucket="politics")
+        m = Market(market_id="m_pnl", question="qp", active=True, closed=True, accepting_orders=False)
+        s.add_all([ev, m])
+        await s.flush()
+        sig = Signal(
+            id=5001, market_id="m_pnl", event_id=8001, created_at=NOW,
+            signal_score=80.0, direction="BUY_YES",
+            market_price_at_signal=0.3,
+        )
+        s.add(sig)
+        await s.flush()
+        s.add(SignalPrediction(
+            signal_id=5001, variant="signal",
+            predicted_direction="BUY_YES", predicted_probability=0.8,
+            direction_correct=True, simulated_pnl_eur=25.0, resolved_at=NOW,
+        ))
+        await s.commit()
+
+        yield
+
+        # Teardown — FK-ordered.
+        from sqlalchemy import delete
+        await s.execute(delete(SignalPrediction).where(SignalPrediction.signal_id == 5001))
+        await s.execute(delete(Signal).where(Signal.id == 5001))
+        await s.execute(delete(Market).where(Market.market_id == "m_pnl"))
+        await s.execute(delete(Event).where(Event.id == 8001))
+        await s.commit()
+
+
+async def test_load_pairs_event_to_market_includes_downstream_pnl(
+    downstream_pnl_corpus, async_db_factory
+):
+    async with async_db_factory() as s:
+        pairs = await load_pairs(s, surface="event_to_market", limit=500)
+    pnl_pairs = [p for p in pairs if p.query_id == 8001]
+    assert len(pnl_pairs) >= 1
+    # If downstream_pnl matched, its source should be that (dedup prefers noblest).
+    assert any(p.source == "downstream_pnl" for p in pnl_pairs)
+
+
+# ── llm_judge ────────────────────────────────────────────────────────
+async def test_load_pairs_llm_judge_uses_cache_on_second_call(
+    monkeypatch, tmp_path, labels_corpus, async_db_factory
+):
+    """Second call must not re-invoke the LLM if the cache has the entry."""
+    from app.eval import labels as labels_module
+
+    call_counter = {"n": 0}
+
+    async def _fake_analyze(**_kw):
+        call_counter["n"] += 1
+        # Canned positive response.
+        return {"relevance": "yes"}
+
+    monkeypatch.setattr(labels_module, "_llm_judge_prompt_one_pair", _fake_analyze)
+    monkeypatch.setattr(labels_module, "_LLM_JUDGE_CACHE_DIR", tmp_path)
+
+    async with async_db_factory() as s:
+        await load_pairs(s, surface="article_to_event", limit=10)
+        first_calls = call_counter["n"]
+        await load_pairs(s, surface="article_to_event", limit=10)
+        second_calls = call_counter["n"]
+
+    # Second invocation reads the cache file; no new LLM calls.
+    assert second_calls == first_calls
+
+
+async def test_load_pairs_llm_judge_budget_cap(monkeypatch, tmp_path, async_db_factory):
+    """When LLM_JUDGE_MAX_USD is 0, no LLM calls happen."""
+    from app.eval import labels as labels_module
+
+    call_counter = {"n": 0}
+
+    async def _fake_analyze(**_kw):
+        call_counter["n"] += 1
+        return {"relevance": "yes"}
+
+    monkeypatch.setattr(labels_module, "_llm_judge_prompt_one_pair", _fake_analyze)
+    monkeypatch.setattr(labels_module, "_LLM_JUDGE_CACHE_DIR", tmp_path)
+    monkeypatch.setenv("LLM_JUDGE_MAX_USD", "0")
+
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+
+    async with async_db_factory() as s:
+        await load_pairs(s, surface="article_to_event", limit=10)
+
+    assert call_counter["n"] == 0

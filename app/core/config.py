@@ -176,6 +176,12 @@ class Settings(BaseSettings):
         description="Kill switch for the signal_v2_reranked Celery task.",
     )
 
+    # ── Eval harness (chantier #3) ────────────────────────────────────
+    llm_judge_max_usd: float = Field(
+        default=10.0,
+        description="Hard cap on spend per LLM-judge eval run (GPT-4o-mini).",
+    )
+
     # ── Application ───────────────────────────────────────────────────────
     app_name: str = "Foresight"
     app_version: str = "1.0.0"
