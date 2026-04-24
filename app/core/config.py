@@ -228,6 +228,18 @@ class Settings(BaseSettings):
         description="Minimum cosine similarity threshold for v2 vector retrieval.",
     )
 
+    # ── chantier #5: heuristic score — validation & calibration ──────────
+    heuristic_shadow_enabled: bool = False
+    heuristic_w_freshness: float = 0.15
+    heuristic_w_source: float = 0.10
+    heuristic_w_confirmation: float = 0.15
+    heuristic_w_llm: float = 0.60
+    heuristic_w_liquidity: float = 0.40
+    heuristic_w_spread: float = 0.35
+    heuristic_w_time_to_resolution: float = 0.25
+    heuristic_strength_weight: float = 0.75
+    heuristic_trade_weight: float = 0.25
+
     # ── Application ───────────────────────────────────────────────────────
     app_name: str = "Foresight"
     app_version: str = "1.0.0"

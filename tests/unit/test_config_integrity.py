@@ -58,6 +58,17 @@ def test_create_simple_clusterer_uses_settings():
     ("ranking_v2_w_bucket", float),
     ("ranking_v2_tau_days", float),
     ("ranking_v2_min_sim", float),
+    # Chantier #5 — heuristic score knobs
+    ("heuristic_shadow_enabled", bool),
+    ("heuristic_w_freshness", float),
+    ("heuristic_w_source", float),
+    ("heuristic_w_confirmation", float),
+    ("heuristic_w_llm", float),
+    ("heuristic_w_liquidity", float),
+    ("heuristic_w_spread", float),
+    ("heuristic_w_time_to_resolution", float),
+    ("heuristic_strength_weight", float),
+    ("heuristic_trade_weight", float),
 ])
 def test_settings_field_types(attr: str, expected_type: type):
     """Pin the declared type of settings fields we reason about elsewhere."""
@@ -68,3 +79,37 @@ def test_settings_field_types(attr: str, expected_type: type):
         f"Settings.{attr} default {default!r} has type {type(default).__name__}, "
         f"expected {expected_type.__name__}"
     )
+
+
+def test_heuristic_weight_defaults_sum_to_one_per_bloc():
+    """Settings defaults must satisfy the HeuristicWeights sum invariants."""
+    defaults = Settings.model_fields
+    s_sum = (
+        defaults["heuristic_w_freshness"].default
+        + defaults["heuristic_w_source"].default
+        + defaults["heuristic_w_confirmation"].default
+        + defaults["heuristic_w_llm"].default
+    )
+    t_sum = (
+        defaults["heuristic_w_liquidity"].default
+        + defaults["heuristic_w_spread"].default
+        + defaults["heuristic_w_time_to_resolution"].default
+    )
+    top_sum = (
+        defaults["heuristic_strength_weight"].default
+        + defaults["heuristic_trade_weight"].default
+    )
+    assert abs(s_sum - 1.0) < 1e-6, f"strength bloc sums to {s_sum}"
+    assert abs(t_sum - 1.0) < 1e-6, f"trade bloc sums to {t_sum}"
+    assert abs(top_sum - 1.0) < 1e-6, f"top bloc sums to {top_sum}"
+
+
+def test_heuristicweights_from_settings_defaults_equals_frozen_v1():
+    """Loading weights from Settings defaults must equal HeuristicWeights.frozen_v1()."""
+    from app.scoring.weights import HeuristicWeights
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()  # ensure we read the latest declaration
+    s = get_settings()
+    loaded = HeuristicWeights.load_from_settings(s)
+    assert loaded == HeuristicWeights.frozen_v1()
