@@ -170,7 +170,7 @@ async def downstream_pnl_corpus(async_db_factory):
         s.add(sig)
         await s.flush()
         s.add(SignalPrediction(
-            signal_id=5001, variant="signal",
+            signal_id=5001, variant="heuristic_v1",
             predicted_direction="BUY_YES", predicted_probability=0.8,
             direction_correct=True, simulated_pnl_eur=25.0, resolved_at=NOW,
         ))

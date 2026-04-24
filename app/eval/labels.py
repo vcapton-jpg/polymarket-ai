@@ -171,14 +171,18 @@ async def _db_market_to_article(session: AsyncSession, limit: int) -> list[EvalP
 
 async def _load_downstream_pnl(session: AsyncSession, surface: str) -> list[EvalPair]:
     """Only applies to event_to_market. A pair is positive if a real signal on
-    (event, market) resolved profitably in the production variant."""
+    (event, market) resolved profitably in the production variant.
+
+    Chantier #5: the production variant was renamed from 'signal' to
+    'heuristic_v1' by migration 025. This filter follows that rename.
+    """
     if surface != "event_to_market":
         return []
     from app.db.models import SignalPrediction
     stmt = (
         select(Signal.event_id, Signal.market_id)
         .join(SignalPrediction, SignalPrediction.signal_id == Signal.id)
-        .where(SignalPrediction.variant == "signal")
+        .where(SignalPrediction.variant == "heuristic_v1")
         .where(SignalPrediction.direction_correct.is_(True))
         .where(SignalPrediction.simulated_pnl_eur > 0)
         .where(Signal.event_id.isnot(None))
