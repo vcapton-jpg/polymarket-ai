@@ -53,9 +53,10 @@ def build_event_from_cluster(
     first_seen = min(dates) if dates else datetime.now(timezone.utc)
     last_seen = max(dates) if dates else datetime.now(timezone.utc)
 
-    retrieval_parts = [event_title, event_summary[:300]]
-    retrieval_parts.extend(key_entities[:5])
-    event_retrieval_text = " ".join(retrieval_parts)
+    from app.processing.text_composers import compose_event_v1
+    event_retrieval_text = compose_event_v1(
+        event_title, event_summary, list(key_entities or [])
+    ).text
 
     event = Event(
         event_title=event_title,

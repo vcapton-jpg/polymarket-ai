@@ -26,17 +26,9 @@ _BOILERPLATE_RE = re.compile(
 
 
 def _build_retrieval_text(mkt: dict) -> str:
-    """Build embedding-ready text from a market dict.
-
-    Strips Polymarket resolution boilerplate so the embedding vector
-    captures the actual topic, not the settlement rules.
-    """
-    question = mkt.get("question") or ""
-    desc_raw = mkt.get("description") or ""
-    desc_clean = _BOILERPLATE_RE.sub("", desc_raw).strip()
-    desc_clean = re.sub(r"\n{2,}", "\n", desc_clean)[:400]
-    tags_str = " ".join(mkt.get("tags") or [])
-    return f"{question}. {desc_clean} {tags_str}".strip()
+    """Build embedding-ready text from a market dict (thin wrapper around v1 composer)."""
+    from app.processing.text_composers import compose_market_v1
+    return compose_market_v1(mkt).text
 
 
 # ══════════════════════════════════════════════════════════════════════════

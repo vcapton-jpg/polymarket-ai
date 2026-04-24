@@ -95,8 +95,9 @@ async def _process_article_async(news_id: int) -> dict:
         entities = ner.extract_entities(text_for_ner)
 
         # Embed INLINE — no separate task, no batch wait
-        embed_text = f"{raw_title}. {clean_text[:1500]}"
-        embedding = await get_embedding(embed_text)
+        from app.processing.text_composers import compose_news_v1
+        composed = compose_news_v1(raw_title, clean_text)
+        embedding = await get_embedding(composed.text)
 
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
@@ -268,7 +269,8 @@ async def _try_instant_event_async(clean_id: int) -> dict:
                 key_ents.append(e.entity_value)
         key_ents = list(dict.fromkeys(key_ents))[:20]
 
-        retrieval_text = f"{event_title} {event_summary[:400]} {' '.join(key_ents[:5])}"
+        from app.processing.text_composers import compose_event_v1
+        retrieval_text = compose_event_v1(event_title, event_summary, key_ents).text
 
         event = Event(
             event_title=event_title,
@@ -313,10 +315,12 @@ async def _try_instant_event_async(clean_id: int) -> dict:
                     et = llm_result.get("event_type")
                     if et:
                         event.event_type = str(et)[:50]
-                    parts = [event.event_title, (event.event_summary or "")[:400]]
-                    if event.key_entities:
-                        parts.extend(event.key_entities[:5])
-                    event.event_retrieval_text = " ".join(p for p in parts if p).strip()
+                    from app.processing.text_composers import compose_event_v1
+                    event.event_retrieval_text = compose_event_v1(
+                        event.event_title,
+                        event.event_summary or "",
+                        list(event.key_entities or []),
+                    ).text
                     event.embedding = None
             except Exception:
                 logger.warning("LLM summarize failed for event %d, using heuristic", event.id)
@@ -510,10 +514,12 @@ async def _build_events_async() -> dict:
                         et = llm_result.get("event_type")
                         if et:
                             event.event_type = str(et)[:50]
-                        parts = [event.event_title, (event.event_summary or "")[:400]]
-                        if event.key_entities:
-                            parts.extend(event.key_entities[:5])
-                        event.event_retrieval_text = " ".join(p for p in parts if p).strip()
+                        from app.processing.text_composers import compose_event_v1
+                        event.event_retrieval_text = compose_event_v1(
+                            event.event_title,
+                            event.event_summary or "",
+                            list(event.key_entities or []),
+                        ).text
                         event.embedding = None
                     await session.flush()
                 except Exception:
