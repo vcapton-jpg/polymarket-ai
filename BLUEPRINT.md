@@ -680,7 +680,7 @@ Source unique : `app/core/config.py` (pydantic-settings).
 | `top_k_markets` | 10 |
 | `rrf_k` | 60 |
 | `llm_impact_max_candidates` | 3 |
-| `clustering_cosine_threshold` | 0.75 (clusterer) / 0.82 (code effective) |
+| `clustering_cosine_threshold` | 0.75 |
 | `clustering_time_window_minutes` | 120 |
 | `min_articles_per_event` | 1 |
 

@@ -16,9 +16,12 @@ settings = get_settings()
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
-# Default clustering parameters
-DEFAULT_COSINE_THRESHOLD = 0.82
-DEFAULT_TIME_WINDOW_MINUTES = 60
+# Default clustering parameters — MUST match `Settings.clustering_*` defaults
+# in `app/core/config.py`. A CI test (`tests/unit/test_config_integrity.py`)
+# enforces this invariant so the module constants never silently drift from
+# runtime config again (audit chantier #1).
+DEFAULT_COSINE_THRESHOLD = 0.75
+DEFAULT_TIME_WINDOW_MINUTES = 120
 
 
 class SimpleClusterer:
