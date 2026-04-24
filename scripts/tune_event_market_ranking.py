@@ -14,14 +14,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import copy
 import json
 import logging
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 from sqlalchemy import select
 
@@ -196,44 +195,31 @@ def _git_sha() -> str:
         return "unknown"
 
 
-async def _run(labels_path: Path, out_path: Path, resume: bool) -> int:
+async def _run(labels_path: Path, out_path: Path) -> int:
     # Score v1 baseline.
     logger.info("scoring v1 baseline")
     v1_report = await _score_config_async(V1_CONFIG, labels_path)
 
-    # Coordinate descent.
-    loop = asyncio.get_event_loop()
-
-    def sync_score(cfg: dict) -> float:
-        """Run async _score_config_async, return overall retrieval@5 mean."""
-        rep = loop.run_until_complete(_score_config_async(cfg, labels_path))
-        ret5 = rep["overall"].get("retrieval@5", {}).get("mean", 0.0)
-        ndcg10 = rep["overall"].get("ndcg@10", {}).get("mean", 0.0)
-        # Primary: retrieval@5; tiebreak: nDCG@10.
-        return ret5 * 1000 + ndcg10
-
-    # NOTE: coordinate_descent is sync — for simplicity we run it in the
-    # already-started loop via a small adapter. In practice the outer
-    # `asyncio.run` wraps this call; inside, we can't call run_until_complete
-    # on the same loop. We therefore invoke it synchronously by materialising
-    # scores eagerly.
+    # Coordinate descent. `coordinate_descent` is a sync API; each cell
+    # spawns a fresh event loop so we don't collide with the outer
+    # `asyncio.run` loop. Single-threaded, so this is safe.
     eager_cache: dict[tuple, float] = {}
 
-    def sync_score_v2(cfg: dict) -> float:
+    def sync_score(cfg: dict) -> float:
         key = tuple(sorted(cfg.items()))
         if key in eager_cache:
             return eager_cache[key]
-        # Schedule as a new task on a fresh loop (single-threaded OK here).
         rep = asyncio.new_event_loop().run_until_complete(
             _score_config_async(cfg, labels_path)
         )
         ret5 = rep["overall"].get("retrieval@5", {}).get("mean", 0.0)
         ndcg10 = rep["overall"].get("ndcg@10", {}).get("mean", 0.0)
+        # Primary: retrieval@5; tiebreak: nDCG@10.
         eager_cache[key] = ret5 * 1000 + ndcg10
         return eager_cache[key]
 
     logger.info("starting coordinate descent")
-    best = coordinate_descent(sync_score_v2, RANGES, dict(V1_CONFIG), passes=2)
+    best = coordinate_descent(sync_score, RANGES, dict(V1_CONFIG), passes=2)
     logger.info("best config: %s", best)
 
     v2_report = await _score_config_async(best, labels_path)
@@ -264,9 +250,8 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="tune_event_market_ranking")
     p.add_argument("--labels", required=True, type=Path)
     p.add_argument("--out", required=True, type=Path)
-    p.add_argument("--resume", action="store_true")
     args = p.parse_args(argv if argv is not None else sys.argv[1:])
-    return asyncio.run(_run(args.labels, args.out, args.resume))
+    return asyncio.run(_run(args.labels, args.out))
 
 
 if __name__ == "__main__":
