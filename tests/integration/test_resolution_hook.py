@@ -28,7 +28,7 @@ async def test_record_resolution_fills_all_variants(async_db_factory):
         await s.flush()
 
         s.add(SignalPrediction(
-            signal_id=sig.id, variant="signal",
+            signal_id=sig.id, variant="heuristic_v1",
             predicted_direction="BUY_YES", predicted_probability=0.7,
         ))
         s.add(SignalPrediction(
@@ -56,11 +56,11 @@ async def test_record_resolution_fills_all_variants(async_db_factory):
             ).scalars().all()
             by = {r.variant: r for r in rows}
 
-            # 'signal' said BUY_YES at 0.7, resolved 1.0
-            assert by["signal"].direction_correct is True
-            assert float(by["signal"].brier_score) == pytest.approx((0.7 - 1.0) ** 2, abs=1e-4)
-            assert float(by["signal"].simulated_pnl_eur) == pytest.approx(3.0, abs=1e-2)
-            assert by["signal"].resolved_at is not None
+            # 'heuristic_v1' said BUY_YES at 0.7, resolved 1.0
+            assert by["heuristic_v1"].direction_correct is True
+            assert float(by["heuristic_v1"].brier_score) == pytest.approx((0.7 - 1.0) ** 2, abs=1e-4)
+            assert float(by["heuristic_v1"].simulated_pnl_eur) == pytest.approx(3.0, abs=1e-2)
+            assert by["heuristic_v1"].resolved_at is not None
 
             # baseline_random said BUY_NO at 0.5, resolved 1.0 -> wrong
             assert by["baseline_random"].direction_correct is False
@@ -94,7 +94,7 @@ async def test_record_resolution_brier_null_on_ambiguous(async_db_factory):
         s.add(sig)
         await s.flush()
         s.add(SignalPrediction(
-            signal_id=sig.id, variant="signal",
+            signal_id=sig.id, variant="heuristic_v1",
             predicted_direction="BUY_YES", predicted_probability=0.7,
         ))
         await s.commit()

@@ -387,8 +387,19 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
             market_price_24h_ago=None,  # wired by a future chantier
         )
         try:
+            # NOTE: this production path (build_signal -> _persist_signal) does
+            # not compute a heuristic `features` dict or `llm_combined` — the
+            # score comes directly from the LLM analyzer. We therefore pass
+            # None, which makes record_baselines silently skip the
+            # 'heuristic_shadow' row even when the flag is on. The frozen
+            # 'heuristic_v1' row is still written using sig.signal_strength.
             await record_baselines(
-                s, signal_id=sig.id, ctx=ctx, registry=get_registry()
+                s,
+                signal_id=sig.id,
+                ctx=ctx,
+                registry=get_registry(),
+                features=None,
+                llm_combined=None,
             )
         except Exception:
             logger.exception(

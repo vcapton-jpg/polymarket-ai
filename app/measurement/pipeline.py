@@ -1,9 +1,9 @@
 """Measurement pipeline — glue between signal persistence, baselines, and DB.
 
 `record_baselines` runs inside the signal transaction (same session). It
-inserts one row per registered baseline plus one 'signal' row for the
-production prediction. Uses ON CONFLICT DO NOTHING so a retry during backfill
-is safe.
+inserts one row per registered baseline plus a 'heuristic_v1' row for the
+frozen-reference prediction and (opt-in) a 'heuristic_shadow' row. Uses
+ON CONFLICT DO NOTHING so a retry during backfill is safe.
 
 `schedule_shadow_variants` enqueues the per-signal `sourcing_shadow_rerun`
 Celery task (chantier #2).
@@ -34,12 +34,29 @@ async def record_baselines(
     signal_id: int,
     ctx: ScoringContext,
     registry: VariantRegistry,
+    features: dict | None = None,
+    llm_combined: float | None = None,
 ) -> int:
-    """Insert one row for the 'signal' variant + one per registered baseline.
+    """Insert one row per variant into signal_predictions.
 
-    Caller is responsible for committing. Conflicts on (signal_id, variant)
-    are swallowed silently — backfill retries are idempotent.
+    Variants written:
+      - 'heuristic_v1' (frozen reference, always) — uses the Signal's own
+        signal_strength/100 as probability, preserving pre-chantier #5
+        bit-exactness.
+      - 'heuristic_shadow' (optional, opt-in via
+        settings.heuristic_shadow_enabled) — recomputed from the provided
+        `features` + `llm_combined` under Settings-loaded weights. Skipped
+        silently when `features is None` (defensive: the caller may forget
+        to pass it for some legacy paths).
+      - every baseline registered in `registry` — unchanged.
+
+    Conflicts on (signal_id, variant) are swallowed via ON CONFLICT DO NOTHING
+    so retries / backfills are idempotent.
     """
+    from app.core.config import get_settings
+    from app.measurement.heuristic_variant import predict_heuristic
+    from app.scoring.weights import HeuristicWeights
+
     sig = (
         await session.execute(select(Signal).where(Signal.id == signal_id))
     ).scalar_one()
@@ -49,14 +66,32 @@ async def record_baselines(
         else 0.5
     )
 
-    rows = [
+    rows: list[dict] = [
         {
             "signal_id": signal_id,
-            "variant": "signal",
+            "variant": "heuristic_v1",
             "predicted_direction": sig.direction,
             "predicted_probability": signal_prob,
         }
     ]
+
+    settings = get_settings()
+    if settings.heuristic_shadow_enabled and features is not None:
+        shadow_pred = predict_heuristic(
+            weights=HeuristicWeights.load_from_settings(settings),
+            features=features,
+            llm_combined=llm_combined,
+            direction=sig.direction,
+        )
+        rows.append(
+            {
+                "signal_id": signal_id,
+                "variant": "heuristic_shadow",
+                "predicted_direction": shadow_pred.direction,
+                "predicted_probability": shadow_pred.probability,
+            }
+        )
+
     for name, fn in registry.baselines().items():
         pred = fn(ctx)
         rows.append(

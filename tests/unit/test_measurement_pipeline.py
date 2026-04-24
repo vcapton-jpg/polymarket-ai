@@ -65,7 +65,7 @@ async def test_record_baselines_inserts_signal_plus_all_baselines(async_db_facto
                 )
             ).scalars().all()
             variants = {r.variant for r in rows}
-            assert variants == {"signal", "b_fake"}
+            assert variants == {"heuristic_v1", "b_fake"}
             assert n == 2
     finally:
         await _cleanup(async_db_factory, _MKT1, _EVT1)
@@ -120,7 +120,7 @@ async def test_record_baselines_is_idempotent_per_signal_variant(async_db_factor
                     select(SignalPrediction).where(SignalPrediction.signal_id == sid)
                 )
             ).scalars().all()
-            # 1 'signal' + 1 'b_x', no duplicates
+            # 1 'heuristic_v1' + 1 'b_x', no duplicates
             assert len(rows) == 2
     finally:
         await _cleanup(async_db_factory, _MKT3, _EVT3)
