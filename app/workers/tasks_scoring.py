@@ -85,6 +85,25 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 event.embedding = raw_embedding
                 await session.flush()
 
+        # v2 event embedding — best-effort; failure does not block scoring
+        if event.embedding_v2 is None:
+            from app.processing.text_composers import compose_event_v2
+            composed_v2 = compose_event_v2(
+                event.event_title, event.event_summary or "",
+                list(event.key_entities or []), bucket=event.bucket,
+            )
+            try:
+                v2_emb = await get_embedding(composed_v2.text)
+            except Exception as exc:
+                logger.warning("event embedding_v2 failed event_id=%s: %s", event_id, exc)
+                v2_emb = None
+            if v2_emb is not None:
+                from datetime import datetime, timezone
+                event.embedding_v2 = v2_emb
+                event.embedding_v2_composition = composed_v2.composition_version
+                event.embedding_v2_computed_at = datetime.now(timezone.utc)
+                await session.flush()
+
         if raw_embedding is None:
             event.processing_status = "failed_no_embedding"
             await session.commit()

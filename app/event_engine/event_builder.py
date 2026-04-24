@@ -58,6 +58,11 @@ def build_event_from_cluster(
         event_title, event_summary, list(key_entities or [])
     ).text
 
+    from app.processing.text_composers import compose_event_v2
+    composed_v2 = compose_event_v2(
+        event_title, event_summary, list(key_entities or []), bucket=bucket,
+    )
+
     event = Event(
         event_title=event_title,
         event_summary=event_summary,
@@ -70,6 +75,7 @@ def build_event_from_cluster(
         first_seen=first_seen,
         last_seen=last_seen,
         processing_status="pending",
+        embedding_v2_composition=composed_v2.composition_version,
     )
 
     clean_ids = [a["clean_id"] for a in articles if a.get("clean_id")]

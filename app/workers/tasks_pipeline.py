@@ -95,9 +95,17 @@ async def _process_article_async(news_id: int) -> dict:
         entities = ner.extract_entities(text_for_ner)
 
         # Embed INLINE — no separate task, no batch wait
-        from app.processing.text_composers import compose_news_v1
-        composed = compose_news_v1(raw_title, clean_text)
-        embedding = await get_embedding(composed.text)
+        from app.processing.text_composers import compose_news_v1, compose_news_v2
+        composed_v1 = compose_news_v1(raw_title, clean_text)
+        embedding = await get_embedding(composed_v1.text)
+
+        # v2 inline write — best-effort; failure doesn't block news ingestion
+        composed_v2 = compose_news_v2(raw_title, clean_text)
+        embedding_v2 = None
+        try:
+            embedding_v2 = await get_embedding(composed_v2.text)
+        except Exception as exc:
+            logger.warning("news embedding_v2 compute failed news_id=%s: %s", news_id, exc)
 
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
@@ -111,6 +119,9 @@ async def _process_article_async(news_id: int) -> dict:
             language=language or "en",
             embedding=embedding,
             embedding_computed_at=now if embedding else None,
+            embedding_v2=embedding_v2,
+            embedding_v2_composition=composed_v2.composition_version if embedding_v2 else None,
+            embedding_v2_computed_at=now if embedding_v2 else None,
         )
         session.add(news_clean)
         await session.flush()

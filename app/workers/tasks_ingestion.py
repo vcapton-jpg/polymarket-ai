@@ -198,7 +198,7 @@ async def _compute_market_embeddings():
     from app.db.database import get_session_factory
     async_session_factory = get_session_factory()
     from app.db.models import Market
-    from app.processing.embedding_service import get_embeddings
+    from app.processing.embedding_service import get_embedding, get_embeddings
 
     BATCH = 2000
     total_computed = 0
@@ -233,11 +233,34 @@ async def _compute_market_embeddings():
             texts = [m.market_retrieval_text for m in markets]
             embeddings = await get_embeddings(texts)
 
+            from app.processing.text_composers import compose_market_v2
+            from datetime import datetime, timezone
+
             computed = 0
             for market, emb in zip(markets, embeddings):
                 if emb:
                     market.embedding = emb
                     computed += 1
+
+                # v2 inline write — compute in this same loop to amortize session I/O
+                try:
+                    composed_v2 = compose_market_v2({
+                        "question": market.question,
+                        "description": market.description,
+                        "tags": market.tags,
+                        "category": market.category,
+                    })
+                    emb_v2 = await get_embedding(composed_v2.text)
+                except Exception as exc:
+                    logger.warning(
+                        "market embedding_v2 failed market_id=%s: %s",
+                        market.market_id, exc,
+                    )
+                    emb_v2 = None
+                if emb_v2:
+                    market.embedding_v2 = emb_v2
+                    market.embedding_v2_composition = composed_v2.composition_version
+                    market.embedding_v2_computed_at = datetime.now(timezone.utc)
 
             await session.commit()
             total_computed += computed
