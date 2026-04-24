@@ -158,6 +158,129 @@ VALID_VERDICTS = {
 }
 
 
+async def _cmd_scale(
+    seed_path: Path, n_events: int, markets_per_event: int,
+    out_path: Path, cache_path: Path, budget_usd: float,
+) -> int:
+    """Run the LLM-judge on `n_events` fresh events (not in seed).
+
+    NOTE: few-shot calibration requires the seed file to contain
+    `event_title` + `market_question` fields. Task 9 writes only the
+    minimum (event_id, market_id, verdict). If the operator wants
+    calibrated few-shot, they need to enrich seed rows before running
+    `scale`. Empty few-shot is a valid starting point; the agreement
+    check (task 10) guards against quality regression.
+    """
+    from app.eval.labels_event_market import (
+        judge_pairs_llm, openai_judge_call, _APPROX_COST_PER_BATCH_USD,
+    )
+    seed_events: set[int] = set()
+    if seed_path.exists():
+        with seed_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    seed_events.add(int(json.loads(line)["event_id"]))
+                except (json.JSONDecodeError, KeyError, ValueError):
+                    continue
+    few_shot = _few_shot_from_seed(seed_path)
+
+    factory = get_session_factory()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    written = 0
+    batches = 0
+    async with factory() as session:
+        picked: list[Event] = []
+        for bucket in BUCKETS:
+            evs = await _sample_events(session, bucket, n_events // len(BUCKETS) + 1)
+            for ev in evs:
+                if ev.id in seed_events:
+                    continue
+                picked.append(ev)
+                if len(picked) >= n_events:
+                    break
+            if len(picked) >= n_events:
+                break
+
+        with out_path.open("a") as out_f:
+            for ev in picked:
+                # Estimate cost before calling.
+                if batches * _APPROX_COST_PER_BATCH_USD > budget_usd:
+                    logger.info("scale: budget exhausted after %d batches", batches)
+                    break
+                cands = await _top20_for_event(session, ev)
+                if not cands:
+                    continue
+                mkts = cands[:markets_per_event]
+                event_dict = {
+                    "event_id": ev.id,
+                    "title": ev.event_title,
+                    "summary": ev.event_summary or "",
+                    "bucket": ev.bucket,
+                    "entities": list(ev.key_entities or []),
+                }
+                market_dicts = [{
+                    "market_id": c["market_id"],
+                    "question": c.get("question"),
+                    "category": c.get("category"),
+                    "end_date": (
+                        c.get("end_date").isoformat()
+                        if c.get("end_date") is not None else None
+                    ),
+                } for c in mkts]
+                verdicts = await judge_pairs_llm(
+                    event=event_dict,
+                    markets=market_dicts,
+                    few_shot=few_shot,
+                    call_fn=openai_judge_call,
+                    cache_path=cache_path,
+                )
+                batches += 1
+                for v in verdicts:
+                    out_f.write(json.dumps({
+                        "event_id": ev.id,
+                        "market_id": v["market_id"],
+                        "verdict": v["verdict"],
+                        "source": "llm_calibrated",
+                    }) + "\n")
+                    written += 1
+                out_f.flush()
+    logger.info("scale: wrote %d verdicts across %d events", written, batches)
+    return written
+
+
+def _few_shot_from_seed(seed_path: Path) -> list[dict]:
+    """Return up to 9 few-shot examples (3 per verdict) from the seed file,
+    spanning at least 3 buckets when possible. Returns [] if seed is empty."""
+    if not seed_path.exists():
+        return []
+    rows: list[dict] = []
+    with seed_path.open() as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # The seed file stores verdict; we need event_title + market_question.
+            # If the seed rows lack those (task 9 writes only event_id+market_id),
+            # we cannot build few-shot this way — punt to empty.
+            if "event_title" not in row or "market_question" not in row:
+                continue
+            rows.append(row)
+    by_verdict: dict[str, list[dict]] = {}
+    for r in rows:
+        by_verdict.setdefault(r["verdict"], []).append(r)
+    few: list[dict] = []
+    for verdict in ("strong_match", "weak_match", "not_related"):
+        few.extend(by_verdict.get(verdict, [])[:3])
+    return few[:9]
+
+
 def _cmd_review(candidates_path: Path, out_path: Path) -> int:
     """Interactive loop: read candidates JSONL, ask the user for each, write
     a labels JSONL idempotently. Resume-safe: if `out_path` already contains
@@ -230,6 +353,15 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     r = sub.add_parser("review")
     r.add_argument("--candidates", required=True, type=Path)
     r.add_argument("--out", required=True, type=Path)
+    sc = sub.add_parser("scale")
+    sc.add_argument("--seed", required=True, type=Path,
+                    help="Human seed JSONL (used for few-shot).")
+    sc.add_argument("--n-events", type=int, default=100,
+                    help="Number of fresh events to judge (excludes events in --seed).")
+    sc.add_argument("--markets-per-event", type=int, default=10)
+    sc.add_argument("--out", required=True, type=Path)
+    sc.add_argument("--cache", type=Path, default=Path(".eval_cache/llm_judge_event_market.json"))
+    sc.add_argument("--budget-usd", type=float, default=10.0)
     return p.parse_args(argv)
 
 
@@ -242,6 +374,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "review":
         return _cmd_review(args.candidates, args.out)
+    if args.cmd == "scale":
+        n = asyncio.run(_cmd_scale(
+            args.seed, args.n_events, args.markets_per_event,
+            args.out, args.cache, args.budget_usd,
+        ))
+        print(f"wrote {n} labels to {args.out}")
+        return 0
     return 1
 
 
