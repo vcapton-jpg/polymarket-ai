@@ -151,6 +151,77 @@ async def _cmd_sample(out_path: Path) -> int:
     return written
 
 
+VALID_VERDICTS = {
+    "s": "strong_match",
+    "w": "weak_match",
+    "n": "not_related",
+}
+
+
+def _cmd_review(candidates_path: Path, out_path: Path) -> int:
+    """Interactive loop: read candidates JSONL, ask the user for each, write
+    a labels JSONL idempotently. Resume-safe: if `out_path` already contains
+    labels for a (event_id, market_id) pair, skip that candidate."""
+    if not candidates_path.exists():
+        print(f"error: candidates file not found: {candidates_path}")
+        return 2
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    already: set[tuple[int, str]] = set()
+    if out_path.exists():
+        with out_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                    already.add((int(row["event_id"]), str(row["market_id"])))
+                except (json.JSONDecodeError, KeyError, ValueError):
+                    continue
+    print(f"resuming — {len(already)} pairs already labelled in {out_path}")
+
+    with candidates_path.open() as src, out_path.open("a") as dst:
+        todo = [json.loads(line) for line in src if line.strip()]
+        total = len(todo)
+        done = 0
+        skipped = 0
+        for i, cand in enumerate(todo, start=1):
+            key = (int(cand["event_id"]), str(cand["market_id"]))
+            if key in already:
+                skipped += 1
+                continue
+            prompt = (
+                f"[{i}/{total}] event: {cand.get('event_title')!r} (bucket={cand.get('event_bucket')})\n"
+                f"         market: {cand.get('market_question')!r}\n"
+                f"         cosine={cand.get('cosine_score')}, rank={cand.get('rank_in_v1')}, "
+                f"stratum={cand.get('stratum')}, end_date={cand.get('end_date')}\n"
+                "(s)trong / (w)eak / (n)ot_related / (k)skip / (q)uit&save > "
+            )
+            try:
+                ans = input(prompt).strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\naborted — partial progress saved.")
+                break
+            if ans == "q":
+                break
+            if ans == "k":
+                continue
+            verdict = VALID_VERDICTS.get(ans)
+            if verdict is None:
+                print(f"  unknown input {ans!r}, skipping")
+                continue
+            dst.write(json.dumps({
+                "event_id": key[0],
+                "market_id": key[1],
+                "verdict": verdict,
+                "source": "human",
+            }) + "\n")
+            dst.flush()
+            done += 1
+        print(f"done — labelled {done}, skipped {skipped}, remaining {total - done - skipped - len(already)}")
+    return 0
+
+
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="label_event_market_seed")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -170,8 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {n} candidates to {args.out}")
         return 0
     if args.cmd == "review":
-        print("review command is implemented in task 9")
-        return 2
+        return _cmd_review(args.candidates, args.out)
     return 1
 
 
