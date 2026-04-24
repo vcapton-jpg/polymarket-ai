@@ -153,6 +153,17 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         event.processing_status = "candidates_found"
         await session.flush()
 
+        # ── chantier #4: fire-and-forget shadow ranking ──────────────────
+        if settings.ranking_shadow_enabled:
+            try:
+                from app.workers.tasks_ranking_shadow import record_shadow_ranking
+                record_shadow_ranking.delay(event_id=event_id)
+            except Exception:
+                logger.debug(
+                    "ranking shadow enqueue failed event_id=%s — continuing",
+                    event_id,
+                )
+
         # ── Step 3: Parallel LLM impact analysis ─────────────────────
         top_cands = candidates[:max_llm]
         analyzed = 0
