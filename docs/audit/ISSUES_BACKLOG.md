@@ -161,10 +161,21 @@ Issu de la section 1.5 de l'audit externe. Reclassé ici avec statut.
 
 ## 6. Risques scientifiques & méthodologiques
 
-### 6.1 🟠 `signal_score` = combinaison linéaire à poids arbitraires
-- Poids 0.75 / 0.25 et sous-poids jamais validés sur held-out set
-- Pas de backtesting rigoureux
-- **Action post-collecte** : valider les poids actuels contre données J0-J10, identifier ceux à tuner
+### 6.1 🟢 Shipped (b613466) — `signal_score` = combinaison linéaire à poids arbitraires
+- ~~Poids 0.75 / 0.25 et sous-poids jamais validés sur held-out set~~
+- ~~Pas de backtesting rigoureux~~
+- **Chantier #5 livré** :
+  - `HeuristicWeights` frozen dataclass avec invariants sum-to-1 (`app/scoring/weights.py`)
+  - `strength_scorer` / `trade_scorer` extraits comme fonctions pures (tests par-poids)
+  - Migration 025 : `SignalPrediction.variant='signal'` → `'heuristic_v1'`
+  - Shadow variant `heuristic_shadow` + 10 overrides env-driven (`HEURISTIC_SHADOW_ENABLED`, `HEURISTIC_W_*`)
+  - Script offline `scripts/validate_heuristic_weights.py` → rapport Brier/P&L/Wilson-CI95 par variant
+  - Tuner coordinate-descent `scripts/tune_heuristic_weights.py` avec gate à 3 checks (Brier-CI disjoint, P&L slip ≤5%, pas de bucket-regression >5%)
+  - Runbook promotion `docs/runbooks/promote_heuristic_candidate.md`
+  - Rapport validation `docs/audit/heuristic_validation_report_2026-04-24.md` : heuristic_v1 Brier=0.31 vs baseline_market_price Brier=0.03 → confirme que les poids v1 sont sous-optimaux
+- **Follow-up opérationnel** (🟡) : exécuter le tuner sur données réelles et dérouler le runbook end-to-end si la gate passe
+
+| — | Tuner run on real data — check if candidate passes the 3-check gate; if yes, exercise `docs/runbooks/promote_heuristic_candidate.md` end-to-end. |
 
 ### 6.2 🟠 Pas de test de stationnarité
 - Le marché change. Modèle qui marche avril peut ne pas marcher juillet
