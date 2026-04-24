@@ -37,6 +37,25 @@ def compose_news_v1(title: str, clean_text: str) -> ComposedText:
     return ComposedText(text=text, composition_version="news_v1_title_trunc")
 
 
+def compose_news_v2(title: str, clean_text: str) -> ComposedText:
+    """A1 — lead-paragraph + tail-paragraph composition, capped at 1800 chars.
+
+    Splits the body on blank lines, keeps paragraphs ≥ 80 chars. If none
+    survive, falls back to v1-style byte truncation at 1500 chars.
+    """
+    paragraphs = [p.strip() for p in (clean_text or "").split("\n\n") if len(p.strip()) >= 80]
+    if not paragraphs:
+        body = (clean_text or "")[:1500]
+    elif len(paragraphs) == 1:
+        body = paragraphs[0][:1500]
+    else:
+        lead = paragraphs[0][:1200]
+        tail = paragraphs[-1][:400]
+        body = f"{lead}\n\n{tail}"
+    text = f"{(title or '').strip()}. {body}"[:1800]
+    return ComposedText(text=text, composition_version="news_v2_lead_tail")
+
+
 # ══════════════════════════════════════════════════════════════════════
 # Market
 # ══════════════════════════════════════════════════════════════════════
