@@ -391,12 +391,19 @@ async def _fetch_rss_async() -> dict:
                 duplicates += 1
                 continue
 
+            source_id = art.get("source_id") or await _resolve_or_create_source(
+                session,
+                art["source_name"],
+                source_type="rss_auto",
+                tier=int(art.get("source_tier", 3)),
+                weight=float(art.get("source_weight", 0.4)),
+            )
             news_row = News(
                 url=url,
                 title=art["title"],
                 text=art.get("text"),
                 source_name=art["source_name"],
-                source_id=art.get("source_id"),
+                source_id=source_id,
                 source_tier=art["source_tier"],
                 source_weight=art["source_weight"],
                 publish_date=art.get("publish_date"),
@@ -472,11 +479,19 @@ async def _fetch_worldnews_async() -> dict:
                 duplicates += 1
                 continue
 
+            source_id = await _resolve_or_create_source(
+                session,
+                art["source_name"],
+                source_type="worldnews_auto",
+                tier=int(art.get("source_tier", 3)),
+                weight=float(art.get("source_weight", 0.4)),
+            )
             news_row = News(
                 url=url,
                 title=art["title"],
                 text=art.get("text"),
                 source_name=art["source_name"],
+                source_id=source_id,
                 source_tier=art["source_tier"],
                 source_weight=art["source_weight"],
                 publish_date=art.get("publish_date"),
@@ -646,7 +661,14 @@ def _parse_date(val) -> datetime | None:
 # Phase 3 — GDELT 2.0 (Tier 3, auto-source-registry)
 # ══════════════════════════════════════════════════════════════════════════
 
-async def _resolve_or_create_source(session, source_name: str) -> int:
+async def _resolve_or_create_source(
+    session,
+    source_name: str,
+    *,
+    source_type: str = "gdelt_auto",
+    tier: int = 3,
+    weight: float = 0.4,
+) -> int:
     from sqlalchemy import select
     from app.db.models import SourceRegistry
 
@@ -657,15 +679,18 @@ async def _resolve_or_create_source(session, source_name: str) -> int:
         return row.id
     row = SourceRegistry(
         source_name=source_name,
-        tier=3,
-        weight=0.4,
+        tier=tier,
+        weight=weight,
         active=True,
-        source_type="gdelt_auto",
+        source_type=source_type,
         url=f"https://{source_name}",
     )
     session.add(row)
     await session.flush()
-    logger.info("sources_registry: auto-created source '%s' from GDELT", source_name)
+    logger.info(
+        "sources_registry: auto-created source '%s' (type=%s)",
+        source_name, source_type,
+    )
     return row.id
 
 
