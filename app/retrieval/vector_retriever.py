@@ -19,11 +19,16 @@ async def search_markets_by_embedding(
     event_embedding: list[float],
     limit: int = 20,
     event_bucket: Optional[str] = None,
+    min_sim: Optional[float] = None,
 ) -> list[dict]:
     """Search for active, non-closed markets with the closest embeddings.
 
     Bucket filter is intentionally removed — the full market corpus is searched
     to avoid hiding niche markets behind noisy bucket classification.
+
+    `min_sim` lets callers (notably hybrid_search_v2) override the cosine-
+    similarity floor; when omitted the module-level `MIN_COSINE_SIMILARITY`
+    is used so v1 behavior is preserved exactly.
     """
     if event_embedding is None:
         return []
@@ -31,10 +36,12 @@ async def search_markets_by_embedding(
     col = active_column_name("market")
     embedding_str = "[" + ",".join(str(x) for x in event_embedding) + "]"
 
+    effective_min_sim = MIN_COSINE_SIMILARITY if min_sim is None else min_sim
+
     params: dict = {
         "embedding": embedding_str,
         "limit": limit,
-        "min_sim": MIN_COSINE_SIMILARITY,
+        "min_sim": effective_min_sim,
     }
 
     try:

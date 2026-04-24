@@ -87,9 +87,10 @@ async def hybrid_search_markets_v2(
     w_date = settings.ranking_v2_w_date
     w_bucket = settings.ranking_v2_w_bucket
     tau_days = settings.ranking_v2_tau_days
+    min_sim = settings.ranking_v2_min_sim
 
     vector_results = await _vector_retriever.search_markets_by_embedding(
-        session, event_embedding, limit=k * 3,
+        session, event_embedding, limit=k * 3, min_sim=min_sim,
     )
     if not vector_results:
         logger.info("hybrid_search_v2: empty vector pool")

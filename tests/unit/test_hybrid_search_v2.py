@@ -182,3 +182,90 @@ async def test_v2_date_proximity_flips_tie(monkeypatch, _fake_vector_rows):
 def _clear_settings():
     from app.core.config import get_settings
     get_settings.cache_clear()
+
+
+# ═══════════════════ ranking_v2_min_sim wiring ═══════════════════
+
+
+@pytest.mark.asyncio
+async def test_v2_passes_min_sim_from_settings_to_vector_retriever(
+    monkeypatch, _fake_vector_rows
+):
+    """hybrid_search_markets_v2 must forward settings.ranking_v2_min_sim as
+    the `min_sim` kwarg to search_markets_by_embedding."""
+    captured: dict = {}
+
+    async def _spy(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return _fake_vector_rows
+
+    monkeypatch.setattr(
+        "app.retrieval.vector_retriever.search_markets_by_embedding",
+        _spy,
+    )
+
+    _clear_settings()
+    with patch.dict("os.environ", {"RANKING_V2_MIN_SIM": "0.62"}):
+        from app.core.config import get_settings as gs
+        gs.cache_clear()
+        from app.retrieval.hybrid_search_v2 import hybrid_search_markets_v2
+        await hybrid_search_markets_v2(
+            MagicMock(), [0.0] * 1536, "macron france",
+            event_bucket="politics", event_entities=["Macron"],
+            event_last_seen=_utc(2026, 4, 25),
+        )
+
+    assert "min_sim" in captured["kwargs"], (
+        f"expected min_sim kwarg, got kwargs={captured.get('kwargs')}"
+    )
+    assert captured["kwargs"]["min_sim"] == pytest.approx(0.62)
+
+
+@pytest.mark.asyncio
+async def test_search_markets_by_embedding_defaults_to_module_constant(monkeypatch):
+    """When min_sim is omitted, search_markets_by_embedding must fall back to
+    MIN_COSINE_SIMILARITY (preserves v1 behavior)."""
+    from app.retrieval import vector_retriever
+
+    captured_params: dict = {}
+
+    class _FakeResult:
+        def fetchall(self):
+            return []
+
+    class _FakeSession:
+        async def execute(self, _stmt, params):
+            captured_params.update(params)
+            return _FakeResult()
+
+    # Omit min_sim explicitly.
+    await vector_retriever.search_markets_by_embedding(
+        _FakeSession(), [0.0] * 4, limit=5,
+    )
+
+    assert "min_sim" in captured_params
+    assert captured_params["min_sim"] == vector_retriever.MIN_COSINE_SIMILARITY
+
+
+@pytest.mark.asyncio
+async def test_search_markets_by_embedding_uses_provided_min_sim(monkeypatch):
+    """When min_sim is provided, it must land in the SQL params (no fallback)."""
+    from app.retrieval import vector_retriever
+
+    captured_params: dict = {}
+
+    class _FakeResult:
+        def fetchall(self):
+            return []
+
+    class _FakeSession:
+        async def execute(self, _stmt, params):
+            captured_params.update(params)
+            return _FakeResult()
+
+    await vector_retriever.search_markets_by_embedding(
+        _FakeSession(), [0.0] * 4, limit=5, min_sim=0.77,
+    )
+
+    assert captured_params["min_sim"] == pytest.approx(0.77)
