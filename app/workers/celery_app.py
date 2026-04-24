@@ -46,6 +46,7 @@ celery_app.conf.task_routes = {
     "app.workers.tasks_trading.*": {"queue": "trading"},
     "app.workers.tasks_risk.*": {"queue": "trading"},
     "app.workers.tasks_reports.*": {"queue": "trading"},
+    "app.workers.tasks_embeddings_backfill.*": {"queue": "scoring"},
 }
 
 _beat_schedule = {
@@ -161,4 +162,5 @@ celery_app.autodiscover_tasks([
     "app.workers.tasks_trading",
     "app.workers.tasks_risk",
     "app.workers.tasks_reports",
+    "app.workers.tasks_embeddings_backfill",
 ])
