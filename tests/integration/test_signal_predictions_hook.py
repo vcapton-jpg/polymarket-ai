@@ -55,7 +55,7 @@ async def test_persist_signal_writes_all_variant_rows(async_db_factory):
             ).scalars().all()
             variants = {r.variant for r in rows}
             assert variants == {
-                "signal",
+                "heuristic_v1",
                 "baseline_random",
                 "baseline_market_price",
                 "baseline_momentum",

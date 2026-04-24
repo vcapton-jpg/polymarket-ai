@@ -97,7 +97,7 @@ async def get_variants(
                 pnl_total_eur=(sum(pnls) if pnls else None),
             ))
 
-        out.sort(key=lambda v: (0 if v.variant == "signal" else 1, v.variant))
+        out.sort(key=lambda v: (0 if v.variant == "heuristic_v1" else 1, v.variant))
 
         return VariantsResponse(
             window=window,

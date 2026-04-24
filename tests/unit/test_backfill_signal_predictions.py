@@ -51,7 +51,7 @@ async def test_backfill_creates_variant_rows_for_historical_signal(async_db_fact
             ).scalars().all()
         variants = {r.variant for r in rows}
         assert variants == {
-            "signal",
+            "heuristic_v1",
             "baseline_random",
             "baseline_market_price",
             "baseline_momentum",
@@ -120,7 +120,7 @@ async def test_backfill_resolves_when_outcome_present(async_db_factory):
                 await s.execute(
                     select(SignalPrediction).where(
                         SignalPrediction.signal_id == sid,
-                        SignalPrediction.variant == "signal",
+                        SignalPrediction.variant == "heuristic_v1",
                     )
                 )
             ).scalar_one()
