@@ -683,6 +683,31 @@ Source unique : `app/core/config.py` (pydantic-settings).
 | `clustering_cosine_threshold` | 0.75 |
 | `clustering_time_window_minutes` | 120 |
 | `min_articles_per_event` | 1 |
+| `clustering_simhash_threshold` | 0.15 (= 9-bit Hamming gate, floor `max(3, …)`) |
+
+#### Clustering audit (chantier #2 — 2026-04-25)
+
+Audit found **99% of events are single-source**. Three hypotheses tested
+empirically against prod data:
+
+| Hypothesis | Verdict | Evidence |
+|---|---|---|
+| Simhash dedup at 9 bits collapses cross-outlet rewrites | **Rejected** | Min cross-outlet Hamming in 800 prod NewsClean = 15 bits (median ≈ 22-25). The 9-bit gate essentially never fires on cross-outlet pairs, so lowering it is a no-op. |
+| `Event.unique_sources_count` drifts from JOIN truth | **Rejected (post-fix)** | Backfill on 3357 events reported `changed=0`. The new `event_engine.event_counts.recompute_event_counts` helper, called from both event-creation paths, keeps the column truthful at write time. |
+| Cosine clustering merges cross-outlet articles | **Real bug** | For Reuters × FirstSquawk (top-2 sources), only **5 / 79 (6.3%)** of Reuters articles have ANY FirstSquawk article above the 0.75 cosine threshold across all-time data; median best-match cosine = **0.37**. The 120-min time window further filters that. Multi-article events DO exist (1.8% have ≥ 2 articles) but are still single-source — i.e. clustering fires on intra-source repeats only. |
+
+**Conclusion:** the simhash threshold is fine, the count column is now
+self-healing, but the upstream cosine threshold + time window combo is
+too tight for cross-outlet corroboration. **Adding a `min_unique_sources_per_event`
+gate without first relaxing the cosine threshold would erase ~98% of
+prod inventory.** Tuning cosine + window is filed as chantier #2.5.
+
+#### Observability
+
+- `app/event_engine/event_counts.recompute_event_counts(session, event_id)` — refresh `articles_count` / `unique_sources_count` from the live `event_news_links` JOIN. Called from `_try_instant_event_async` (fast path) and `build_events` (batch path) after every link insert.
+- `scripts/backfill_event_counts.py` — one-shot repair, idempotent, batched per 500.
+- `scripts/clustering_diagnostic.py` — read-only histograms: STORED `unique_sources_count` vs LIVE source-count vs LIVE link-count.
+- `app.workers.tasks_diagnostics.emit_diversity_distribution` — same histogram emitted hourly via Celery beat (`clustering-diversity-hourly`).
 
 ### 15.3 Intervalles
 
