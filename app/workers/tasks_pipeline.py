@@ -301,6 +301,15 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         for cid in cluster_ids:
             session.add(EventNewsLink(event_id=event.id, clean_id=cid, role="supporting"))
 
+        # Refresh counts from the live link set. The inline values above
+        # match what recompute would compute today, but routing both paths
+        # through the same helper means a future change to the cluster
+        # construction can never silently desync stored vs live counts
+        # (chantier-2 bug 3).
+        from app.event_engine.event_counts import recompute_event_counts
+        await session.flush()
+        await recompute_event_counts(session, event_id=event.id)
+
         # LLM summarize if enabled
         if settings.event_llm_summarize and len(cluster_ids) >= settings.min_articles_per_event:
             try:
@@ -539,6 +548,11 @@ async def _build_events_async() -> dict:
 
             for cid in clean_ids:
                 session.add(EventNewsLink(event_id=event.id, clean_id=cid, role="supporting"))
+
+            # Refresh counts from the live link set (chantier-2 bug 3).
+            from app.event_engine.event_counts import recompute_event_counts
+            await session.flush()
+            await recompute_event_counts(session, event_id=event.id)
 
             events_created += 1
 

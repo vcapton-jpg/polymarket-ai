@@ -66,6 +66,28 @@ async def test_recompute_updates_counts_after_new_link(async_db_factory):
             await s.commit()
 
 
+def test_recompute_is_called_from_both_event_creation_paths():
+    """Static check — chantier-2 bug 3 regression net.
+
+    `tasks_pipeline.py` has two distinct sites that insert EventNewsLink
+    rows (the fast `_try_instant_event_async` path and the batch backfill
+    path). Both MUST call `recompute_event_counts` after the inserts so
+    `Event.unique_sources_count` cannot drift from the JOIN truth.
+
+    A grep-based pin is enough here — the helper itself is tested
+    behaviorally above; we just need to make sure nothing accidentally
+    drops the call site.
+    """
+    from app.workers import tasks_pipeline as tp
+
+    src = open(tp.__file__, encoding="utf-8").read()
+    # Two call sites: fast path + batch path.
+    assert src.count("recompute_event_counts(session, event_id=event.id)") >= 2, (
+        "recompute_event_counts must be called from BOTH event-creation "
+        "sites in tasks_pipeline.py — see chantier-2 plan, Task 4."
+    )
+
+
 @pytest.mark.asyncio
 async def test_recompute_handles_event_with_no_links(async_db_factory):
     """Edge case: event exists but has zero links yet (creation-in-progress).
