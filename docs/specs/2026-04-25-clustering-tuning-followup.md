@@ -1,7 +1,7 @@
 # Clustering Tuning Follow-up (Chantier #2.5)
 
 **Status:** Spec — not yet planned.
-**Origin:** Empirical findings during chantier #2 execution (`docs/superpowers/plans/2026-04-25-clustering-hardening.md`, "Empirical findings appendix").
+**Origin:** Empirical findings during chantier #2 execution (`docs/plans/2026-04-25-clustering-hardening.md`, "Empirical findings appendix").
 
 ## Problem
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** FastAPI, SQLAlchemy async, Alembic, Celery (+beat), OpenAI (`gpt-4o-mini-2024-07-18`), pgvector/pg16, Docker Compose, React 18 + TypeScript + Vite, Vitest, Playwright.
 
-**Source of truth:** [docs/superpowers/specs/2026-04-23-signal-sourcing-traceability-design.md](../specs/2026-04-23-signal-sourcing-traceability-design.md)
+**Source of truth:** [docs/specs/2026-04-23-signal-sourcing-traceability-design.md](../specs/2026-04-23-signal-sourcing-traceability-design.md)
 
 ---
 

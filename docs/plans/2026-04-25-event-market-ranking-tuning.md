@@ -8,7 +8,7 @@
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 async (`Mapped` / `mapped_column`), Alembic (revision `024`, `down_revision="023"`), pgvector 1536-dim (already in place), Celery + Redis, OpenAI `gpt-4o-mini` (LLM judge, offline only), pytest-asyncio, the chantier #3 harness (`app/eval/{labels,metrics,runner}.py`).
 
-**Spec:** `docs/superpowers/specs/2026-04-25-event-market-ranking-tuning-design.md`. Read it once before starting — §4 (ground truth), §5 (v2 formula), §6 (tuning), §7 (shadow rollout) are the ground truth.
+**Spec:** `docs/specs/2026-04-25-event-market-ranking-tuning-design.md`. Read it once before starting — §4 (ground truth), §5 (v2 formula), §6 (tuning), §7 (shadow rollout) are the ground truth.
 
 **Depends on (already shipped in chantiers #1, #2, #3):**
 - `app/retrieval/hybrid_search.py` + `app/retrieval/vector_retriever.py` + `app/retrieval/bm25_index.py` (v1 path, stays untouched).

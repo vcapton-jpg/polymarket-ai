@@ -356,8 +356,8 @@ This chantier is done when:
 
 ## 15. References
 
-- Chantier #1 spec: `docs/superpowers/specs/2026-04-23-measurement-foundations-design.md`
-- Chantier #1 plan (for patterns to reuse): `docs/superpowers/plans/2026-04-23-measurement-foundations.md`
+- Chantier #1 spec: `docs/specs/2026-04-23-measurement-foundations-design.md`
+- Chantier #1 plan (for patterns to reuse): `docs/plans/2026-04-23-measurement-foundations.md`
 - Current signal builder: `app/signal/signal_builder.py`
 - Reasoning analyzer (LLM call): `app/llm/reasoning_analyzer.py`
 - Existing retrieval (event→market): `app/retrieval/hybrid_search.py`

@@ -8,7 +8,7 @@
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 async (`Mapped`/`mapped_column`), Alembic (revision `021`, `down_revision="020"`), pgvector 1536-dim, Celery + Redis, `_run_async` helper for async-in-Celery, pytest-asyncio.
 
-**Spec:** `docs/superpowers/specs/2026-04-24-signal-sourcing-design.md`. Read it once before starting — the scoring formula, the schema, and the task's retry policy all come from there.
+**Spec:** `docs/specs/2026-04-24-signal-sourcing-design.md`. Read it once before starting — the scoring formula, the schema, and the task's retry policy all come from there.
 
 **Depends on (already shipped in chantier #1):**
 - `SignalPrediction` model + `uq_signal_predictions_signal_variant`

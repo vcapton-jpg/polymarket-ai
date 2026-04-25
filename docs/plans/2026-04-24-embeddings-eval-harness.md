@@ -8,7 +8,7 @@
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 async (`Mapped` / `mapped_column`), Alembic (revision `022`, `down_revision="021"`; revision `023` with `down_revision="022"`), pgvector 1536-dim, Celery + Redis, OpenAI `text-embedding-3-small` + `gpt-4o-mini` (for LLM judge), numpy (bootstrap CI), pytest-asyncio.
 
-**Spec:** `docs/superpowers/specs/2026-04-24-embeddings-eval-harness-design.md`. Read it once before starting — §4 (harness), §5 (composers), §6 (schema), §7 (promotion gate) are the ground truth.
+**Spec:** `docs/specs/2026-04-24-embeddings-eval-harness-design.md`. Read it once before starting — §4 (harness), §5 (composers), §6 (schema), §7 (promotion gate) are the ground truth.
 
 **Depends on (already shipped in chantiers #1 and #2):**
 - `SignalPrediction`, `SignalOutcome`, `SignalArticle` tables + their relationships.

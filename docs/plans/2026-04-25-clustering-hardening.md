@@ -1,6 +1,6 @@
 # Clustering Hardening Implementation Plan
 
-> **STATUS — 2026-04-25 (post-execution amendment).** Tasks 1-4, 7, 11, 12 shipped. Tasks 5-6 (simhash threshold tightening) and Tasks 8-10 (`min_unique_sources_per_event` gate) **were skipped** after empirical investigation contradicted their premises. See the **Empirical findings** appendix at the bottom of this file for the data, and `docs/superpowers/specs/2026-04-25-clustering-tuning-followup.md` (chantier #2.5) for the actual lever.
+> **STATUS — 2026-04-25 (post-execution amendment).** Tasks 1-4, 7, 11, 12 shipped. Tasks 5-6 (simhash threshold tightening) and Tasks 8-10 (`min_unique_sources_per_event` gate) **were skipped** after empirical investigation contradicted their premises. See the **Empirical findings** appendix at the bottom of this file for the data, and `docs/specs/2026-04-25-clustering-tuning-followup.md` (chantier #2.5) for the actual lever.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1089,7 +1089,7 @@ Combined with the 120-min `clustering_time_window_minutes`, cross-outlet article
 
 **Implication:** Adding `min_unique_sources_per_event=2` would have rejected 97.9% of inventory — every single-source event ever created. Even with the rejection routed to a `pending_multi_source` staging status (as the plan suggested), no further events would ever cross the gate, because the upstream clustering doesn't actually merge cross-outlet articles in the first place.
 
-**Impact on plan:** Tasks 8-10 were dropped. The lever needs to move first: lower `clustering_cosine_threshold` and/or widen `clustering_time_window_minutes`, with empirical sweep against held-out data, before any diversity gate is enforceable. Filed as chantier #2.5 (`docs/superpowers/specs/2026-04-25-clustering-tuning-followup.md`).
+**Impact on plan:** Tasks 8-10 were dropped. The lever needs to move first: lower `clustering_cosine_threshold` and/or widen `clustering_time_window_minutes`, with empirical sweep against held-out data, before any diversity gate is enforceable. Filed as chantier #2.5 (`docs/specs/2026-04-25-clustering-tuning-followup.md`).
 
 ### Net delta shipped
 

@@ -1,7 +1,10 @@
 .PHONY: install dev dev-local test lint migrate build clean seed
 
 install:
-	uv sync
+	# `--extra dev` brings in pytest-asyncio + ruff + pytest-cov so `make test`
+	# and `make lint` work out of the box. Without it, `pytest` collects
+	# asyncio tests as plain functions and 30+ fail with "async not supported".
+	uv sync --extra dev
 	uv run python -m spacy download en_core_web_lg
 
 dev:

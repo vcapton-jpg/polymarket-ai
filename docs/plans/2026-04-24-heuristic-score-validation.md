@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, SQLAlchemy 2.0 async (`Mapped` / `mapped_column`), Alembic (revision `025`, `down_revision="024"`), pytest-asyncio (AUTO mode + per-test `async_db_factory` fixture), `pg_insert().on_conflict_do_nothing(index_elements=["signal_id","variant"])` (pattern from chantier #1), no new external deps, no LLM calls.
 
-**Spec:** `docs/superpowers/specs/2026-04-24-heuristic-score-validation-design.md`. Read it once before starting — §3 (file structure), §4 (decomposition), §5 (variant rewiring), §6 (offline tuning + gate) are the ground truth.
+**Spec:** `docs/specs/2026-04-24-heuristic-score-validation-design.md`. Read it once before starting — §3 (file structure), §4 (decomposition), §5 (variant rewiring), §6 (offline tuning + gate) are the ground truth.
 
 **Depends on (already shipped in chantiers #1–#4):**
 - `app/measurement/variant_registry.py::VariantPrediction` → `@dataclass(frozen=True)` with fields `direction: str | None` and `probability: float | None`.
@@ -2626,7 +2626,7 @@ Also add a follow-up row (status `🟡 Operational`) for:
 
 - [ ] **Step 3: Verify chantier #5 deliverables vs spec §9 checklist**
 
-Re-read `docs/superpowers/specs/2026-04-24-heuristic-score-validation-design.md` §9.
+Re-read `docs/specs/2026-04-24-heuristic-score-validation-design.md` §9.
 Tick every box OR document what's deferred and why.
 
 - [ ] **Step 4: Final commit**

@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, Recharts, React Query, React Router v6. New font: Satoshi (via Fontshare CDN).
 
-**Spec Reference:** `docs/superpowers/specs/2026-04-15-frontend-premium-redesign.md`
+**Spec Reference:** `docs/specs/2026-04-15-frontend-premium-redesign.md`
 
 **Working directory:** `/Users/vadim/polymarket-ai/frontend/` — all paths below are relative to this unless noted.
 

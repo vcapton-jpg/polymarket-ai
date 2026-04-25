@@ -486,4 +486,4 @@ Enumerated exhaustively so the plan has tests for each:
 
 ---
 
-*End of spec. Next step: implementation plan in `docs/superpowers/plans/2026-04-24-embeddings-eval-harness.md`.*
+*End of spec. Next step: implementation plan in `docs/plans/2026-04-24-embeddings-eval-harness.md`.*

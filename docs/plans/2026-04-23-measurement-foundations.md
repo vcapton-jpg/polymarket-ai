@@ -8,7 +8,7 @@
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 async (`Mapped`/`mapped_column`), Alembic (revision `020`, `down_revision="019"`), pytest-asyncio, existing `GammaClient`. Admin gate via `ADMIN_EMAILS` env allowlist (no new `role` column — YAGNI).
 
-**Spec:** `docs/superpowers/specs/2026-04-23-measurement-foundations-design.md`. Read it once before starting — every numeric formula in this plan comes from it.
+**Spec:** `docs/specs/2026-04-23-measurement-foundations-design.md`. Read it once before starting — every numeric formula in this plan comes from it.
 
 **Branch target:** `measurement/foundations` off `main` (worktree; create before task 1).
 
