@@ -352,12 +352,21 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
         schedule_shadow_variants,
     )
 
+    # Async path doesn't compute heuristic features (no liquidity/spread context
+    # in the article-level inputs), so we derive signal_strength + trade_quality
+    # from the LLM impact_score alone — same source the legacy signal_score has
+    # always used. This keeps the three columns consistent (no NULLs) and stops
+    # the measurement layer from blind-spotting 37% of prod signals.
+    # Audit 2026-04-25 P0-1.
+    derived_score = float(assembled.get("impact_score") or 0.0) * 100.0
     session_factory = get_session_factory()
     async with session_factory() as s:
         sig = Signal(
             event_id=assembled["event_id"],
             market_id=assembled["market_id"],
-            signal_score=float(assembled.get("impact_score") or 0.0) * 100.0,
+            signal_score=derived_score,
+            signal_strength=derived_score,
+            trade_quality=derived_score,
             direction=db_direction,
             market_price_at_signal=assembled.get("market_price"),
             reasoning=assembled["reasoning"],
