@@ -360,7 +360,7 @@ export default function Signals() {
               {query && (
                 <button
                   onClick={() => setQuery("")}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 grid h-7 w-7 place-items-center rounded text-ink-dim hover:text-ink hover:bg-obsidian-700 cursor-pointer"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 grid h-10 w-10 md:h-7 md:w-7 place-items-center rounded text-ink-dim hover:text-ink hover:bg-obsidian-700 cursor-pointer"
                   aria-label="Effacer la recherche"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -536,7 +536,7 @@ export default function Signals() {
               type="button"
               onClick={dismissSkipBanner}
               aria-label="Fermer le rappel"
-              className="grid h-7 w-7 place-items-center rounded text-ink-dim hover:text-ink hover:bg-obsidian-800 cursor-pointer"
+              className="grid h-10 w-10 md:h-7 md:w-7 place-items-center rounded text-ink-dim hover:text-ink hover:bg-obsidian-800 cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>

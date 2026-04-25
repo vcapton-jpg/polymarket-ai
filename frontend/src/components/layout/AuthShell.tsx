@@ -39,7 +39,7 @@ export function AuthShell({ children, visual, footer, className }: AuthShellProp
             </Link>
           </header>
 
-          <div className="flex flex-1 items-center justify-center px-6 pb-12 md:px-10">
+          <main id="main" className="flex flex-1 items-center justify-center px-6 pb-12 md:px-10">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -48,7 +48,7 @@ export function AuthShell({ children, visual, footer, className }: AuthShellProp
             >
               {children}
             </motion.div>
-          </div>
+          </main>
 
           <footer className="px-6 pb-6 text-center text-label-sm text-ink-dim md:px-10">
             {footer}

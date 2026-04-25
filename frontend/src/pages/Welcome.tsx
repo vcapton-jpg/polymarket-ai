@@ -303,7 +303,7 @@ export default function Welcome() {
         </div>
 
         {/* Main */}
-        <main className="flex flex-1 items-center justify-center px-6 py-8 md:px-10 md:py-12">
+        <main id="main" className="flex flex-1 items-center justify-center px-6 py-8 md:px-10 md:py-12">
           <div className="w-full max-w-[720px]">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div

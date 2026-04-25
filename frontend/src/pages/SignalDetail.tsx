@@ -37,6 +37,7 @@ import type { Signal } from "@/types/signal"
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "1"
 import { fadeIn } from "@/lib/motion"
 import { Button } from "@/components/ui/Button"
+import { Skeleton } from "@/components/ui/Skeleton"
 import { withBuilderCode } from "@/lib/polymarket"
 import {
   cn,
@@ -116,7 +117,7 @@ export default function SignalDetail() {
   if (detailLoading) {
     return (
       <AppShell breadcrumb={[{ label: "Signaux", to: "/signals" }, { label: "…" }]}>
-        <div className="container-page py-20 text-ink-muted">Chargement…</div>
+        <SignalDetailSkeleton />
       </AppShell>
     )
   }
@@ -692,6 +693,42 @@ function RelatedSignals({ currentId, category }: { currentId: string; category: 
         ))}
       </div>
     </section>
+  )
+}
+
+/**
+ * Loading skeleton for the SignalDetail page.
+ *
+ * Mirrors the real layout — eyebrow row, headline, four metric tiles,
+ * order-form card — so the post-load reflow is invisible. Heights are
+ * tuned against the real components so the document height is stable
+ * during the transition (no jumpy CLS).
+ */
+function SignalDetailSkeleton() {
+  return (
+    <div className="container-page py-8 md:py-10">
+      {/* Eyebrow + status pills */}
+      <div className="mb-3 flex items-center gap-2">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-5 w-14 rounded-full" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+      </div>
+
+      {/* Headline */}
+      <Skeleton className="mb-3 h-9 w-full max-w-[680px] md:h-11" />
+      {/* Subtitle */}
+      <Skeleton className="mb-6 h-4 w-3/4 max-w-[520px]" />
+
+      {/* Four metric tiles */}
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-20" />
+        ))}
+      </div>
+
+      {/* Order form card placeholder */}
+      <Skeleton className="mt-6 h-[420px] w-full" />
+    </div>
   )
 }
 

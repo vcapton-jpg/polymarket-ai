@@ -6,6 +6,7 @@ import { fetchSignalDetailFromApi } from "@/lib/apiSignals"
 import { OutcomeExplainer } from "@/components/learn/OutcomeExplainer"
 import { WhyThisMatters } from "@/components/signals/WhyThisMatters"
 import { SourcesList } from "@/components/signals/SourcesList"
+import { Skeleton } from "@/components/ui/Skeleton"
 
 /**
  * Post-resolution learning page for a signal (`/signals/:id/outcome`).
@@ -36,12 +37,20 @@ export default function SignalOutcome() {
   }, [id, signal?.outcome])
 
   if (isLoading || !signal) {
-    return <div className="mx-auto max-w-3xl p-6 text-ink-muted">Chargement…</div>
+    return (
+      <main id="main" className="mx-auto max-w-3xl space-y-4 p-6">
+        <Skeleton className="h-7 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </main>
+    )
   }
 
   if (!signal.outcome) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 p-6">
+      <main id="main" className="mx-auto max-w-2xl space-y-4 p-6">
         <h1 className="text-2xl font-bold text-ink">{signal.question}</h1>
         <p className="text-sm text-ink-muted">
           Ce signal n'est pas encore résolu. Reviens quand le marché aura
@@ -54,12 +63,12 @@ export default function SignalOutcome() {
         >
           Retour au signal
         </button>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <main id="main" className="mx-auto max-w-3xl space-y-6 p-6">
       <h1 className="text-2xl font-bold text-ink">{signal.question}</h1>
       <OutcomeExplainer outcome={signal.outcome} />
       <WhyThisMatters
@@ -76,6 +85,6 @@ export default function SignalOutcome() {
       >
         Compris, voir d'autres signaux
       </button>
-    </div>
+    </main>
   )
 }

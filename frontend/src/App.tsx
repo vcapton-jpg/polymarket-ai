@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from "react"
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion"
 import { RequireAuth } from "./components/auth/RequireAuth"
 import { ErrorBoundary } from "./components/ErrorBoundary"
+import { PageSkeleton } from "./components/ui/PageSkeleton"
 import { readAuth } from "./lib/trial"
 import { STORAGE_KEYS } from "./lib/storageKeys"
 import { DURATIONS, EASE_PREMIUM } from "./lib/motion"
@@ -158,8 +159,19 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-obsidian-900 text-ink grain">
+        {/* Universal skip-to-main link. Visually hidden until focused; the
+            first Tab from the URL bar surfaces it before any nav so
+            keyboard / screen-reader users can jump past sidebar +
+            header. Targets `#main` which every page (AppShell-based or
+            public layout) declares on its <main> landmark. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-brand-500 focus:px-4 focus:py-2 focus:font-medium focus:text-obsidian-900"
+        >
+          Aller au contenu
+        </a>
         <RequireOnboarding />
-        <Suspense fallback={<div className="container-page py-20 text-ink-muted">Chargement…</div>}>
+        <Suspense fallback={<PageSkeleton />}>
           <LayoutGroup>
             <AnimatedRoutes />
           </LayoutGroup>

@@ -80,7 +80,7 @@ export default function EndOfTrialModal() {
                 type="button"
                 onClick={close}
                 aria-label="Fermer"
-                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-dim transition-premium hover:bg-obsidian-700 hover:text-ink cursor-pointer"
+                className="absolute right-3 top-3 inline-flex h-10 w-10 md:h-8 md:w-8 items-center justify-center rounded-md text-ink-dim transition-premium hover:bg-obsidian-700 hover:text-ink cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>

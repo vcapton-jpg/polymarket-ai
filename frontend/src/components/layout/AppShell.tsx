@@ -148,12 +148,9 @@ export function AppShell({
       <TrialBanner />
       <EndOfTrialModal />
       <OfflineBanner />
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-obsidian-900 focus:font-medium"
-      >
-        Aller au contenu
-      </a>
+      {/* Skip-link is mounted globally in App.tsx — every page exposes
+          the same `#main` anchor so the same link works whether or not
+          AppShell is present. */}
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] border-r border-line/60 bg-obsidian-850 lg:flex lg:flex-col">
         <div className="flex h-16 items-center border-b border-line/60 px-5">

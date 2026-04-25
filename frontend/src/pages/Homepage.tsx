@@ -28,7 +28,7 @@ export default function Homepage() {
   return (
     <>
       <PublicNav />
-      <main className="relative">
+      <main id="main" className="relative">
         <Hero />
         <Kpis />
         <WhatIsPolymarket />

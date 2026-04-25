@@ -88,7 +88,7 @@ export default function Pricing() {
   return (
     <>
       <PublicNav />
-      <main className="relative pt-32 pb-24 md:pt-40 md:pb-32">
+      <main id="main" className="relative pt-32 pb-24 md:pt-40 md:pb-32">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[500px] bg-grid bg-grid-fade opacity-40" aria-hidden />
         <div
           className="pointer-events-none absolute inset-x-0 top-0 h-[500px]"

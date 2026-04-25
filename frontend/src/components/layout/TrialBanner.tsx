@@ -71,7 +71,7 @@ export default function TrialBanner() {
           <button
             type="button"
             onClick={() => navigate("/settings#plan")}
-            className="inline-flex h-8 shrink-0 items-center rounded-md border border-brand-500/40 bg-brand-500/[0.12] px-3 text-label-sm font-medium text-brand-200 transition-premium hover:bg-brand-500/20 hover:text-ink cursor-pointer"
+            className="inline-flex h-10 md:h-8 shrink-0 items-center rounded-md border border-brand-500/40 bg-brand-500/[0.12] px-3 text-label-sm font-medium text-brand-200 transition-premium hover:bg-brand-500/20 hover:text-ink cursor-pointer"
           >
             Ajouter une carte
           </button>
@@ -82,7 +82,7 @@ export default function TrialBanner() {
               setDismissed(true)
             }}
             aria-label={"Fermer le bandeau d\u2019essai"}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-dim transition-premium hover:bg-obsidian-800 hover:text-ink cursor-pointer"
+            className="inline-flex h-10 w-10 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-md text-ink-dim transition-premium hover:bg-obsidian-800 hover:text-ink cursor-pointer"
           >
             <X className="h-3.5 w-3.5" />
           </button>

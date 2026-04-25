@@ -412,7 +412,7 @@ function BeginnerApprendreOverlay({
             type="button"
             onClick={onDismiss}
             aria-label="Fermer"
-            className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md text-ink-dim hover:bg-obsidian-800 hover:text-ink transition-premium cursor-pointer"
+            className="absolute right-3 top-3 grid h-10 w-10 md:h-8 md:w-8 place-items-center rounded-md text-ink-dim hover:bg-obsidian-800 hover:text-ink transition-premium cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>

@@ -122,7 +122,7 @@ export function ToastViewport() {
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label="Fermer"
-                className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-dim transition-premium hover:bg-obsidian-800 hover:text-ink cursor-pointer"
+                className="ml-1 inline-flex h-10 w-10 md:h-6 md:w-6 shrink-0 items-center justify-center rounded-md text-ink-dim transition-premium hover:bg-obsidian-800 hover:text-ink cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

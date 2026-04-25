@@ -12,7 +12,7 @@ export default function MentionsLegales() {
   return (
     <div className="min-h-screen bg-obsidian-950 text-ink">
       <PublicNav />
-      <main className="mx-auto max-w-2xl space-y-6 px-6 py-16 text-ink-muted">
+      <main id="main" className="mx-auto max-w-2xl space-y-6 px-6 py-16 text-ink-muted">
         <h1 className="text-3xl font-bold text-ink">Mentions légales</h1>
 
         <section className="space-y-2">

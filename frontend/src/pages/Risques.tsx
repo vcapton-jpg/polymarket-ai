@@ -13,7 +13,7 @@ export default function Risques() {
   return (
     <div className="min-h-screen bg-obsidian-950 text-ink">
       <PublicNav />
-      <main className="mx-auto max-w-2xl space-y-6 px-6 py-16">
+      <main id="main" className="mx-auto max-w-2xl space-y-6 px-6 py-16">
         <h1 className="text-3xl font-bold">Politique de risque</h1>
         <p className="text-ink-muted">
           Les marchés prédictifs (Polymarket et équivalents) sont un produit à

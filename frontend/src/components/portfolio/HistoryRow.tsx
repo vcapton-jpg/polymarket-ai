@@ -65,7 +65,7 @@ export function HistoryRow({ position, className, hideStake = false }: HistoryRo
         target="_blank"
         rel="noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex h-7 items-center gap-1 rounded-md border border-line-strong px-2 text-label-xs text-ink-muted hover:border-brand-500/40 hover:text-brand-300 transition-premium cursor-pointer"
+        className="inline-flex h-9 md:h-7 items-center gap-1 rounded-md border border-line-strong px-2 text-label-xs text-ink-muted hover:border-brand-500/40 hover:text-brand-300 transition-premium cursor-pointer"
         aria-label="Voir sur Polymarket"
       >
         Voir

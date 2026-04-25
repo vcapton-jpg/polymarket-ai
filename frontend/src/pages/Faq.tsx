@@ -53,7 +53,7 @@ export default function Faq() {
   return (
     <>
       <PublicNav />
-      <main className="relative pt-32 pb-24 md:pt-40 md:pb-32">
+      <main id="main" className="relative pt-32 pb-24 md:pt-40 md:pb-32">
         <div
           className="pointer-events-none absolute inset-0"
           style={{

@@ -45,7 +45,7 @@ const variants = [
 export default function SignalVariants() {
   return (
     <div className="min-h-screen bg-obsidian-900 text-ink">
-      <div className="container-page py-16">
+      <main id="main" className="container-page py-16">
         <div className="mb-12">
           <p className="mb-2 font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-brand-400">
             Design exploration
@@ -71,7 +71,7 @@ export default function SignalVariants() {
             </div>
           ))}
         </div>
-      </div>
+      </main>
     </div>
   )
 }
