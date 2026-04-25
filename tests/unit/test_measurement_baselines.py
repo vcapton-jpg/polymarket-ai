@@ -46,7 +46,6 @@ def test_baseline_random_direction_varies_by_signal_id():
 @pytest.mark.parametrize("price,expected_dir", [
     (0.0, "BUY_NO"),
     (0.49, "BUY_NO"),
-    (0.5, "BUY_NO"),     # tie-break: > 0.5 is YES
     (0.51, "BUY_YES"),
     (1.0, "BUY_YES"),
 ])
@@ -54,6 +53,14 @@ def test_baseline_market_price_direction(price, expected_dir):
     p = baseline_market_price(_ctx(price=price))
     assert p.direction == expected_dir
     assert p.probability == price
+
+
+def test_baseline_market_price_abstains_at_exactly_half():
+    """Audit follow-up [P1]: at price=0.5 the market has no directional
+    signal — emit (None, None) instead of a fake BUY_NO @ 0.5."""
+    p = baseline_market_price(_ctx(price=0.5))
+    assert p.direction is None
+    assert p.probability is None
 
 
 # -- momentum ---------------------------------------------------------

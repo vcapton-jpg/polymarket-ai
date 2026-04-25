@@ -21,16 +21,33 @@ def baseline_random(ctx: ScoringContext) -> VariantPrediction:
 
 
 def baseline_market_price(ctx: ScoringContext) -> VariantPrediction:
-    """Follow the market: BUY_YES if price > 0.5, else BUY_NO. Prob = market price."""
+    """Follow the market: BUY_YES if price > 0.5, BUY_NO if < 0.5.
+
+    Audit follow-up [P1]: ABSTAIN at exactly 0.5 — the market itself has
+    no directional signal at the boundary, so emitting BUY_NO would be
+    inventing a fake prediction that pollutes Brier comparisons. Same
+    pattern as P1.1 news_sentiment.
+    """
+    if ctx.market_price == 0.5:
+        return VariantPrediction(direction=None, probability=None)
     direction = "BUY_YES" if ctx.market_price > 0.5 else "BUY_NO"
     return VariantPrediction(direction=direction, probability=ctx.market_price)
 
 
 def baseline_momentum(ctx: ScoringContext) -> VariantPrediction:
-    """24h momentum. None if we lack a 24h-ago price."""
+    """24h momentum. ABSTAIN when:
+      - we lack a 24h-ago price
+      - return_24h is exactly 0 (flat — no directional signal)
+
+    Audit follow-up [P1]: previously fell into the BUY_NO branch on
+    return_24h == 0, emitting a fake (BUY_NO, 0.5) that didn't reflect
+    momentum. Same pattern as P1.1 news_sentiment.
+    """
     if ctx.market_price_24h_ago is None:
         return VariantPrediction(direction=None, probability=None)
     return_24h = ctx.market_price - ctx.market_price_24h_ago  # in [-1, 1]
+    if return_24h == 0:
+        return VariantPrediction(direction=None, probability=None)
     direction = "BUY_YES" if return_24h > 0 else "BUY_NO"
     prob = max(0.01, min(0.99, 0.5 + 0.5 * return_24h))
     return VariantPrediction(direction=direction, probability=prob)
