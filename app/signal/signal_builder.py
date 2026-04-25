@@ -260,6 +260,11 @@ class SignalBuilder:
         sig._window_estimate = window_estimate
         sig._yes_probability_explanation = yes_prob_explanation
         sig._below_threshold = below_threshold
+        # Stash inputs to the heuristic so the measurement layer (record_baselines)
+        # can persist them as the heuristic_v1 / heuristic_shadow rows. Without
+        # these, the production scoring path cannot register predictions.
+        sig._features = features
+        sig._llm_combined = llm_combined
         return sig
 
 
@@ -342,10 +347,10 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
         return
 
     import app.measurement  # noqa: F401  (side-effect: registers baselines)
-    from datetime import datetime, timezone
-    from app.measurement.pipeline import record_baselines, schedule_shadow_variants
-    from app.measurement.scoring_context import build_scoring_context
-    from app.measurement.variant_registry import get_registry
+    from app.measurement.pipeline import (
+        record_baselines_for_signal,
+        schedule_shadow_variants,
+    )
 
     session_factory = get_session_factory()
     async with session_factory() as s:
@@ -377,35 +382,13 @@ async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
                     assembled["event_id"], exc["news_clean_id"],
                 )
 
-        ctx = await build_scoring_context(
-            signal_id=sig.id,
-            market_id=sig.market_id,
-            event_id=sig.event_id,
-            market_price=float(sig.market_price_at_signal or 0.0),
-            articles=articles,
-            t0=datetime.now(timezone.utc),
-            market_price_24h_ago=None,  # wired by a future chantier
-        )
-        try:
-            # NOTE: this production path (build_signal -> _persist_signal) does
-            # not compute a heuristic `features` dict or `llm_combined` — the
-            # score comes directly from the LLM analyzer. We therefore pass
-            # None, which makes record_baselines silently skip the
-            # 'heuristic_shadow' row even when the flag is on. The frozen
-            # 'heuristic_v1' row is still written using sig.signal_strength.
-            await record_baselines(
-                s,
-                signal_id=sig.id,
-                ctx=ctx,
-                registry=get_registry(),
-                features=None,
-                llm_combined=None,
-            )
-        except Exception:
-            logger.exception(
-                "measurement.record_baselines failed signal_id=%s — skipping; signal itself will still commit",
-                sig.id,
-            )
+        # Measurement layer — writes heuristic_v1 + 4 baselines into
+        # signal_predictions. The helper internally swallows failures so a
+        # broken baseline cannot abort the signal commit. NOTE: legacy async
+        # path doesn't compute heuristic features/llm_combined, so the
+        # optional 'heuristic_shadow' row is always skipped here (the
+        # sync prod path through tasks_scoring stashes them on the Signal).
+        await record_baselines_for_signal(s, signal=sig, articles=articles)
 
         # --- Sourcing audit (chantier #2) ------------------------------------
         try:

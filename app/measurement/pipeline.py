@@ -110,6 +110,62 @@ async def record_baselines(
     return int(result.rowcount or 0)
 
 
+async def record_baselines_for_signal(
+    session: "AsyncSession",
+    *,
+    signal: Signal,
+    articles: list[dict] | None,
+    market_price_24h_ago: float | None = None,
+) -> int:
+    """Production-path glue between a freshly flushed Signal and the
+    measurement layer.
+
+    Both the sync `tasks_scoring._run_full_scoring_pipeline` and the legacy
+    async `signal_builder._persist_signal` call this so the wiring lives in
+    one place. Pre-conditions:
+
+      - `signal.id` is set (caller must `session.flush()` first).
+      - `app.measurement` has been imported at least once so the four
+        built-in baselines are registered.
+
+    Reads `_features` / `_llm_combined` off the signal if the builder
+    stashed them — they enable the optional `heuristic_shadow` row when
+    Settings.heuristic_shadow_enabled is on. Both default to None for
+    legacy callers.
+
+    Wrapped in try/except: a measurement-layer failure must NOT abort the
+    signal commit (the signal is already flushed and useful on its own).
+    Returns the number of rows actually written, 0 on swallowed failure.
+    """
+    from app.measurement.scoring_context import build_scoring_context
+    from app.measurement.variant_registry import get_registry
+
+    try:
+        ctx = await build_scoring_context(
+            signal_id=signal.id,
+            market_id=signal.market_id,
+            event_id=signal.event_id,
+            market_price=float(signal.market_price_at_signal or 0.0),
+            articles=articles,
+            t0=datetime.now(timezone.utc),
+            market_price_24h_ago=market_price_24h_ago,
+        )
+        return await record_baselines(
+            session,
+            signal_id=signal.id,
+            ctx=ctx,
+            registry=get_registry(),
+            features=getattr(signal, "_features", None),
+            llm_combined=getattr(signal, "_llm_combined", None),
+        )
+    except Exception:
+        logger.exception(
+            "record_baselines_for_signal: failed signal_id=%s — skipping",
+            signal.id,
+        )
+        return 0
+
+
 def schedule_shadow_variants(signal_id: int) -> None:
     """Fire-and-forget shadow variant dispatch.
 

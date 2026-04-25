@@ -152,6 +152,11 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
     from app.retrieval import hybrid_search_markets  # dispatcher (v1 by default)
     from app.signal.signal_builder import create_signal_builder
     from app.sourcing.prod_trace import record_prod_signal_articles
+    # Importing app.measurement registers the four built-in baselines into
+    # the global VariantRegistry singleton — required before
+    # record_baselines_for_signal is invoked below.
+    import app.measurement  # noqa: F401
+    from app.measurement.pipeline import record_baselines_for_signal
 
     settings = get_settings()
     max_llm = settings.llm_impact_max_candidates
@@ -566,6 +571,20 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                     "tasks_scoring: record_prod_signal_articles failed signal_id=%s",
                     best_signal.id,
                 )
+
+            # Measurement layer — write heuristic_v1 + 4 baseline rows into
+            # signal_predictions so chantier #1 metrics (Brier, Wilson CI,
+            # simulated_pnl) actually have data to chew on for live prod
+            # signals. Without this call, the prod path produces zero
+            # evaluable predictions and the 10-day clean-collect window
+            # yields no usable benchmark data. The helper internally
+            # swallows failures so a broken baseline cannot abort the
+            # signal commit. The sync builder stashed `_features` and
+            # `_llm_combined` on the Signal so the optional
+            # 'heuristic_shadow' row can be written when the flag is on.
+            await record_baselines_for_signal(
+                session, signal=best_signal, articles=[]
+            )
 
             _schedule_price_captures(best_signal.id, best_signal_mid)
             _broadcast_signal(best_signal)
