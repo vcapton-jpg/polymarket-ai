@@ -1,5 +1,7 @@
 # Clustering Hardening Implementation Plan
 
+> **STATUS — 2026-04-25 (post-execution amendment).** Tasks 1-4, 7, 11, 12 shipped. Tasks 5-6 (simhash threshold tightening) and Tasks 8-10 (`min_unique_sources_per_event` gate) **were skipped** after empirical investigation contradicted their premises. See the **Empirical findings** appendix at the bottom of this file for the data, and `docs/superpowers/specs/2026-04-25-clustering-tuning-followup.md` (chantier #2.5) for the actual lever.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop the event clustering pipeline from producing 99% single-source events by fixing three cumulative bugs (over-aggressive simhash dedup, missing diversity gate at event creation, stale `unique_sources_count`).
@@ -1032,3 +1034,78 @@ After all tasks are merged:
    - [ ] Post-Task-12 diagnostic output is captured in the Task 12 commit message (proves the loop closed)
 
 If any item fails, fix inline. Then invoke `superpowers:finishing-a-development-branch` to wrap.
+
+---
+
+## Empirical findings appendix (2026-04-25)
+
+Investigation during execution falsified two of the plan's three hypotheses. Recorded here so future readers don't re-walk the dead ends.
+
+### Bug 1 (simhash dedup too aggressive) — REJECTED
+
+The plan claimed the 0.15 threshold (max(3, int(64*0.15)) = 9-bit Hamming gate) collapses cross-outlet rewrites. Measured against 800 prod NewsClean rows, comparing the two highest-volume sources (`X: @Reuters` × `X: @FirstSquawk`, 79 × 70 articles):
+
+```
+min cross-outlet hamming = 15  (count=1)
+                          16  (count=1)
+                          ...
+                          22  (count=13)   ← mode
+                          23  (count=20)   ← mode
+                          24  (count=13)
+                          25  (count=9)
+                          26  (count=4)
+```
+
+Not a single cross-outlet pair sat below the 9-bit gate. Lowering to 3 bits would have changed nothing.
+
+**Impact on plan:** Task 5 was repurposed as a characterization test (`tests/integration/test_simhash_dedup_threshold.py`) pinning current behaviour; Task 6 was dropped.
+
+### Bug 3 (write-once counts drift) — REJECTED post-fix
+
+After Task 4 wired `recompute_event_counts` into both creation paths, the backfill ran on 3357 prod events and reported `changed=0`. The "drift" suggested by the original diagnostic was an apples-to-oranges artefact (STORED `unique_sources_count` vs LIVE `count(distinct clean_id)` — different axes). Diagnostic was fixed in Task 7 to compare like with like; once corrected, STORED ≈ LIVE for every event.
+
+**Impact on plan:** Tasks 2-4 + 7 still landed (helper, wiring, backfill, diagnostic) — all useful as forward-looking infrastructure even though there was no historical drift to repair.
+
+### Bug 2 (no min_unique_sources gate) — REAL but UNSAFE TO SHIP AS PLANNED
+
+The 99% single-source-event phenomenon is real, but its cause is upstream of the gate. Cosine similarity measurement against prod embeddings:
+
+```
+max-cosine of each Reuters article to ANY FirstSquawk article (n=79):
+  p  0 = 0.944
+  p  5 = 0.918
+  p 10 = 0.637
+  p 25 = 0.460
+  p 50 = 0.366
+  p 75 = 0.307
+  p100 = 0.173
+
+>= 0.75 (current cluster threshold): 5 / 79 (6.3%)
+>= 0.65                            : 7 / 79 (8.9%)
+>= 0.55                            : 12 / 79 (15.2%)
+```
+
+Combined with the 120-min `clustering_time_window_minutes`, cross-outlet articles essentially never make it into the same cluster. Multi-article events (1.8% of total) are therefore **same-source repeats**, not corroboration.
+
+**Implication:** Adding `min_unique_sources_per_event=2` would have rejected 97.9% of inventory — every single-source event ever created. Even with the rejection routed to a `pending_multi_source` staging status (as the plan suggested), no further events would ever cross the gate, because the upstream clustering doesn't actually merge cross-outlet articles in the first place.
+
+**Impact on plan:** Tasks 8-10 were dropped. The lever needs to move first: lower `clustering_cosine_threshold` and/or widen `clustering_time_window_minutes`, with empirical sweep against held-out data, before any diversity gate is enforceable. Filed as chantier #2.5 (`docs/superpowers/specs/2026-04-25-clustering-tuning-followup.md`).
+
+### Net delta shipped
+
+| # | Task | Status | Notes |
+|---|---|---|---|
+| 1 | Baseline diagnostic | ✅ | Improved in Task 7 (apples-to-apples) |
+| 2 | Failing recompute test | ✅ | |
+| 3 | recompute helper | ✅ | `app/event_engine/event_counts.py` |
+| 4 | Wire helper into both paths | ✅ | Fast + batch |
+| 5 | Simhash failing tests | 🔄 | Repurposed as characterization |
+| 6 | Tighten simhash threshold | ❌ | Skipped — no-op in prod |
+| 7 | Backfill stale counts | ✅ | `changed=0`, infra useful anyway |
+| 8 | `min_unique_sources_per_event` setting | ❌ | Skipped — see bug 2 above |
+| 9 | Failing gate tests | ❌ | Skipped |
+| 10 | Enforce gate at scoring entry | ❌ | Skipped |
+| 11 | Hourly diversity beat task | ✅ | `app/workers/tasks_diagnostics.py` |
+| 12 | BLUEPRINT update | ✅ | Documents findings, not the wrong hypothesis |
+
+**Lessons for future plans:** Plan-time hypothesis testing on real data, even just a 30-line diagnostic script, would have caught both rejected hypotheses before any code was written. The TDD red-step in particular failed loudly here — the "failing test" passed organically because the threshold wasn't actually the bottleneck. Trust that signal.
