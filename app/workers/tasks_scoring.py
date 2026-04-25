@@ -42,6 +42,66 @@ def _signal_dedupe_key(market_id: str, event_title: str, bucket: Optional[str]) 
 # the cluster's authority even if other repostings are weaker. NULLs are
 # skipped (vs. treated as 0/∞) so old rows missing the metadata don't
 # poison the derivation.
+# ── Pure dict builders for the scoring pipeline (audit follow-up) ──
+#
+# The previous inline construction used `if x else None`, which silently
+# coerced legitimate zero values (last_trade_price=0 on deeply-NO markets,
+# spread=0 on tight markets, ambiguity=0) to None. That bypassed downstream
+# filters and band checks. These helpers preserve real zeros and only emit
+# None for actually-missing data.
+def _build_market_data(market) -> dict:
+    """Build the market_data dict consumed by SignalBuilder.
+
+    Preserves zero values (a deeply-NO market with last_trade_price=0 is
+    real data, not missing data). Audit 2026-04-25 follow-up [P0].
+    """
+    return {
+        "liquidity": (
+            float(market.liquidity) if market.liquidity is not None else None
+        ),
+        "spread": (
+            float(market.spread) if market.spread is not None else None
+        ),
+        "end_date": market.end_date,
+        "last_trade_price": (
+            float(market.last_trade_price)
+            if market.last_trade_price is not None
+            else None
+        ),
+    }
+
+
+def _build_llm_data(analysis) -> dict | None:
+    """Build the llm_data dict consumed by SignalBuilder, or None if no
+    analysis row exists. Preserves zero scores. Audit 2026-04-25 follow-up.
+    """
+    if analysis is None:
+        return None
+    return {
+        "impact_direction": analysis.impact_direction,
+        "impact_strength": (
+            float(analysis.impact_strength)
+            if analysis.impact_strength is not None
+            else None
+        ),
+        "llm_confidence": (
+            float(analysis.llm_confidence)
+            if analysis.llm_confidence is not None
+            else None
+        ),
+        "ambiguity_score": (
+            float(analysis.ambiguity_score)
+            if analysis.ambiguity_score is not None
+            else None
+        ),
+        "specificity_score": (
+            float(analysis.specificity_score)
+            if analysis.specificity_score is not None
+            else None
+        ),
+    }
+
+
 def _derive_event_source_signals(
     rows: list[tuple[str | None, int | None, float | None]],
 ) -> dict:
@@ -578,21 +638,11 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 "source_weight": event_src_signals["source_weight"],
                 "source_tier": event_src_signals["source_tier"],
             }
-            market_data = {
-                "liquidity": float(market.liquidity) if market.liquidity else None,
-                "spread": float(market.spread) if market.spread else None,
-                "end_date": market.end_date,
-                "last_trade_price": float(market.last_trade_price) if market.last_trade_price else None,
-            }
-            llm_data = None
-            if analysis:
-                llm_data = {
-                    "impact_direction": analysis.impact_direction,
-                    "impact_strength": float(analysis.impact_strength) if analysis.impact_strength else None,
-                    "llm_confidence": float(analysis.llm_confidence) if analysis.llm_confidence else None,
-                    "ambiguity_score": float(analysis.ambiguity_score) if analysis.ambiguity_score else None,
-                    "specificity_score": float(analysis.specificity_score) if analysis.specificity_score else None,
-                }
+            # Audit 2026-04-25 follow-up [P0]: use is-not-None helpers so
+            # legitimate zeros (deeply-NO price, zero spread, ambiguity=0)
+            # reach the SignalBuilder instead of being coerced to None.
+            market_data = _build_market_data(market)
+            llm_data = _build_llm_data(analysis)
 
             mid_cosine = cosine_by_mid.get(mid)
             signal = builder.build_signal(
