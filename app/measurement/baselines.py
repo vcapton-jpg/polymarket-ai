@@ -37,7 +37,19 @@ def baseline_momentum(ctx: ScoringContext) -> VariantPrediction:
 
 
 def baseline_news_sentiment(ctx: ScoringContext) -> VariantPrediction:
-    """Weighted sentiment of attached articles. None if no articles."""
+    """Weighted sentiment of attached articles. ABSTAIN (None, None) when:
+      - no articles
+      - total source-weight is zero
+      - sentiment is exactly zero (all NEUTRAL or perfectly balanced)
+
+    Audit 2026-04-25 P1.1: previously fell into the `sentiment > 0` branch
+    when sentiment was 0, emitting a fake (BUY_NO, 0.5) prediction that
+    didn't reflect news content. The prod path doesn't yet supply
+    per-article direction labels, so every cluster's articles defaulted to
+    NEUTRAL — every prod news_sentiment row was that fake BUY_NO @ 0.5,
+    polluting cross-baseline Brier comparisons. Honest abstention until
+    per-article direction is wired upstream.
+    """
     if not ctx.article_impacts:
         return VariantPrediction(direction=None, probability=None)
 
@@ -54,6 +66,9 @@ def baseline_news_sentiment(ctx: ScoringContext) -> VariantPrediction:
         return VariantPrediction(direction=None, probability=None)
 
     sentiment = weighted / total_weight                     # in [-1, 1]
+    if sentiment == 0:
+        # No directional information — abstain rather than fake BUY_NO.
+        return VariantPrediction(direction=None, probability=None)
     prob = 1.0 / (1.0 + math.exp(-2.0 * sentiment))         # sigmoid spread
     direction = "BUY_YES" if sentiment > 0 else "BUY_NO"
     return VariantPrediction(direction=direction, probability=prob)

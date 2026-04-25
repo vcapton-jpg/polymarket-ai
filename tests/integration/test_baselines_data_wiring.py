@@ -306,11 +306,21 @@ async def test_prod_wiring_activates_news_sentiment_and_momentum(async_db_factor
                 )
                 assert mom.predicted_direction == "BUY_YES"  # 0.55 > 0.45
 
+                # baseline_news_sentiment ABSTAINS until per-article direction
+                # labels are added upstream (audit 2026-04-25 P1.1). The
+                # _fetch_baseline_articles helper passes only source_weight,
+                # so all articles default to NEUTRAL → sentiment == 0 → the
+                # baseline returns (None, None) instead of inventing a fake
+                # BUY_NO @ 0.5. The row is still written; it just carries no
+                # prediction. When per-article direction lands, this assert
+                # flips to is not None.
                 ns = by_variant["baseline_news_sentiment"]
-                assert ns.predicted_probability is not None, (
-                    "baseline_news_sentiment still None — articles did "
-                    "not reach the baseline"
+                assert ns.predicted_probability is None, (
+                    "baseline_news_sentiment must abstain while per-article "
+                    "direction is unwired — got fake non-None prediction "
+                    f"(direction={ns.predicted_direction!r})"
                 )
+                assert ns.predicted_direction is None
         finally:
             ts._fetch_market_price_24h_ago = original  # type: ignore[assignment]
     finally:

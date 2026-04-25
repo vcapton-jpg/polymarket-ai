@@ -97,14 +97,18 @@ def test_baseline_news_sentiment_weighted_majority_yes():
     assert p.probability is not None and p.probability > 0.5
 
 
-def test_baseline_news_sentiment_neutral_articles_ignored():
+def test_baseline_news_sentiment_neutral_articles_abstain():
+    """All-NEUTRAL → no directional information → abstain (None, None).
+
+    Pre-fix this returned (BUY_NO, 0.5) — see audit 2026-04-25 P1.1.
+    """
     arts = (
         ArticleImpact(direction="NEUTRAL", source_weight=0.9),
         ArticleImpact(direction="NEUTRAL", source_weight=0.7),
     )
     p = baseline_news_sentiment(_ctx(articles=arts))
-    # all-neutral -> sentiment = 0 -> probability = sigmoid(0) = 0.5
-    assert p.probability == pytest.approx(0.5, abs=1e-6)
+    assert p.direction is None
+    assert p.probability is None
 
 
 def test_baseline_news_sentiment_weighted_majority_no():
