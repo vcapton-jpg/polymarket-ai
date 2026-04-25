@@ -39,8 +39,8 @@ frontend/vite.config.d.ts
 .playwright-mcp/
 .cursor/
 
-# Claude worktree scratch
-.claude/worktrees/
+# Claude Code session metadata + worktrees
+.claude/
 
 # Docker
 *.log
