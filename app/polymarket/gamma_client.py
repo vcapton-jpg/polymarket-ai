@@ -88,6 +88,17 @@ class GammaClient:
         elif isinstance(tags_raw, str):
             tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
+        # Gamma exposes both market-level (`image`/`icon`) and event-level
+        # imagery. Market-level art is more specific (e.g. a candidate's photo
+        # in a multi-outcome election event), so prefer it; fall back to the
+        # event icon for binary markets where the market itself has no image.
+        image_url = (
+            m.get("image")
+            or m.get("icon")
+            or event.get("image")
+            or event.get("icon")
+        )
+
         return {
             "market_id": condition_id,
             "question": question,
@@ -103,6 +114,7 @@ class GammaClient:
             "liquidity": _to_float(m.get("liquidity")),
             "last_trade_price": _to_float(m.get("lastTradePrice")),
             "clob_token_ids": clob_token_ids,
+            "image_url": image_url,
         }
 
 

@@ -3,6 +3,7 @@ import { motion } from "framer-motion"
 import { ArrowUpRight, Bookmark, ChevronRight, Clock, Target, Timer } from "lucide-react"
 import type { Signal } from "@/types/signal"
 import { cn, timeSinceISO, categoryFallback, scoreTone, toneForLevel, type MetricTone } from "@/lib/utils"
+import { formatOpportunityWindow } from "@/lib/formatWindow"
 import { useMotionConfig, useStagger } from "@/lib/motion"
 import { consumeQuotaOnServer } from "@/lib/dailyLimit"
 import { useIsFreePlan } from "@/hooks/useAuth"
@@ -58,33 +59,24 @@ export function SignalCard({ signal, variant = "default", flash, index = 0, clas
       />
 
       <div className="relative px-5 py-4 md:px-6 md:py-5">
-        {/* Top row: category + optional thumbnail + time */}
+        {/* Top row: category + time. Market thumbnail moved to hero row right
+            slot for stronger visual anchor (was a small 40px chip up here). */}
         <div className="mb-3 flex items-start justify-between gap-3">
           <CategoryPill label={categoryFallback(signal.categoryLabel)} />
-          <div className="flex items-start gap-2 shrink-0">
-            {signal.image && (
-              <img
-                src={signal.image}
-                alt=""
-                aria-hidden
-                className="h-10 w-10 rounded-lg object-cover border border-line-strong/60"
-              />
-            )}
-            <div className="flex flex-col items-end gap-1">
-              <span className="inline-flex items-center gap-1 text-[0.6875rem] text-ink-readable whitespace-nowrap">
-                <Clock className="h-3 w-3" aria-hidden />
-                {timeSinceISO(signal.createdAt)}
+          <div className="flex flex-col items-end gap-1">
+            <span className="inline-flex items-center gap-1 text-[0.6875rem] text-ink-readable whitespace-nowrap">
+              <Clock className="h-3 w-3" aria-hidden />
+              {timeSinceISO(signal.createdAt)}
+            </span>
+            {example && (
+              <span className="font-mono text-[0.5625rem] uppercase tracking-[0.14em] text-ink-dim/60 select-none">
+                exemple
               </span>
-              {example && (
-                <span className="font-mono text-[0.5625rem] uppercase tracking-[0.14em] text-ink-dim/60 select-none">
-                  exemple
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Hero row: big score tile + meta on right */}
+        {/* Hero row: big score tile + meta + market thumbnail on the right */}
         <div
           className={cn(
             "mb-4 flex items-stretch gap-4 rounded-xl border px-4 py-3",
@@ -104,9 +96,17 @@ export function SignalCard({ signal, variant = "default", flash, index = 0, clas
             <div className="flex items-center gap-1.5 text-[0.75rem] text-ink-muted">
               <Timer className="h-3.5 w-3.5 text-brand-400" aria-hidden />
               <span>Agir avant</span>
-              <span className="num font-semibold text-ink">~{signal.windowHours}&nbsp;h</span>
+              <span className="num font-semibold text-ink">{formatOpportunityWindow(signal.windowHours)}</span>
             </div>
           </div>
+          {signal.image && (
+            <img
+              src={signal.image}
+              alt=""
+              aria-hidden
+              className="h-16 w-16 shrink-0 self-center rounded-lg object-cover border border-line-strong/60"
+            />
+          )}
         </div>
 
         {/* Question */}
@@ -143,7 +143,7 @@ export function SignalCard({ signal, variant = "default", flash, index = 0, clas
           <div className="flex items-center gap-2 text-[0.75rem] text-ink-muted">
             <Target className="h-3.5 w-3.5 text-brand-400" aria-hidden />
             <span>
-              <span className="num font-medium text-ink">{signal.sources.length}</span> sources
+              <span className="num font-medium text-ink">{signal.sourcesCount ?? signal.sources.length}</span> sources
             </span>
           </div>
 

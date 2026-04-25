@@ -7,6 +7,7 @@
 import { ArrowRight, BookmarkPlus, Check, Clock, ExternalLink, Shield, Timer, TrendingUp, Zap } from "lucide-react"
 import type { Signal } from "@/types/signal"
 import { cn, timeSinceISO } from "@/lib/utils"
+import { formatOpportunityWindow } from "@/lib/formatWindow"
 import { DirectionBadge, CategoryPill } from "./badges"
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -85,7 +86,7 @@ export function SignalCardV1({ signal }: { signal: Signal }) {
                 : "border-line text-ink-dim",
             )}>
               <Timer className="h-3 w-3" aria-hidden />
-              ~{signal.windowHours}&nbsp;h
+              {formatOpportunityWindow(signal.windowHours)}
             </span>
             <span className="text-[0.6875rem] text-ink-dim">
               <span className="num font-medium text-ink">{signal.sources.length}</span> sources
@@ -172,7 +173,7 @@ export function SignalCardV2({ signal }: { signal: Signal }) {
                 signal.windowHours <= 6 ? "text-signal-amber" : "text-ink-muted",
               )}>
                 <Timer className="h-3 w-3" aria-hidden />
-                ~{signal.windowHours}&nbsp;h
+                {formatOpportunityWindow(signal.windowHours)}
               </span>
             </div>
             <h3 className="font-display text-[0.9375rem] font-semibold leading-snug tracking-tight text-ink">
@@ -272,7 +273,7 @@ export function SignalCardV3({ signal }: { signal: Signal }) {
               : "border-line text-ink-dim",
           )}>
             <Timer className="h-3 w-3" aria-hidden />
-            {signal.windowHours}&nbsp;h
+            {formatOpportunityWindow(signal.windowHours)}
           </span>
           <span className="ml-auto text-[0.6875rem] text-ink-dim">
             {timeSinceISO(signal.createdAt)}
@@ -441,7 +442,7 @@ export function SignalCardV4({ signal }: { signal: Signal }) {
             signal.windowHours <= 6 ? "text-signal-amber" : "text-ink-muted",
           )}>
             <Timer className="h-3 w-3" aria-hidden />
-            Agir avant ~{signal.windowHours}&nbsp;h
+            Agir avant {formatOpportunityWindow(signal.windowHours)}
           </span>
         </div>
 

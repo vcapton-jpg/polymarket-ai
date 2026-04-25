@@ -21,6 +21,7 @@ import {
   ScoreBadge,
   TierBadge,
 } from "@/components/signals/badges"
+import { formatOpportunityWindow } from "@/lib/formatWindow"
 import { OrderForm } from "@/components/signals/OrderForm"
 import { ManualPositionModal } from "@/components/signals/ManualPositionModal"
 import { PoweredByPolymarket } from "@/components/signals/PoweredByPolymarket"
@@ -305,12 +306,13 @@ export default function SignalDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <DirectionBadge direction={signal.direction} size="lg" />
             <PillStat label="Marché" value={`${Math.round(signal.marketProbability * 100)}\u00A0%`} />
-            <PillStat label="Agir avant" value={`~${signal.windowHours}\u00A0h`} icon={<Timer className="h-3 w-3" />} />
+            <PillStat label="Agir avant" value={formatOpportunityWindow(signal.windowHours)} icon={<Timer className="h-3 w-3" />} />
             <PillStat label="Détecté" value={"moins de 90\u00A0s"} />
           </div>
 
-          {/* Score tile */}
-          <div className="mt-6 grid gap-4 rounded-xl border border-line/80 bg-obsidian-800/40 p-5 sm:grid-cols-[auto_1fr] sm:items-center">
+          {/* Score tile — score on left, score-meta column in the middle,
+              market thumbnail on the right (filling previously empty slot). */}
+          <div className="mt-6 grid gap-4 rounded-xl border border-line/80 bg-obsidian-800/40 p-5 sm:grid-cols-[auto_1fr_auto] sm:items-center">
             <div className="flex items-baseline gap-2">
               <motion.span
                 layoutId={`score-${signal.id}`}
@@ -356,6 +358,14 @@ export default function SignalDetail() {
                 />
               </div>
             </div>
+            {signal.image && (
+              <img
+                src={signal.image}
+                alt=""
+                aria-hidden
+                className="hidden sm:block h-20 w-20 shrink-0 rounded-xl object-cover border border-line-strong/60"
+              />
+            )}
           </div>
 
           {/* Sub-metrics */}

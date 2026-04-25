@@ -54,7 +54,12 @@ class HeuristicScorer:
         return score >= self.threshold
 
     def derive_confidence_label(self, score: int, source_count: int) -> str:
-        if score >= 80 and source_count >= 2:
+        # NOTE: source_count is intentionally unused — it already feeds into
+        # `confirmation_factor` which is part of `signal_score`. Re-applying
+        # a discrete threshold here would double-count source coverage and
+        # produce inconsistent labels (e.g. "Signal Fort 80" + "Confiance
+        # Moyenne" when only 1 source confirmed).
+        if score >= 80:
             return "high"
         if score >= 65:
             return "medium"

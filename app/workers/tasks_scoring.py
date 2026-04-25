@@ -7,6 +7,7 @@ cutting the dominant latency from 5×sequential to 1×parallel.
 import asyncio
 import hashlib
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -19,6 +20,101 @@ logger = logging.getLogger(__name__)
 def _signal_dedupe_key(market_id: str, event_title: str, bucket: Optional[str]) -> str:
     norm = f"{bucket or ''}|{market_id}|{(event_title or '').strip().lower()[:500]}"
     return hashlib.sha256(norm.encode()).hexdigest()[:48]
+
+
+# ── Quality filters (Filter A: market state, Filter D: catalyst sanity) ──
+#
+# These filters reject obvious garbage signals BEFORE they reach the scorer.
+# They were added after a Bloomberg-X-podcast-promo tweet generated a
+# "Ternus appointed CEO of Apple" signal on a market trading at 32%
+# (illiquid + hallucinated catalyst). See comments in each helper.
+
+# Filter A thresholds — markets too thin/resolved to trade meaningfully
+MIN_VOLUME_24H_USD = 500.0       # below this, market is dead inventory
+MIN_LIQUIDITY_USD = 2_000.0      # below this, slippage destroys edge
+RESOLVED_PRICE_HIGH = 0.97       # market priced "almost certainly YES"
+RESOLVED_PRICE_LOW = 0.03        # market priced "almost certainly NO"
+
+
+def _market_quality_reject(market) -> Optional[str]:
+    """Return rejection reason if the market is too low-quality to signal on.
+
+    Three sub-filters, all on Polymarket-side state (not signal-side):
+    1) volume_24h < $500 → market is illiquid spam, no one trades it
+    2) liquidity < $2k   → spread will eat the edge before you can fill
+    3) price > 0.97 or < 0.03 → market has effectively resolved, no edge left
+    """
+    vol_24h = float(market.volume_24h) if market.volume_24h is not None else 0.0
+    if vol_24h < MIN_VOLUME_24H_USD:
+        return f"volume_24h ${vol_24h:.0f} < ${MIN_VOLUME_24H_USD:.0f}"
+
+    liq = float(market.liquidity) if market.liquidity is not None else 0.0
+    if liq < MIN_LIQUIDITY_USD:
+        return f"liquidity ${liq:.0f} < ${MIN_LIQUIDITY_USD:.0f}"
+
+    price = float(market.last_trade_price) if market.last_trade_price is not None else None
+    if price is not None and (price >= RESOLVED_PRICE_HIGH or price <= RESOLVED_PRICE_LOW):
+        return f"price {price:.3f} outside ({RESOLVED_PRICE_LOW},{RESOLVED_PRICE_HIGH})"
+
+    return None
+
+
+# Filter D — catalyst certainty regex.
+# Detects past-tense factual assertions in the event_summary like "X has been
+# appointed", "Y has resigned", "Z was selected". These should match REALITY
+# (i.e., the underlying market should already be > 0.5 if true). When the
+# catalyst confidently asserts a YES outcome but the market is at 32%, the
+# catalyst is almost always hallucinated/spam (case in point: a podcast title
+# "how Ternus became Apple's next CEO" → catalyst "Ternus has been appointed").
+#
+# Applied ONLY to BUY_YES with market < 0.5 because the BUY_NO branch
+# catches too many legitimate contrarian plays (e.g., "Iran refused →
+# BUY_NO 'Will meeting be in Pakistan'" at market 88% IS valid alpha).
+_CATALYST_CERTAINTY_RE = re.compile(
+    r"(?i)("
+    r"(?:has been|have been|was|were)\s+"
+    r"(?:appointed|named|elected|chosen|selected|signed|approved|confirmed|"
+    r"nominated|sworn|inaugurated|promoted|fired|resigned|killed|arrested|"
+    r"indicted|convicted|defeated|launched|released|ratified|passed|rejected|"
+    r"vetoed|granted|denied|downgraded|upgraded|seized|engaged)"
+    r"|"
+    r"(?:has|have)\s+"
+    r"(?:ordered|signed|won|lost|died|resigned|fired|killed|launched|approved|"
+    r"rejected|confirmed|announced|admitted|conceded|declared)"
+    r")"
+)
+CATALYST_MARKET_DISAGREE_THRESHOLD = 0.5
+
+
+def _catalyst_disagrees_with_market(
+    event_summary: Optional[str],
+    direction: str,
+    last_trade_price: Optional[float],
+) -> Optional[str]:
+    """Return rejection reason if catalyst confidently asserts YES but market
+    disagrees (BUY_YES < 0.5). Returns None otherwise.
+
+    Only the BUY_YES side is checked — see module docstring above.
+    """
+    if direction != "BUY_YES":
+        return None
+    if last_trade_price is None or last_trade_price >= CATALYST_MARKET_DISAGREE_THRESHOLD:
+        return None
+    if not event_summary:
+        return None
+    m = _CATALYST_CERTAINTY_RE.search(event_summary)
+    if m is None:
+        return None
+    return f"catalyst asserts '{m.group(0)}' but BUY_YES market at {last_trade_price:.2f}"
+
+
+# Filter B — score penalty for low source diversity (NOT a hard reject).
+# 95% of events have a single distinct source_name (small clusters from the
+# event-linking pipeline). Hard-rejecting would nuke nearly all signals;
+# instead we apply a multiplicative penalty so multi-source events get
+# priority without killing inventory.
+LOW_DIVERSITY_PENALTY = 0.85   # 15% score penalty
+LOW_DIVERSITY_THRESHOLD = 2    # need >= 2 distinct source_name to avoid penalty
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -46,6 +142,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         Event,
         EventMarketAnalysis,
         EventMarketCandidate,
+        EventNewsLink,
         Market,
         Signal,
     )
@@ -54,6 +151,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
     from app.processing.freshness import signal_event_still_fresh
     from app.retrieval import hybrid_search_markets  # dispatcher (v1 by default)
     from app.signal.signal_builder import create_signal_builder
+    from app.sourcing.prod_trace import record_prod_signal_articles
 
     settings = get_settings()
     max_llm = settings.llm_impact_max_candidates
@@ -98,7 +196,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 logger.warning("event embedding_v2 failed event_id=%s: %s", event_id, exc)
                 v2_emb = None
             if v2_emb is not None:
-                from datetime import datetime, timezone
+                # datetime/timezone come from module-level import at top of file
                 event.embedding_v2 = v2_emb
                 event.embedding_v2_composition = composed_v2.composition_version
                 event.embedding_v2_computed_at = datetime.now(timezone.utc)
@@ -256,6 +354,33 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         for c in candidates:
             cosine_by_mid[c["market_id"]] = c.get("cosine_score")
 
+        # ── Pre-fetch event-level source data once (avoids N+1) ──────
+        # Used by:
+        #  • Filter B (penalty for single-source events)
+        #  • Filter E (source_tier_mix as shares, persisted on the Signal)
+        from app.db.models import News, NewsClean
+        src_rows = (
+            await session.execute(
+                select(News.source_name, News.source_tier)
+                .join(NewsClean, NewsClean.news_id == News.id)
+                .join(EventNewsLink, EventNewsLink.clean_id == NewsClean.id)
+                .where(EventNewsLink.event_id == event_id)
+            )
+        ).all()
+        distinct_source_names = {r[0] for r in src_rows if r[0]}
+        tier_counts: dict[str, int] = {}
+        for _name, tier in src_rows:
+            if tier is None:
+                continue
+            key = f"tier_{int(tier)}"
+            tier_counts[key] = tier_counts.get(key, 0) + 1
+        total_articles = sum(tier_counts.values()) or 0
+        source_tier_mix = (
+            {k: round(v / total_articles, 4) for k, v in tier_counts.items()}
+            if total_articles
+            else None
+        )
+
         for mid in scored_mids:
             market = (
                 await session.execute(
@@ -263,6 +388,17 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 )
             ).scalar_one_or_none()
             if not market:
+                continue
+
+            # Filter A — market quality (volume / liquidity / resolved).
+            # Pre-build_signal because there's no point scoring a $57/24h
+            # market with $9k liquidity (the Ternus case).
+            reject_reason = _market_quality_reject(market)
+            if reject_reason:
+                logger.info(
+                    "Market quality reject mid=%s: %s",
+                    mid, reject_reason,
+                )
                 continue
 
             if not signal_event_still_fresh(
@@ -342,6 +478,42 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             if signal is None:
                 continue
 
+            # Filter D — catalyst-vs-market sanity for BUY_YES.
+            # If event_summary asserts a definitive YES outcome but the
+            # market is at < 0.5, the catalyst is likely a hallucinated
+            # claim (e.g., podcast titles like "how Ternus became CEO"
+            # extracted as fact). Run AFTER build_signal so we know the
+            # final direction the scorer settled on.
+            d_reject = _catalyst_disagrees_with_market(
+                event.event_summary,
+                signal.direction,
+                float(market.last_trade_price) if market.last_trade_price is not None else None,
+            )
+            if d_reject:
+                logger.info(
+                    "Catalyst sanity reject mid=%s event=%s: %s",
+                    mid, event_id, d_reject,
+                )
+                continue
+
+            # Filter B — penalty (NOT reject) for single-source events.
+            # Single-source signals still ship but at -15% score, so
+            # multi-source events naturally float to the top of /signals.
+            if len(distinct_source_names) < LOW_DIVERSITY_THRESHOLD:
+                old_score = float(signal.signal_score)
+                signal.signal_score = round(old_score * LOW_DIVERSITY_PENALTY, 1)
+                logger.info(
+                    "Diversity penalty mid=%s event=%s: %.1f → %.1f (%d distinct sources)",
+                    mid, event_id, old_score, signal.signal_score,
+                    len(distinct_source_names),
+                )
+
+            # Filter E — populate source_tier_mix (as shares, e.g.
+            # {"tier_1": 0.6, "tier_2": 0.4}). Read by signal_mapper
+            # to compress the opportunity window for high-tier signals.
+            if source_tier_mix is not None:
+                signal.source_tier_mix = source_tier_mix
+
             signal.score_label = getattr(signal, "_score_label", None)
             signal.score_explanation = getattr(signal, "_score_explanation", None)
             signal.window_estimate = getattr(signal, "_window_estimate", None)
@@ -369,6 +541,31 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             best_signal.dedupe_key = dedupe_key
             session.add(best_signal)
             await session.flush()
+
+            # Persist the prod signal_articles audit row so the SignalCard
+            # `0 sources` bug is fixed and shadow variants have a baseline
+            # to join against. The articles are sourced from event_news_links
+            # ordered by relevance (NULLS last, since older rows lack scores).
+            try:
+                links_result = await session.execute(
+                    select(EventNewsLink.clean_id, EventNewsLink.key_excerpt)
+                    .where(EventNewsLink.event_id == event_id)
+                    .order_by(EventNewsLink.relevance_score.desc().nullslast())
+                    .limit(10)
+                )
+                article_rows = [
+                    {"news_clean_id": cid, "excerpt": exc}
+                    for cid, exc in links_result.all()
+                ]
+                if article_rows:
+                    await record_prod_signal_articles(
+                        session, signal_id=best_signal.id, articles=article_rows,
+                    )
+            except Exception:
+                logger.exception(
+                    "tasks_scoring: record_prod_signal_articles failed signal_id=%s",
+                    best_signal.id,
+                )
 
             _schedule_price_captures(best_signal.id, best_signal_mid)
             _broadcast_signal(best_signal)

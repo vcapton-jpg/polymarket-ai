@@ -212,16 +212,108 @@ def parse_window_hours(raw: Optional[str]) -> int:
     return 48
 
 
-def life_percent(created_at: Optional[datetime], window_hours: int) -> int:
+def life_percent(created_at: Optional[datetime], window_hours: float) -> int:
     if not created_at:
         return 50
     now = datetime.now(timezone.utc)
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
     elapsed_h = max(0.0, (now - created_at).total_seconds() / 3600.0)
-    total = max(1, window_hours)
+    total = max(1 / 60, float(window_hours))  # 1-minute floor avoids div-by-tiny
     remaining = 1 - min(1.0, elapsed_h / total)
     return max(5, min(100, round(remaining * 100)))
+
+
+# ── Opportunity-window heuristic ────────────────────────────────────
+def estimate_opportunity_window_hours(signal: Signal) -> float:
+    """Estimate how long the user has to act before the trading edge
+    disappears (price converges to fair value).
+
+    This is **not** the market's resolution date — it's the diffusion
+    horizon for the news catalyst. Breaking news on a thin market with a
+    tier-1 source can decay in minutes; a slow-burning narrative on a
+    deep, mature market may have hours of edge before arbitrage eats it.
+
+    Multiplicative factors compose against a 6h base. Each factor maps an
+    observable signal property to a unitless multiplier:
+
+      * news age (event.first_seen → now)  — fresh news compresses; stale
+        news already absorbed (lower window because edge is mostly gone).
+      * urgency_label (set by scorer)      — explicit breaking-news flag.
+      * source_tier_mix                    — tier-1 sources move markets
+        faster than blogs.
+      * market liquidity                   — deep markets arb fast; thin
+        markets jump on a single bet (both compress the window).
+
+    Floor 1 minute, ceiling 7 days, never past market resolution.
+    """
+    now = datetime.now(timezone.utc)
+    base_h = 6.0  # 6h baseline = "typical regional news, mid-tier source"
+
+    # 1) News age — how stale is the catalyst?
+    event = signal.event
+    if event is not None and event.first_seen is not None:
+        first_seen = event.first_seen
+        if first_seen.tzinfo is None:
+            first_seen = first_seen.replace(tzinfo=timezone.utc)
+        age_h = max(0.0, (now - first_seen).total_seconds() / 3600.0)
+        if age_h < 0.5:        # < 30 min: very fresh, react NOW
+            base_h *= 0.15
+        elif age_h < 2:
+            base_h *= 0.4
+        elif age_h < 6:
+            base_h *= 0.7
+        elif age_h > 24:       # > 24h: edge is mostly priced in
+            base_h *= 0.5
+
+    # 2) Urgency label from scorer
+    urgency = (signal.urgency_label or "").lower()
+    if urgency == "high":
+        base_h *= 0.3
+    elif urgency == "low":
+        base_h *= 1.5
+
+    # 3) Top-tier source coverage. source_tier_mix is stored as shares
+    #    by tasks_scoring._run_full_scoring_pipeline, e.g.
+    #    {"tier_1": 0.6, "tier_2": 0.4}. We tolerate raw count dicts
+    #    (legacy compute_tier_mix output) by normalising on the fly.
+    tier_mix = signal.source_tier_mix or {}
+    tier1_share = 0.0
+    try:
+        raw = tier_mix.get("tier_1", tier_mix.get("1", 0))
+        raw_v = float(raw)
+        if raw_v > 1.0:
+            # Legacy counts dict — convert to share over the total
+            total = sum(float(v) for v in tier_mix.values() if v is not None)
+            tier1_share = raw_v / total if total > 0 else 0.0
+        else:
+            tier1_share = raw_v
+    except (TypeError, ValueError):
+        tier1_share = 0.0
+    if tier1_share > 0.5:
+        base_h *= 0.5
+
+    # 4) Liquidity asymmetry. Both deep (>$1M) and very thin (<$5k) markets
+    #    compress the window: deep markets get arbed in seconds; thin ones
+    #    snap to a new equilibrium on the first opportunistic bet.
+    market = signal.market
+    liq = float(market.liquidity) if market and market.liquidity is not None else 0.0
+    if liq > 1_000_000:
+        base_h *= 0.5
+    elif 0 < liq < 5_000:
+        base_h *= 0.6
+
+    # 5) Cap by market resolution if it's sooner than the diffusion horizon.
+    end = market.end_date if market else None
+    if end is not None:
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        hours_to_resolution = (end - now).total_seconds() / 3600.0
+        if hours_to_resolution > 0:
+            base_h = min(base_h, hours_to_resolution)
+
+    # Final clamp: 1 minute floor, 7 days ceiling
+    return max(1 / 60, min(base_h, 168.0))
 
 
 # ── Polymarket URL + image ───────────────────────────────────────────
@@ -394,7 +486,12 @@ def _common_fields(signal: Signal) -> dict:
     bucket = signal.event.bucket if signal.event else None
     category, category_label = derive_category(bucket, question, event_title)
     score = int(round(float(signal.signal_score)))
-    window_h = parse_window_hours(signal.window_estimate)
+
+    # Opportunity window — diffusion horizon for the news catalyst, derived
+    # from signal characteristics (news age, urgency, source tier, liquidity).
+    # Returns a float so sub-hour windows (breaking news on a thin market →
+    # minutes) are expressible. See estimate_opportunity_window_hours docstring.
+    window_h = estimate_opportunity_window_hours(signal)
 
     return dict(
         id=str(signal.id),
@@ -419,8 +516,8 @@ def _common_fields(signal: Signal) -> dict:
     )
 
 
-def to_signal_card(signal: Signal) -> SignalCardOut:
-    return SignalCardOut(**_common_fields(signal))
+def to_signal_card(signal: Signal, sources_count: int = 0) -> SignalCardOut:
+    return SignalCardOut(**_common_fields(signal), sourcesCount=sources_count)
 
 
 def to_signal_detail(
@@ -431,10 +528,12 @@ def to_signal_detail(
     base = _common_fields(signal)
     # Materialise once — both mappers iterate news_links.
     links = list(news_links)
+    sources = build_sources(links)
     return SignalDetailOut(
         **base,
         facts=build_facts(signal, analysis),
-        sources=build_sources(links),
+        sources=sources,
+        sourcesCount=len(sources),
         reasoning=signal.reasoning,
         llmModelVersion=signal.llm_model_version,
         sourceTierMix=signal.source_tier_mix,

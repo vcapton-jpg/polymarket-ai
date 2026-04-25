@@ -104,6 +104,7 @@ async def _fetch_markets_async() -> dict:
                             spread=mkt.get("spread"),
                             last_trade_price=mkt.get("last_trade_price"),
                             clob_token_ids=mkt.get("clob_token_ids"),
+                            image_url=mkt.get("image_url"),
                             market_retrieval_text=retrieval_text,
                         )
                         session.add(new_market)
@@ -186,6 +187,11 @@ def _update_market(existing, data: dict):
     existing.best_ask = data.get("best_ask") or existing.best_ask
     existing.spread = data.get("spread") or existing.spread
     existing.last_trade_price = data.get("last_trade_price") or existing.last_trade_price
+    # Backfill image_url for markets ingested before image capture was wired
+    # (Bug: 0/135k markets had image_url, all signal cards rendered no
+    # thumbnail). Use `or` so we never overwrite a populated URL with None
+    # if Gamma transiently omits the field.
+    existing.image_url = data.get("image_url") or existing.image_url
     new_text = data.get("market_retrieval_text")
     if new_text and new_text != existing.market_retrieval_text:
         existing.market_retrieval_text = new_text

@@ -140,8 +140,26 @@ async def list_signals(
     result = await db.execute(query)
     signals = result.scalars().all()
 
+    # Bulk-fetch source counts so each card can render "N sources" without
+    # paying for the full sources payload (the detail endpoint serves that).
+    # Source count = number of EventNewsLink rows for the signal's event.
+    # Single grouped query → O(1) round-trips regardless of page size.
+    event_ids = [s.event_id for s in signals if s.event_id is not None]
+    counts_by_event: dict[int, int] = {}
+    if event_ids:
+        counts_q = (
+            select(EventNewsLink.event_id, func.count(EventNewsLink.clean_id))
+            .where(EventNewsLink.event_id.in_(event_ids))
+            .group_by(EventNewsLink.event_id)
+        )
+        counts_rows = (await db.execute(counts_q)).all()
+        counts_by_event = {eid: int(cnt) for eid, cnt in counts_rows}
+
     return SignalListOut(
-        signals=[to_signal_card(s) for s in signals],
+        signals=[
+            to_signal_card(s, sources_count=counts_by_event.get(s.event_id, 0))
+            for s in signals
+        ],
         total=total,
     )
 

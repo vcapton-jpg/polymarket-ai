@@ -81,6 +81,12 @@ export type Signal = {
   catalyst: string
   facts: Fact[]
   sources: Source[]
+  /** Total number of sources backing this signal. Set on list responses
+   *  (where `sources` is left empty for payload size); equal to
+   *  `sources.length` on detail responses. Optional so mock fixtures that
+   *  ship a populated `sources` array still type-check — readers should
+   *  fall back to `sources.length` when this is unset. */
+  sourcesCount?: number
   lifePercent: number
   polymarketUrl: string
   /** Market thumbnail from Polymarket Gamma API (image field on event/market). */

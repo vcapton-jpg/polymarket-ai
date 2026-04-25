@@ -18,6 +18,7 @@ import {
   Timer,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatOpportunityWindow } from "@/lib/formatWindow"
 import { EASE_PREMIUM } from "@/lib/motion"
 import { CategoryPill, DirectionBadge } from "@/components/signals/badges"
 import { MOCK_SIGNALS } from "@/data/signals"
@@ -412,10 +413,18 @@ function DemoSignalCardBody({
             <Timer className="h-3.5 w-3.5 text-brand-400" aria-hidden />
             <span>Agir avant</span>
             <span className="num font-semibold text-ink">
-              ~{SIG.windowHours}&nbsp;h
+              {formatOpportunityWindow(SIG.windowHours)}
             </span>
           </div>
         </div>
+        {SIG.image && (
+          <img
+            src={SIG.image}
+            alt=""
+            aria-hidden
+            className="h-16 w-16 shrink-0 self-center rounded-lg object-cover border border-line-strong/60"
+          />
+        )}
       </div>
 
       {/* Question */}

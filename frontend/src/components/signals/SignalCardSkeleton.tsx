@@ -30,7 +30,7 @@ export function SignalCardSkeleton({ className }: SignalCardSkeletonProps) {
           <Skeleton className="h-3 w-14" />
         </div>
 
-        {/* Hero row: score tile + meta */}
+        {/* Hero row: score tile + meta + market thumbnail */}
         <div className="mb-4 flex items-stretch gap-4 rounded-xl border border-line/80 bg-obsidian-800/40 px-4 py-3">
           <Skeleton className="h-[72px] min-w-[96px] rounded-lg" />
           <div className="flex flex-1 flex-col justify-center gap-2">
@@ -40,6 +40,7 @@ export function SignalCardSkeleton({ className }: SignalCardSkeletonProps) {
             </div>
             <Skeleton className="h-3 w-40" />
           </div>
+          <Skeleton className="h-16 w-16 self-center rounded-lg" />
         </div>
 
         {/* Question (2 lines) */}

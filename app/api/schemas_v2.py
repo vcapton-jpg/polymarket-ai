@@ -57,7 +57,10 @@ class SignalCardOut(BaseModel):
     question: str
     direction: Direction
     marketProbability: float
-    windowHours: int
+    # Float so the opportunity window can express sub-hour values (e.g.
+    # 0.083 = 5 min for a breaking-news signal on an illiquid market). The
+    # frontend renders sub-hour values as "X min" via formatOpportunityWindow.
+    windowHours: float
     score: int
     scoreLabel: str
     confidence: Confidence
@@ -66,6 +69,12 @@ class SignalCardOut(BaseModel):
     catalyst: str
     facts: list[FactOut] = []
     sources: list[SourceOut] = []
+    # Total number of news sources backing this signal. Populated on the
+    # list endpoint via a bulk COUNT(event_news_links) so SignalCard can
+    # render "N sources" without paying for the full sources payload that
+    # the detail endpoint serves. The detail endpoint sets this to
+    # len(sources) for consistency.
+    sourcesCount: int = 0
     lifePercent: int
     polymarketUrl: str
     image: Optional[str] = None
@@ -116,7 +125,10 @@ class SignalDetailOut(SignalCardOut):
 
     reasoning: Optional[str] = None
     llmModelVersion: Optional[str] = None
-    sourceTierMix: Optional[dict[str, int]] = None
+    # Stored as shares per tier (e.g. {"tier_1": 0.6, "tier_2": 0.4}) by
+    # tasks_scoring._run_full_scoring_pipeline. dict[str, float] (not int)
+    # so 1.0/0.6 don't get truncated on the wire.
+    sourceTierMix: Optional[dict[str, float]] = None
     detailedSources: list[SignalSourceOut] = []
     timeline: list[TimelineEventOut] = []
     outcome: Optional[OutcomeOut] = None

@@ -38,6 +38,10 @@ services:
       CACHE_TYPE: redis
       REDIS_URL: redis://redis:6379/5
       NODE_ENV: production
+      # Twitter scraping requires session cookies from a logged-in (burner) X account.
+      # Values live in .env (gitignored). See docs runbook: setup-rsshub-twitter.md.
+      TWITTER_AUTH_TOKEN: ${TWITTER_AUTH_TOKEN}
+      TWITTER_CT0: ${TWITTER_CT0}
     depends_on:
       redis:
         condition: service_healthy
