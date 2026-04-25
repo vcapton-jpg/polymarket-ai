@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.db.database import engine
-from app.db.models import Base
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -16,9 +15,11 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Foresight API started — tables ready")
+    # Schema is owned by Alembic — `alembic upgrade head` runs in the
+    # Docker entrypoint before uvicorn boots. Audit follow-up: previous
+    # in-lifespan auto-table-init raced concurrent boots and silently
+    # masked drift between SQLAlchemy models and migration state.
+    logger.info("Foresight API started")
     yield
     await engine.dispose()
 
@@ -30,9 +31,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.api.cors import resolve_cors_origins  # noqa: E402
+
+# Audit follow-up: explicit allow-list per env. Wildcard + credentials is
+# rejected by browsers AND a CSRF surface; prod is locked to the public
+# origin (+ optional staging/apex via cors_extra_origins).
+_cors_extras = [o.strip() for o in (settings.cors_extra_origins or "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=resolve_cors_origins(
+        env=settings.env,
+        app_base_url=settings.app_base_url,
+        extra_origins=_cors_extras,
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     # ── Environment ───────────────────────────────────────────────────────
     env: str = Field(default="development")
     app_base_url: str = Field(default="https://getforesight.io")
+    # Comma-separated list of additional CORS origins, e.g. for staging or
+    # an apex/www split. Production is always [app_base_url] + this list.
+    # Audit follow-up: replaces the prior `allow_origins=["*"]` in main.py.
+    cors_extra_origins: str = Field(default="")
 
     # ── Ingestion intervals (seconds) ─────────────────────────────────────
     rss_poll_interval_seconds: int = Field(default=90)
