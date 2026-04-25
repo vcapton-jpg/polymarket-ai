@@ -779,6 +779,12 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             )
 
             _schedule_price_captures(best_signal.id, best_signal_mid)
+            # Audit follow-up [P1]: Signal.created_at uses
+            # server_default=func.now(); the Python attribute stays None
+            # after flush() until refresh() (session has
+            # expire_on_commit=False so commit alone doesn't reload).
+            # Without this refresh, every WS subscriber gets created_at=null.
+            await session.refresh(best_signal, ["created_at"])
             _broadcast_signal(best_signal)
             signals_created = 1
 
@@ -979,7 +985,13 @@ def _broadcast_signal(signal):
         "confidence_label": signal.confidence_label,
         "urgency_label": signal.urgency_label,
         "tradability_label": signal.tradability_label,
-        "market_price_at_signal": float(signal.market_price_at_signal) if signal.market_price_at_signal else None,
+        # Audit follow-up [P1]: use is-not-None so a deeply-NO signal at
+        # market_price_at_signal=0 isn't broadcast as null.
+        "market_price_at_signal": (
+            float(signal.market_price_at_signal)
+            if signal.market_price_at_signal is not None
+            else None
+        ),
         "created_at": signal.created_at.isoformat() if signal.created_at else None,
     }
 
