@@ -102,7 +102,7 @@ custodying USDC. After a one-time Gnosis Safe deployment per user
 ([`app/trading/safe_deployer.py`](../app/trading/safe_deployer.py)), our
 builder key signs each order while the user's Safe address is supplied as
 the `funder` on `OrderArgsV2` — gasless, attribution-tagged, never our
-funds. Spec: [`docs/superpowers/specs/2026-04-22-polymarket-wallet-link-design.md`](superpowers/specs/2026-04-22-polymarket-wallet-link-design.md).
+funds. Spec: [`docs/specs/2026-04-22-polymarket-wallet-link-design.md`](specs/2026-04-22-polymarket-wallet-link-design.md).
 
 **Legal caveat (non-negotiable, see [`docs/audit/ISSUES_BACKLOG.md`](audit/ISSUES_BACKLOG.md) §0.1, §3.1).**
 Polymarket has been blocked by the ANJ (French regulator) since the end of
@@ -269,7 +269,7 @@ microstructure (`best_bid`, `best_ask`, `spread`, `last_trade_price`).
 Trading uses [`py-clob-client-v2`](https://github.com/Polymarket/py-clob-client)
 through [`app/trading/builder_client.py`](../app/trading/builder_client.py).
 The flow is described in detail in
-[`docs/superpowers/specs/2026-04-22-polymarket-wallet-link-design.md`](superpowers/specs/2026-04-22-polymarket-wallet-link-design.md):
+[`docs/specs/2026-04-22-polymarket-wallet-link-design.md`](specs/2026-04-22-polymarket-wallet-link-design.md):
 
 1. **One-time per user.** Frontend WalletConnect → backend deploys a
    minimal Gnosis Safe proxy with the user's EOA as sole owner via
@@ -369,7 +369,7 @@ topology with managed Postgres + Redis and pinned worker counts.
 ## 10. What's NOT in scope yet
 
 These are filed in [`docs/audit/ISSUES_BACKLOG.md`](audit/ISSUES_BACKLOG.md)
-and tracked in `docs/superpowers/specs/`. Do not infer them from this
+and tracked in `docs/specs/`. Do not infer them from this
 diagram; they are deliberately deferred.
 
 - **ML retraining of the heuristic.** A LightGBM `signal_score_v2` is

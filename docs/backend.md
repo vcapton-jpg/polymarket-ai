@@ -316,8 +316,8 @@ make migrate                                      # apply
 - `docs/audit/heuristic_validation_report_2026-04-24.md` — latest variant readout.
 - `docs/audit/ISSUES_BACKLOG.md` — open audit findings.
 - `docs/runbooks/promote_*.md` — promotion procedures for v2 variants (signal, embeddings, ranking, heuristic candidate).
-- `docs/superpowers/plans/` — chantier execution plans (premium-redesign, polymarket-wallet-trading, measurement-foundations, signal-sourcing-traceability, embeddings-eval-harness, heuristic-score-validation, clustering-hardening, event-market-ranking-tuning).
-- `docs/superpowers/specs/` — chantier design specs (matched 1:1 to the plans).
+- `docs/plans/` — chantier execution plans (premium-redesign, polymarket-wallet-trading, measurement-foundations, signal-sourcing-traceability, embeddings-eval-harness, heuristic-score-validation, clustering-hardening, event-market-ranking-tuning).
+- `docs/specs/` — chantier design specs (matched 1:1 to the plans).
 - `docs/specs/2026-04-22-polymarket-wallet-link-design.md` — wallet linking design (uses funder pattern).
 - `docs/builder_program_application.md` — Polymarket Builder Program application context.
 - `docs/go_to_market.md` — pricing + GTM notes.
