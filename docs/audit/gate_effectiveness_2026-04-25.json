@@ -1,0 +1,347 @@
+{
+  "deferred_gates": [
+    "spread",
+    "price_band",
+    "no_llm_analysis",
+    "no_excerpts",
+    "unclear_recommendation",
+    "market_quality",
+    "catalyst_disagrees_with_market"
+  ],
+  "generated_at": "2026-04-25",
+  "metrics": [
+    {
+      "frr": 0.64,
+      "frr_ci95_high": 0.84,
+      "frr_ci95_low": 0.44,
+      "low_n_warning": true,
+      "n_correct_if_kept": 16,
+      "n_rejected": 3066,
+      "n_rejected_with_outcome": 25,
+      "n_total": 5469,
+      "name": "cosine",
+      "threshold": 0.52
+    },
+    {
+      "frr": null,
+      "frr_ci95_high": null,
+      "frr_ci95_low": null,
+      "low_n_warning": true,
+      "n_correct_if_kept": 0,
+      "n_rejected": 3991,
+      "n_rejected_with_outcome": 0,
+      "n_total": 5469,
+      "name": "direction_clear",
+      "threshold": null
+    },
+    {
+      "frr": null,
+      "frr_ci95_high": null,
+      "frr_ci95_low": null,
+      "low_n_warning": true,
+      "n_correct_if_kept": 0,
+      "n_rejected": 1218,
+      "n_rejected_with_outcome": 0,
+      "n_total": 5469,
+      "name": "ambiguity",
+      "threshold": 0.8
+    },
+    {
+      "frr": null,
+      "frr_ci95_high": null,
+      "frr_ci95_low": null,
+      "low_n_warning": true,
+      "n_correct_if_kept": 0,
+      "n_rejected": 2847,
+      "n_rejected_with_outcome": 0,
+      "n_total": 5469,
+      "name": "specificity",
+      "threshold": 0.4
+    },
+    {
+      "frr": null,
+      "frr_ci95_high": null,
+      "frr_ci95_low": null,
+      "low_n_warning": true,
+      "n_correct_if_kept": 0,
+      "n_rejected": 996,
+      "n_rejected_with_outcome": 0,
+      "n_total": 5469,
+      "name": "impact_strength",
+      "threshold": null
+    },
+    {
+      "frr": null,
+      "frr_ci95_high": null,
+      "frr_ci95_low": null,
+      "low_n_warning": true,
+      "n_correct_if_kept": 0,
+      "n_rejected": 0,
+      "n_rejected_with_outcome": 0,
+      "n_total": 5469,
+      "name": "has_reasoning",
+      "threshold": null
+    }
+  ],
+  "n_samples": 5469,
+  "n_with_outcome": 464,
+  "recommendations": [],
+  "sweeps": [
+    {
+      "delta": -0.1,
+      "gate": "cosine",
+      "metrics": {
+        "frr": 1.0,
+        "frr_ci95_high": 1.0,
+        "frr_ci95_low": 1.0,
+        "low_n_warning": true,
+        "n_correct_if_kept": 3,
+        "n_rejected": 965,
+        "n_rejected_with_outcome": 3,
+        "n_total": 5469,
+        "name": "cosine@0.42",
+        "threshold": 0.42
+      },
+      "threshold": 0.42
+    },
+    {
+      "delta": -0.05,
+      "gate": "cosine",
+      "metrics": {
+        "frr": 0.875,
+        "frr_ci95_high": 1.0,
+        "frr_ci95_low": 0.625,
+        "low_n_warning": true,
+        "n_correct_if_kept": 7,
+        "n_rejected": 1722,
+        "n_rejected_with_outcome": 8,
+        "n_total": 5469,
+        "name": "cosine@0.47",
+        "threshold": 0.47
+      },
+      "threshold": 0.47
+    },
+    {
+      "delta": 0.0,
+      "gate": "cosine",
+      "metrics": {
+        "frr": 0.64,
+        "frr_ci95_high": 0.84,
+        "frr_ci95_low": 0.44,
+        "low_n_warning": true,
+        "n_correct_if_kept": 16,
+        "n_rejected": 3066,
+        "n_rejected_with_outcome": 25,
+        "n_total": 5469,
+        "name": "cosine@0.52",
+        "threshold": 0.52
+      },
+      "threshold": 0.52
+    },
+    {
+      "delta": 0.05,
+      "gate": "cosine",
+      "metrics": {
+        "frr": 0.6086956521739131,
+        "frr_ci95_high": 0.7608695652173914,
+        "frr_ci95_low": 0.45652173913043476,
+        "low_n_warning": false,
+        "n_correct_if_kept": 28,
+        "n_rejected": 4016,
+        "n_rejected_with_outcome": 46,
+        "n_total": 5469,
+        "name": "cosine@0.57",
+        "threshold": 0.57
+      },
+      "threshold": 0.57
+    },
+    {
+      "delta": 0.1,
+      "gate": "cosine",
+      "metrics": {
+        "frr": 0.6025641025641025,
+        "frr_ci95_high": 0.717948717948718,
+        "frr_ci95_low": 0.5,
+        "low_n_warning": false,
+        "n_correct_if_kept": 47,
+        "n_rejected": 4740,
+        "n_rejected_with_outcome": 78,
+        "n_total": 5469,
+        "name": "cosine@0.62",
+        "threshold": 0.62
+      },
+      "threshold": 0.62
+    },
+    {
+      "delta": -0.1,
+      "gate": "ambiguity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 1770,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "ambiguity@0.70",
+        "threshold": 0.7
+      },
+      "threshold": 0.7
+    },
+    {
+      "delta": -0.05,
+      "gate": "ambiguity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 1770,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "ambiguity@0.75",
+        "threshold": 0.75
+      },
+      "threshold": 0.75
+    },
+    {
+      "delta": 0.0,
+      "gate": "ambiguity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 1218,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "ambiguity@0.80",
+        "threshold": 0.8
+      },
+      "threshold": 0.8
+    },
+    {
+      "delta": 0.05,
+      "gate": "ambiguity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 1218,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "ambiguity@0.85",
+        "threshold": 0.85
+      },
+      "threshold": 0.85
+    },
+    {
+      "delta": 0.1,
+      "gate": "ambiguity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 0,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "ambiguity@0.90",
+        "threshold": 0.9
+      },
+      "threshold": 0.9
+    },
+    {
+      "delta": -0.1,
+      "gate": "specificity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 1987,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "specificity@0.30",
+        "threshold": 0.3
+      },
+      "threshold": 0.3
+    },
+    {
+      "delta": -0.05,
+      "gate": "specificity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 2847,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "specificity@0.35",
+        "threshold": 0.35
+      },
+      "threshold": 0.35
+    },
+    {
+      "delta": 0.0,
+      "gate": "specificity",
+      "metrics": {
+        "frr": null,
+        "frr_ci95_high": null,
+        "frr_ci95_low": null,
+        "low_n_warning": true,
+        "n_correct_if_kept": 0,
+        "n_rejected": 2847,
+        "n_rejected_with_outcome": 0,
+        "n_total": 5469,
+        "name": "specificity@0.40",
+        "threshold": 0.4
+      },
+      "threshold": 0.4
+    },
+    {
+      "delta": 0.05,
+      "gate": "specificity",
+      "metrics": {
+        "frr": 0.3333333333333333,
+        "frr_ci95_high": 1.0,
+        "frr_ci95_low": 0.0,
+        "low_n_warning": true,
+        "n_correct_if_kept": 1,
+        "n_rejected": 3096,
+        "n_rejected_with_outcome": 3,
+        "n_total": 5469,
+        "name": "specificity@0.45",
+        "threshold": 0.45
+      },
+      "threshold": 0.45
+    },
+    {
+      "delta": 0.1,
+      "gate": "specificity",
+      "metrics": {
+        "frr": 0.3333333333333333,
+        "frr_ci95_high": 1.0,
+        "frr_ci95_low": 0.0,
+        "low_n_warning": true,
+        "n_correct_if_kept": 1,
+        "n_rejected": 3096,
+        "n_rejected_with_outcome": 3,
+        "n_total": 5469,
+        "name": "specificity@0.50",
+        "threshold": 0.5
+      },
+      "threshold": 0.5
+    }
+  ],
+  "window_days": 90
+}
