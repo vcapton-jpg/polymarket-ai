@@ -17,11 +17,11 @@ def sync_positions():
 
 async def _sync_positions_async():
     from sqlalchemy import select
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from app.db.models import Portfolio, Position
     from app.polymarket.clob_client import ClobClient
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))
         portfolio = result.scalar_one_or_none()
         if not portfolio:
@@ -69,12 +69,12 @@ async def _poll_order_fills_async():
     from datetime import datetime, timezone
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from app.db.models import Order, Portfolio, UserProfile
     from app.trading.builder_client import BuilderTradeClient
     from app.trading.position_tracker import sync_positions_from_orders
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))
         portfolio = result.scalar_one_or_none()
         if not portfolio:
@@ -137,11 +137,11 @@ def check_risk_alerts():
 
 async def _check_risk_async():
     from sqlalchemy import select
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from app.db.models import Portfolio
     from app.agents.risk_manager import risk_manager_agent
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))
         portfolio = result.scalar_one_or_none()
         if not portfolio:

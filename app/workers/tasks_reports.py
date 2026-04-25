@@ -15,10 +15,10 @@ def generate_daily_brief():
 
 
 async def _generate_daily_async():
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from app.agents.reporter import reporter_agent
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         brief = await reporter_agent.generate_daily_brief(db)
         await db.commit()
         logger.info("Daily brief generated: %d signals", brief.get("signals_count", 0))
@@ -35,14 +35,14 @@ async def _send_telegram_brief_async():
     import httpx
     from sqlalchemy import desc, select
     from app.core.config import get_settings
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from app.db.models import DailyBrief
 
     settings = get_settings()
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         return {"status": "telegram_not_configured"}
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(
             select(DailyBrief).order_by(desc(DailyBrief.created_at)).limit(1)
         )

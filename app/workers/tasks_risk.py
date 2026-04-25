@@ -17,12 +17,12 @@ def monitor_positions():
 
 async def _monitor_async():
     from sqlalchemy import select
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from app.db.models import Portfolio, Position
     from app.polymarket.clob_client import ClobClient
     from app.agents.risk_manager import risk_manager_agent
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))
         portfolio = result.scalar_one_or_none()
         if not portfolio:

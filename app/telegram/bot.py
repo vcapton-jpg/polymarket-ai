@@ -67,11 +67,11 @@ async def handle_command(chat_id: str, command: str, args: list[str]) -> str:
 
 
 async def _cmd_signals() -> str:
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from sqlalchemy import desc, select
     from app.db.models import Signal
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(
             select(Signal).order_by(desc(Signal.created_at)).limit(5)
         )
@@ -90,11 +90,11 @@ async def _cmd_signals() -> str:
 
 
 async def _cmd_portfolio() -> str:
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from sqlalchemy import select
     from app.db.models import Portfolio, Position
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))
         portfolio = result.scalar_one_or_none()
         if not portfolio:
@@ -124,11 +124,11 @@ async def _cmd_portfolio() -> str:
 
 
 async def _cmd_brief() -> str:
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from sqlalchemy import desc, select
     from app.db.models import DailyBrief
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         result = await db.execute(
             select(DailyBrief).order_by(desc(DailyBrief.created_at)).limit(1)
         )
@@ -151,13 +151,13 @@ async def _cmd_brief() -> str:
 
 
 async def _cmd_agents() -> str:
-    from app.db.database import get_async_session
+    from app.db.database import get_session_factory
     from sqlalchemy import desc, func, select
     from app.db.models import AgentActivity
 
     agent_names = ["scout", "analyst", "strategist", "trader", "risk_manager", "reporter"]
 
-    async with get_async_session() as db:
+    async with get_session_factory()() as db:
         lines = ["*Agent Team Status*\n"]
         for name in agent_names:
             count_result = await db.execute(
