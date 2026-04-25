@@ -152,6 +152,13 @@ _beat_schedule["daily-brief"] = {
     "options": {"queue": "trading"},
 }
 
+# ── Observability — clustering-diversity histogram (chantier-2) ──
+_beat_schedule["clustering-diversity-hourly"] = {
+    "task": "app.workers.tasks_diagnostics.emit_diversity_distribution",
+    "schedule": 3600.0,
+    "options": {"queue": "default"},
+}
+
 celery_app.conf.beat_schedule = _beat_schedule
 
 celery_app.autodiscover_tasks([
@@ -165,4 +172,5 @@ celery_app.autodiscover_tasks([
     "app.workers.tasks_reports",
     "app.workers.tasks_embeddings_backfill",
     "app.workers.tasks_ranking_shadow",
+    "app.workers.tasks_diagnostics",
 ])
