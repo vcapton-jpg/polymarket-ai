@@ -13,7 +13,7 @@ import asyncio
 from sqlalchemy import func, select
 
 from app.db.database import get_session_factory
-from app.db.models import Event, EventNewsLink
+from app.db.models import Event, EventNewsLink, News, NewsClean
 
 
 async def main() -> None:
@@ -30,8 +30,35 @@ async def main() -> None:
         for v, c in rows:
             print(f"  {v:>3} | {c:>6} ({100*c/total:5.1f}%)")
 
-        # Live recomputed distribution from EventNewsLink (the truth)
-        live_subq = (
+        # Live recomputed unique-source distribution — apples-to-apples
+        # comparison with the STORED unique_sources_count column above.
+        # Joins through NewsClean → News so we count distinct source_name,
+        # not distinct clean_id, and reproduce the exact logic in
+        # recompute_event_counts.
+        live_sources_subq = (
+            select(
+                EventNewsLink.event_id,
+                func.count(func.distinct(News.source_name)).label("sources"),
+            )
+            .select_from(EventNewsLink)
+            .join(NewsClean, NewsClean.id == EventNewsLink.clean_id)
+            .join(News, News.id == NewsClean.news_id)
+            .group_by(EventNewsLink.event_id)
+            .subquery()
+        )
+        live_src_rows = (await s.execute(
+            select(live_sources_subq.c.sources, func.count())
+            .group_by(live_sources_subq.c.sources)
+            .order_by(live_sources_subq.c.sources)
+        )).all()
+        print("\nEvent unique-source count (LIVE from JOIN):")
+        total = sum(c for _, c in live_src_rows) or 1
+        for v, c in live_src_rows:
+            print(f"  {v:>3} | {c:>6} ({100*c/total:5.1f}%)")
+
+        # Bonus: link-count distribution (articles per event), useful for
+        # "how often does the cluster have more than one article at all".
+        live_links_subq = (
             select(
                 EventNewsLink.event_id,
                 func.count(func.distinct(EventNewsLink.clean_id)).label("links"),
@@ -39,14 +66,14 @@ async def main() -> None:
             .group_by(EventNewsLink.event_id)
             .subquery()
         )
-        live_rows = (await s.execute(
-            select(live_subq.c.links, func.count())
-            .group_by(live_subq.c.links)
-            .order_by(live_subq.c.links)
+        live_link_rows = (await s.execute(
+            select(live_links_subq.c.links, func.count())
+            .group_by(live_links_subq.c.links)
+            .order_by(live_links_subq.c.links)
         )).all()
-        print("\nEvent link count (LIVE from event_news_links):")
-        total = sum(c for _, c in live_rows) or 1
-        for v, c in live_rows:
+        print("\nEvent link count (LIVE — articles per event):")
+        total = sum(c for _, c in live_link_rows) or 1
+        for v, c in live_link_rows:
             print(f"  {v:>3} | {c:>6} ({100*c/total:5.1f}%)")
 
 
