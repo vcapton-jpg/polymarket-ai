@@ -40,9 +40,11 @@ async def record_baselines(
     """Insert one row per variant into signal_predictions.
 
     Variants written:
-      - 'heuristic_v1' (frozen reference, always) — uses the Signal's own
-        signal_strength/100 as probability, preserving pre-chantier #5
-        bit-exactness.
+      - 'heuristic_v1' (frozen reference, always) — uses the Signal's
+        composed `signal_score / 100` as probability. Audit 2026-04-25
+        P1.2: previously read `signal_strength` (strength sub-component
+        only), which discarded the trade_quality contribution and gave
+        heuristic_v1 a different reading than the production score.
       - 'heuristic_shadow' (optional, opt-in via
         settings.heuristic_shadow_enabled) — recomputed from the provided
         `features` + `llm_combined` under Settings-loaded weights. Skipped
@@ -60,9 +62,11 @@ async def record_baselines(
     sig = (
         await session.execute(select(Signal).where(Signal.id == signal_id))
     ).scalar_one()
+    # heuristic_v1 reads the COMPOSED top-level score (= 0.75*strength +
+    # 0.25*trade), not the strength sub-component. Audit 2026-04-25 P1.2.
     signal_prob = (
-        float(sig.signal_strength) / 100.0
-        if sig.signal_strength is not None
+        float(sig.signal_score) / 100.0
+        if sig.signal_score is not None
         else 0.5
     )
 
