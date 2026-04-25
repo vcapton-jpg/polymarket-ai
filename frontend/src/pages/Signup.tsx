@@ -162,7 +162,7 @@ export default function Signup() {
       footer={
         <>
           En créant un compte, tu acceptes nos{" "}
-          <Link to="#" className="underline decoration-line-strong hover:text-ink">CGU</Link>
+          <Link to="/cgu" className="underline decoration-line-strong hover:text-ink">CGU</Link>
           {" · "}© 2026 Foresight
         </>
       }

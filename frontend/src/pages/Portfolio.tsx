@@ -35,7 +35,6 @@ import { MOCK_PERFORMANCE } from "@/data/performance"
 import { useUserPreferences } from "@/lib/userPreferences"
 import { useManualPositions } from "@/lib/useManualPositions"
 import { useRemotePositions } from "@/hooks/useRemotePositions"
-import { useOnboardingStatus } from "@/hooks/useOnboarding"
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio"
 import { XPBadge } from "@/components/gamification/XPBadge"
 import {
@@ -43,6 +42,7 @@ import {
   computeLevel,
   computeXP,
 } from "@/lib/gamification"
+import { readLearnProgress } from "@/data/learn"
 
 /** When `VITE_USE_MOCKS=1`, layer the bundled demo positions on top of
  *  whatever the API returns so the UI is never empty in showcase mode. */
@@ -85,26 +85,32 @@ export default function Portfolio() {
   const [nativePositions, setNativePositions] = useState<Position[]>([])
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const { data: remote, loading } = useRemotePositions()
-  const { data: onboardingStatus } = useOnboardingStatus()
   const { data: paperPositions = [] } = usePaperPortfolio()
 
-  // Educational gamification — rewards learning (tutorial/quiz/outcome reads,
-  // paper practice), not profit. outcomeViews + realTrades are wired to 0
-  // today because their endpoints ship in a later task; the XP formula
-  // already accounts for them so the jump is expected, not surprising.
+  // Educational gamification — rewards reading Apprendre sections + paper
+  // practice + outcome reads. NOT profit. outcomeViews + realTrades are
+  // wired to 0 today because their endpoints ship in a later task; the XP
+  // formula already accounts for them so the jump is expected, not
+  // surprising. learnSectionsRead is read once at mount via the
+  // localStorage-backed helper — Apprendre fires a `learn-progress-changed`
+  // event when a section is opened, but for now Portfolio is unmounted
+  // when the user is reading so a snapshot is enough; revisit if we add a
+  // persistent gamification HUD that needs live updates.
+  const learnSectionsRead = useMemo(
+    () => Object.values(readLearnProgress()).filter(Boolean).length,
+    [],
+  )
   const xp = computeXP({
     outcomeViews: 0,
     paperTrades: paperPositions.length,
     realTrades: 0,
-    tutorialDone: !!onboardingStatus?.tutorialDone,
-    quizPassed: !!onboardingStatus?.quizDone,
+    learnSectionsRead,
   })
   const level = computeLevel(xp)
   const badges = computeBadges({
     outcomeViews: 0,
     paperTrades: paperPositions.length,
-    tutorialDone: !!onboardingStatus?.tutorialDone,
-    quizPassed: !!onboardingStatus?.quizDone,
+    learnSectionsRead,
   })
   const { formatMoney } = useUserPreferences()
   const { positions: manualPositions } = useManualPositions()

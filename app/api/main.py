@@ -18,10 +18,6 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # Seed the 5 tutorial Market rows referenced by the Learn & Trade
-    # onboarding scenarios. Idempotent — safe on every boot.
-    from app.db.tutorial_markets import seed_tutorial_markets  # noqa: WPS433
-    await seed_tutorial_markets(engine)
     logger.info("Foresight API started — tables ready")
     yield
     await engine.dispose()
@@ -70,8 +66,6 @@ from app.api.routes.performance_v2 import router as performance_v2_router  # noq
 from app.api.routes.quota import router as quota_router  # noqa: E402
 from app.api.routes.sources import router as sources_router  # noqa: E402
 from app.api.routes.paper import router as paper_router  # noqa: E402
-from app.api.routes.onboarding import router as onboarding_router  # noqa: E402
-from app.api.routes.quiz import router as quiz_router  # noqa: E402
 from app.api.routes.outcome_views import router as outcome_views_router  # noqa: E402
 from app.api.routes.admin_metrics import router as admin_metrics_router  # noqa: E402
 
@@ -85,9 +79,12 @@ app.include_router(portfolio_v2_router, prefix="/api")
 app.include_router(performance_v2_router, prefix="/api")
 app.include_router(quota_router, prefix="/api")
 app.include_router(sources_router, prefix="/api")
+# `paper` keeps its bac-à-sable role inside Apprendre — no real-money
+# implications. The L&T trading-test gates (onboarding/, quiz/) were
+# removed; their route files remain on disk for one cycle and will be
+# deleted in a follow-up commit once we've confirmed nothing else (CI,
+# scheduled jobs, telemetry) consumes /api/onboarding/status.
 app.include_router(paper_router, prefix="/api")
-app.include_router(onboarding_router, prefix="/api")
-app.include_router(quiz_router, prefix="/api")
 app.include_router(outcome_views_router, prefix="/api")
 app.include_router(admin_metrics_router, prefix="/api")
 

@@ -179,14 +179,13 @@ export default function Welcome() {
       } catch {
         // Ignore — onboarding flag below is still authoritative.
       }
-      // Pivot 2026-04-23 (Learn & Trade): after the profile step, every
-      // user goes through the tutorial → quiz → budget gates before
-      // seeing signals. The `onboarding=done` flag marks the profile
-      // step as completed; the per-stage gates (tutorial_done,
-      // quiz_done, budget_done) are tracked on the backend and drive
-      // the redirect logic in Task 18.
+      // After the profile step → Apprendre (educational on-ramp). The
+      // L&T trading-test gates (tutorial/quiz/budget) were removed; the
+      // animated Welcome→Apprendre transition (Phase 2) lives in this
+      // page and reads `state.fromWelcome` on the receiving side to
+      // tip into the cinematic intro.
       localStorage.setItem(STORAGE_KEYS.onboarding, "done")
-      navigate("/welcome/tutorial")
+      navigate("/apprendre", { state: { fromWelcome: true } })
       return
     }
     if (!isLastQuestion) {
@@ -229,10 +228,12 @@ export default function Welcome() {
   }
 
   const skip = () => {
-    // "Passer" skips the optional profile quiz — but the tutorial is
-    // mandatory in the Learn & Trade pivot, so we land on it directly.
+    // "Passer" skips the optional profile quiz. With the L&T gates
+    // removed, the user can now land directly on the signals feed —
+    // Apprendre stays accessible from the nav for whenever they want
+    // the educational on-ramp.
     localStorage.setItem(STORAGE_KEYS.onboarding, "skipped")
-    navigate("/welcome/tutorial")
+    navigate("/signals")
   }
 
   const select = (value: string) => {

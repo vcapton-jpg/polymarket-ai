@@ -10,7 +10,7 @@ from app.api.schemas.learn_and_trade import (
     PaperPositionOut, PaperPositionsOut, PaperTradeIn,
 )
 from app.db.database import get_session_factory
-from app.db.models import OnboardingProgress, PaperPosition, UserProfile
+from app.db.models import PaperPosition, UserProfile
 
 router = APIRouter(prefix="/paper", tags=["paper"])
 
@@ -20,6 +20,12 @@ async def open_paper_position(
     body: PaperTradeIn,
     user: UserProfile = Depends(get_current_user),
 ) -> PaperPositionOut:
+    """Open a virtual position. Pure sandbox: no real money, no progress
+    tracking. The legacy `is_tutorial` flag used to drive the L&T tutorial
+    gate (5 trades unlocked real trading); since the gate was removed, the
+    flag is now informational only — kept on the wire so the column stays
+    populated for analytics and existing client builds keep deserialising.
+    """
     factory = get_session_factory()
     async with factory() as s:
         pos = PaperPosition(
@@ -32,16 +38,6 @@ async def open_paper_position(
             is_tutorial=body.is_tutorial,
         )
         s.add(pos)
-
-        if body.is_tutorial:
-            onb = await s.get(OnboardingProgress, user.id)
-            if onb is None:
-                onb = OnboardingProgress(user_id=user.id)
-                s.add(onb)
-            onb.tutorial_trades_count = (onb.tutorial_trades_count or 0) + 1
-            if onb.tutorial_trades_count >= 5:
-                onb.tutorial_done = True
-
         await s.commit()
         await s.refresh(pos)
 

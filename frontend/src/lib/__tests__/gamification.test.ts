@@ -7,17 +7,16 @@ import {
 } from "../gamification"
 
 describe("computeXP", () => {
-  it("sums weighted activities and flat onboarding bonuses", () => {
-    // 2*5 + 4*3 + 1*2 + 25 + 25 = 74
+  it("sums weighted activities and Apprendre section reads", () => {
+    // 2*5 + 4*3 + 1*2 + 6*5 = 54
     expect(
       computeXP({
         outcomeViews: 2,
         paperTrades: 4,
         realTrades: 1,
-        tutorialDone: true,
-        quizPassed: true,
+        learnSectionsRead: 6,
       }),
-    ).toBe(74)
+    ).toBe(54)
   })
 
   it("returns 0 when no activity has happened", () => {
@@ -26,8 +25,7 @@ describe("computeXP", () => {
         outcomeViews: 0,
         paperTrades: 0,
         realTrades: 0,
-        tutorialDone: false,
-        quizPassed: false,
+        learnSectionsRead: 0,
       }),
     ).toBe(0)
   })
@@ -47,19 +45,28 @@ describe("computeLevel", () => {
 })
 
 describe("computeBadges", () => {
-  it("flags tutorial + quiz + first-paper as earned once their conditions are met", () => {
+  it("flags first-section + first-paper once unlocked, leaves others gated", () => {
     const badges = computeBadges({
       outcomeViews: 0,
       paperTrades: 1,
-      tutorialDone: true,
-      quizPassed: true,
+      learnSectionsRead: 1,
     })
     const byId = Object.fromEntries(badges.map((b) => [b.id, b.earned]))
-    expect(byId.tutorial).toBe(true)
-    expect(byId.quiz).toBe(true)
+    expect(byId["first-section"]).toBe(true)
     expect(byId["first-paper"]).toBe(true)
+    expect(byId["all-sections"]).toBe(false)
     expect(byId["ten-outcomes"]).toBe(false)
     expect(byId["fifty-papers"]).toBe(false)
+  })
+
+  it("unlocks all-sections only when every Apprendre section is read", () => {
+    const badges = computeBadges({
+      outcomeViews: 0,
+      paperTrades: 0,
+      learnSectionsRead: 11,
+    })
+    const byId = Object.fromEntries(badges.map((b) => [b.id, b.earned]))
+    expect(byId["all-sections"]).toBe(true)
   })
 })
 

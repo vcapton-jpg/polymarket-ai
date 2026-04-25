@@ -1,4 +1,11 @@
-"""UserLimits service — enforces budget + cooloff + quiz gating on real trades."""
+"""UserLimits service — age + cooloff gate + week_spent tracking.
+
+Trading-test/quiz/budget gates were removed in favour of Apprendre as
+the educational on-ramp; this module no longer touches OnboardingProgress
+and only enforces age 18+ (captured at signup) plus auto-cooloff after
+consecutive losses. Weekly budget tracking is preserved for analytics
+but no longer caps trades.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +15,7 @@ from decimal import Decimal
 from typing import Optional
 
 from app.db.database import get_session_factory
-from app.db.models import OnboardingProgress, UserLimits
+from app.db.models import UserLimits
 
 COOLOFF_HOURS = 24
 COOLOFF_TRIGGER_LOSSES = 3
@@ -22,48 +29,36 @@ class TradeDecision:
 
 
 async def can_trade_real(user_id: int, stake_eur: float) -> TradeDecision:
-    """Return whether this user may open a real-money trade of given stake."""
+    """Return whether this user may open a real-money trade of given stake.
+
+    The L&T trading-test gates (tutorial, risk-quiz, weekly-budget setup)
+    were removed in favour of Apprendre as the educational on-ramp. The
+    only remaining hard gate is age 18+ — captured at signup, no separate
+    page. Users who somehow land here without an age confirmation get
+    blocked; everyone else is allowed.
+
+    Cooloff (3 consecutive losses → 24h pause) is preserved as a
+    self-protection mechanism: it triggers automatically based on
+    outcomes and is independent of the deleted onboarding gates.
+    """
     factory = get_session_factory()
     async with factory() as s:
         limits = await s.get(UserLimits, user_id)
-        onb = await s.get(OnboardingProgress, user_id)
 
+    # No row yet → user signed up after the gate-removal commit and never
+    # touched the (now-deleted) budget page. Treat as allowed; the
+    # signup-time age checkbox is our authority for the legal floor.
     if limits is None:
-        return TradeDecision(allowed=False, reason="no_limits_row")
+        return TradeDecision(allowed=True, remaining_budget_eur=None)
 
     if not limits.age_confirmed_18:
         return TradeDecision(allowed=False, reason="age_not_confirmed")
-
-    if onb is None or not onb.tutorial_done:
-        return TradeDecision(allowed=False, reason="tutorial_not_done")
-
-    if not limits.quiz_passed:
-        return TradeDecision(allowed=False, reason="quiz_not_passed")
-
-    if not onb.budget_done:
-        return TradeDecision(allowed=False, reason="budget_not_set")
 
     now = datetime.now(timezone.utc)
     if limits.cooloff_until is not None and limits.cooloff_until > now:
         return TradeDecision(allowed=False, reason="in_cooloff")
 
-    # Use Decimal for all monetary arithmetic to avoid IEEE-754 rounding.
-    # str() conversion prevents float -> Decimal precision loss on input.
-    stake = Decimal(str(stake_eur))
-    max_stake = Decimal(limits.max_stake_eur)
-    budget_weekly = Decimal(limits.budget_weekly_eur)
-    week_spent = Decimal(limits.week_spent_eur)
-
-    if stake > max_stake:
-        return TradeDecision(allowed=False, reason="over_max_stake")
-
-    remaining = budget_weekly - week_spent
-    if stake > remaining:
-        return TradeDecision(
-            allowed=False, reason="over_weekly_budget", remaining_budget_eur=float(remaining)
-        )
-
-    return TradeDecision(allowed=True, remaining_budget_eur=float(remaining - stake))
+    return TradeDecision(allowed=True, remaining_budget_eur=None)
 
 
 async def register_trade_result(user_id: int, won: bool, stake_eur: float) -> None:
