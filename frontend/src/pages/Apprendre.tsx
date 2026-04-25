@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { AnimatePresence, motion, useScroll, useSpring, useReducedMotion } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS, STAGGER, fadeInUp } from "@/lib/motion"
 import { BookOpen, CheckCircle2, Clock, Sparkles, X } from "lucide-react"
@@ -15,6 +15,7 @@ import {
 import { IndexCTA } from "@/components/learn/sections"
 import { cn } from "@/lib/utils"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { ProfileToLearnTransition } from "@/components/welcome/ProfileToLearnTransition"
 
 export const PROFILE_EXPLAINERS: Record<string, string> = {
   Découvreur: "Tu découvres les marchés. On garde les explications simples et visuelles.",
@@ -24,14 +25,27 @@ export const PROFILE_EXPLAINERS: Record<string, string> = {
 
 export default function Apprendre() {
   const profile = useProfile()
+  const location = useLocation()
+  // Set by Welcome.tsx via navigate("/apprendre", { state: { fromWelcome: true } })
+  // when the user has just finished the cinematic ProfileToLearnTransition.
+  // We use it to (a) render the matching profile badge so Framer's `layoutId`
+  // animation can land smoothly, and (b) suppress the Découvreur first-visit
+  // overlay — that overlay would feel redundant immediately after the
+  // transition's CTA explicitly invited the user in.
+  const fromWelcome = Boolean(
+    (location.state as { fromWelcome?: boolean } | null)?.fromWelcome,
+  )
   const [progress, setProgress] = useState<Record<string, boolean>>({})
   const articleRef = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
   const [beginnerCoachOpen, setBeginnerCoachOpen] = useState(false)
 
   // Beginner (Découvreur) first-visit overlay. Fires only when onboarding is
-  // marked "done" AND profile is Découvreur AND we haven't shown it before.
+  // marked "done" AND profile is Découvreur AND we haven't shown it before
+  // AND the user did not arrive via the Welcome→Apprendre transition (which
+  // already serves as the cinematic onboarding moment).
   useEffect(() => {
+    if (fromWelcome) return
     try {
       const onboarding = localStorage.getItem(STORAGE_KEYS.onboarding)
       const alreadyCoached = localStorage.getItem(STORAGE_KEYS.apprendreCoached)
@@ -45,7 +59,7 @@ export default function Apprendre() {
     } catch {
       // ignore
     }
-  }, [profile.type])
+  }, [profile.type, fromWelcome])
 
   const dismissBeginnerCoach = () => {
     try {
@@ -96,11 +110,34 @@ export default function Apprendre() {
       {/* Header */}
       <div className="border-b border-line/60 bg-obsidian-900">
         <div className="px-4 pt-6 pb-5 md:px-8 md:pt-8">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <BookOpen className="h-4 w-4 text-brand-400" aria-hidden />
             <p className="font-mono text-eyebrow uppercase text-brand-400">
               Apprendre
             </p>
+            {/* Receiving anchor for the Welcome→Apprendre profile-badge
+                continuation. Same `layoutId` as the badge in
+                ProfileToLearnTransition; Framer animates it into this header
+                slot when the user lands here from the transition. We render
+                it unconditionally on first paint when `fromWelcome` so the
+                layout animation has a destination element to interpolate to.
+                After that the badge stays as a quiet header chip — the
+                "Profil" banner below remains the canonical control. */}
+            {fromWelcome && (
+              <motion.div
+                layoutId={ProfileToLearnTransition.LAYOUT_ID}
+                className="ml-auto inline-flex items-center gap-2 rounded-full border border-brand-500/40 bg-brand-500/[0.08] px-3 py-1 shadow-brand-glow"
+                transition={{ duration: reduced ? 0 : DURATIONS.expressive, ease: EASE_PREMIUM }}
+              >
+                <Sparkles className="h-3 w-3 text-brand-400" aria-hidden />
+                <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-brand-300">
+                  Profil
+                </span>
+                <span className="text-label-sm font-semibold text-ink">
+                  {profile.type}
+                </span>
+              </motion.div>
+            )}
           </div>
           <motion.h1
             {...fadeInUp}

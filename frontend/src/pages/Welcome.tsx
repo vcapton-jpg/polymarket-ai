@@ -23,6 +23,7 @@ import type { UserProfile } from "@/types/signal"
 import { readAuth } from "@/lib/trial"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { putProfile } from "@/lib/api/auth"
+import { ProfileToLearnTransition } from "@/components/welcome/ProfileToLearnTransition"
 
 /** Mirrors the check in RequireAuth — uses the shared readAuth helper so
  *  the AuthState shape contract lives in exactly one file. */
@@ -141,6 +142,12 @@ export default function Welcome() {
   const [step, setStep] = useState(0)
   const [profile, setProfile] = useState<ProfileState>({})
   const [direction, setDirection] = useState<1 | -1>(1)
+  // Bridge state for the Welcome → Apprendre cinematic transition.
+  // Held inside Welcome (not pushed via navigate) so the recap card,
+  // the badge, and the deck preview all live in the same React tree —
+  // letting Framer's `layoutId` match the badge across components when
+  // we eventually navigate, instead of yanking it across an unmount.
+  const [transitioning, setTransitioning] = useState(false)
 
   const isRecap = step === 4
   const currentOptions = isRecap ? [] : [TYPES, EXPERIENCE, REACTIONS, BUDGETS][step]
@@ -179,13 +186,14 @@ export default function Welcome() {
       } catch {
         // Ignore — onboarding flag below is still authoritative.
       }
-      // After the profile step → Apprendre (educational on-ramp). The
-      // L&T trading-test gates (tutorial/quiz/budget) were removed; the
-      // animated Welcome→Apprendre transition (Phase 2) lives in this
-      // page and reads `state.fromWelcome` on the receiving side to
-      // tip into the cinematic intro.
+      // After the profile step → cinematic transition → Apprendre. We
+      // mark onboarding as done here so a hard reload mid-transition
+      // doesn't bounce the user back into the quiz; the actual navigate
+      // is fired by ProfileToLearnTransition's onComplete callback (or
+      // its auto-advance timer) so the user gets to see the deck
+      // preview before the route change.
       localStorage.setItem(STORAGE_KEYS.onboarding, "done")
-      navigate("/apprendre", { state: { fromWelcome: true } })
+      setTransitioning(true)
       return
     }
     if (!isLastQuestion) {
@@ -242,6 +250,17 @@ export default function Welcome() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-obsidian-950">
+      {/* Cinematic post-recap overlay. Mounted within the same Welcome
+          subtree so Framer's `layoutId` continuation can match the
+          recap card → badge → Apprendre header anchor. The component
+          owns its own timing + auto-advance; we just navigate when it
+          calls back. */}
+      {transitioning && (
+        <ProfileToLearnTransition
+          profileType={profile.type ?? "Actif"}
+          onComplete={() => navigate("/apprendre", { state: { fromWelcome: true } })}
+        />
+      )}
       {/* Ambient backdrop */}
       <div className="pointer-events-none absolute inset-0 bg-grid bg-grid-fade opacity-40" aria-hidden />
       <div
