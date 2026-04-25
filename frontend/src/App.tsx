@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom"
-import { lazy, Suspense, useEffect } from "react"
-import { LayoutGroup } from "framer-motion"
+import { lazy, Suspense, useEffect, type ReactNode } from "react"
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion"
 import { RequireAuth } from "./components/auth/RequireAuth"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 import { readAuth } from "./lib/trial"
 import { STORAGE_KEYS } from "./lib/storageKeys"
+import { DURATIONS, EASE_PREMIUM } from "./lib/motion"
 
 const Homepage = lazy(() => import("./pages/Homepage"))
 const Signals = lazy(() => import("./pages/Signals"))
@@ -70,6 +72,88 @@ function RequireOnboarding() {
   return null
 }
 
+/**
+ * Per-route error boundary wrapper.
+ *
+ * Mounted around every `Route element` so a thrown render in one page
+ * (Signals chart blowing up, Portfolio mock parse failing, etc.) shows a
+ * scoped fallback inside the otherwise intact shell, instead of taking
+ * the whole app down. The root <ErrorBoundary> in `main.tsx` is the
+ * last-resort net behind these.
+ *
+ * `scope` is mostly for the in-DOM error-text label and console output —
+ * keep it short and human-readable.
+ */
+function RouteBoundary({ scope, children }: { scope: string; children: ReactNode }) {
+  return <ErrorBoundary scope={scope}>{children}</ErrorBoundary>
+}
+
+/**
+ * Per-route fade/translate wrapper.
+ *
+ * Wraps each Route element so AnimatePresence can run an entry + exit
+ * animation on path change. The motion is intentionally subtle — a
+ * 12 px lift over `DURATIONS.default` — so it adds polish without
+ * stretching perceived navigation latency. Snaps under
+ * `prefers-reduced-motion`.
+ *
+ * **AnimatePresence mode is `popLayout`**, not `wait`. The Welcome →
+ * Apprendre transition uses a shared `layoutId` for the profile
+ * pellet, which requires both pages to be mounted in the same commit
+ * so Framer can measure source + destination. `wait` would unmount
+ * Welcome before mounting Apprendre and break that handoff;
+ * `popLayout` keeps the exiting page in the DOM (positioned
+ * absolutely) while the new one mounts on top, preserving layoutId
+ * continuity.
+ */
+function RouteTransition({ children }: { children: ReactNode }) {
+  const reduced = useReducedMotion()
+  return (
+    <motion.div
+      initial={reduced ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduced ? undefined : { opacity: 0, y: -8 }}
+      transition={{ duration: reduced ? 0 : DURATIONS.default, ease: EASE_PREMIUM }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+/**
+ * Routes split into its own component so we can call `useLocation()`
+ * here — `<Routes>` needs the explicit `location` prop to stay stable
+ * across an AnimatePresence exit, and `key={location.pathname}` is what
+ * triggers the per-path remount that AnimatePresence keys off.
+ */
+function AnimatedRoutes() {
+  const location = useLocation()
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<RouteBoundary scope="Homepage"><RouteTransition><Homepage /></RouteTransition></RouteBoundary>} />
+        <Route path="/pricing" element={<RouteBoundary scope="Pricing"><RouteTransition><Pricing /></RouteTransition></RouteBoundary>} />
+        <Route path="/faq" element={<RouteBoundary scope="FAQ"><RouteTransition><Faq /></RouteTransition></RouteBoundary>} />
+        <Route path="/signal-variants" element={<RouteBoundary scope="Signal variants"><RouteTransition><SignalVariants /></RouteTransition></RouteBoundary>} />
+        <Route path="/cgu" element={<RouteBoundary scope="CGU"><RouteTransition><Cgu /></RouteTransition></RouteBoundary>} />
+        <Route path="/risques" element={<RouteBoundary scope="Risques"><RouteTransition><Risques /></RouteTransition></RouteBoundary>} />
+        <Route path="/mentions-legales" element={<RouteBoundary scope="Mentions légales"><RouteTransition><MentionsLegales /></RouteTransition></RouteBoundary>} />
+        <Route path="/login" element={<RouteBoundary scope="Login"><RouteTransition><Login /></RouteTransition></RouteBoundary>} />
+        <Route path="/signup" element={<RouteBoundary scope="Signup"><RouteTransition><Signup /></RouteTransition></RouteBoundary>} />
+        <Route path="/signals" element={<RouteBoundary scope="Signaux"><RequireAuth><RouteTransition><Signals /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/signals/:id" element={<RouteBoundary scope="Signal · détail"><RequireAuth><RouteTransition><SignalDetail /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/signals/:id/outcome" element={<RouteBoundary scope="Signal · résultat"><RequireAuth><RouteTransition><SignalOutcome /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/portfolio" element={<RouteBoundary scope="Portefeuille"><RequireAuth><RouteTransition><Portfolio /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/performance" element={<RouteBoundary scope="Performance"><RequireAuth><RouteTransition><Performance /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/apprendre" element={<RouteBoundary scope="Apprendre"><RequireAuth><RouteTransition><Apprendre /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/apprendre/:slug" element={<RouteBoundary scope="Apprendre · section"><RequireAuth><RouteTransition><LearnSection /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/welcome" element={<RouteBoundary scope="Welcome"><RequireAuth><RouteTransition><Welcome /></RouteTransition></RequireAuth></RouteBoundary>} />
+        <Route path="/settings" element={<RouteBoundary scope="Réglages"><RequireAuth><RouteTransition><Settings /></RouteTransition></RequireAuth></RouteBoundary>} />
+      </Routes>
+    </AnimatePresence>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -77,26 +161,7 @@ export default function App() {
         <RequireOnboarding />
         <Suspense fallback={<div className="container-page py-20 text-ink-muted">Chargement…</div>}>
           <LayoutGroup>
-            <Routes>
-              <Route path="/" element={<Homepage />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/faq" element={<Faq />} />
-              <Route path="/signal-variants" element={<SignalVariants />} />
-              <Route path="/cgu" element={<Cgu />} />
-              <Route path="/risques" element={<Risques />} />
-              <Route path="/mentions-legales" element={<MentionsLegales />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/signals" element={<RequireAuth><Signals /></RequireAuth>} />
-              <Route path="/signals/:id" element={<RequireAuth><SignalDetail /></RequireAuth>} />
-              <Route path="/signals/:id/outcome" element={<RequireAuth><SignalOutcome /></RequireAuth>} />
-              <Route path="/portfolio" element={<RequireAuth><Portfolio /></RequireAuth>} />
-              <Route path="/performance" element={<RequireAuth><Performance /></RequireAuth>} />
-              <Route path="/apprendre" element={<RequireAuth><Apprendre /></RequireAuth>} />
-              <Route path="/apprendre/:slug" element={<RequireAuth><LearnSection /></RequireAuth>} />
-              <Route path="/welcome" element={<RequireAuth><Welcome /></RequireAuth>} />
-              <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-            </Routes>
+            <AnimatedRoutes />
           </LayoutGroup>
         </Suspense>
       </div>

@@ -19,7 +19,6 @@ import {
   Menu,
   X,
   BookOpen,
-  Globe,
 } from "lucide-react"
 import { Logo } from "@/components/ui/Logo"
 import { LivePill } from "@/components/signals/badges"

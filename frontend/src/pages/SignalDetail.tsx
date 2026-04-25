@@ -23,6 +23,7 @@ import {
 } from "@/components/signals/badges"
 import { formatOpportunityWindow } from "@/lib/formatWindow"
 import { OrderForm } from "@/components/signals/OrderForm"
+import { WalletScope } from "@/lib/WalletScope"
 import { ManualPositionModal } from "@/components/signals/ManualPositionModal"
 import { PoweredByPolymarket } from "@/components/signals/PoweredByPolymarket"
 import { WhyThisMatters } from "@/components/signals/WhyThisMatters"
@@ -379,10 +380,17 @@ export default function SignalDetail() {
               id="order-form" is the scroll target for the sticky "Placer un
               ordre" CTA in the topbar. */}
           <section ref={orderFormRef} id="order-form" className="mt-6 scroll-mt-24">
-            <OrderForm
-              signal={signal}
-              onManualEntry={() => setManualOpen(true)}
-            />
+            {/* WalletScope is mounted here (not at the React root) so wagmi
+                + viem load only inside the SignalDetail chunk. OrderForm
+                calls useWalletSetup, which needs WagmiProvider as an
+                ancestor — wrapping at the call site keeps the dependency
+                lazy. See lib/WalletScope.tsx for the rationale. */}
+            <WalletScope>
+              <OrderForm
+                signal={signal}
+                onManualEntry={() => setManualOpen(true)}
+              />
+            </WalletScope>
           </section>
         </motion.section>
 
