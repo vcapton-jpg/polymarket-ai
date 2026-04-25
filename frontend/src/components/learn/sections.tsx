@@ -5,11 +5,15 @@ import {
   ExternalLink,
   Flame,
   Gauge,
+  Layers,
   Radio,
+  Scale,
+  ScanText,
   ShieldAlert,
   Target,
   TrendingDown,
   TrendingUp,
+  Wallet,
   Zap,
 } from "lucide-react"
 import type { LearnContentBlocks } from "./LearnContent"
@@ -944,6 +948,239 @@ function FAQAccordion({ items }: { items: typeof faqItems }) {
   )
 }
 
+/* ───────────── Section ⑥ Lire une fiche signal ─────────────
+ *
+ * Anchored in chapter 2 (Décoder), this section maps the four visual
+ * zones of a signal card to "what each one tells you" in plain French.
+ * Discoverer-mode replaces jargon with everyday vocabulary; the expert
+ * appendix names the underlying components for users who'll later wire
+ * the API.
+ */
+
+const signalZones = [
+  {
+    title: "Header",
+    body: "Le titre du marché, le tier de la source, le timestamp d’émission. C’est le « quoi, qui, quand ».",
+    icon: Layers,
+    accent: ACCENT.sky,
+  },
+  {
+    title: "Score",
+    body: "Le 0–100 et son label (Modéré, Fort, Exceptionnel). C’est notre conviction synthétique.",
+    icon: Gauge,
+    accent: ACCENT.purple,
+  },
+  {
+    title: "Sources",
+    body: "Les 1 à 3 dépêches qui ont déclenché le signal. Cliquables — toujours vérifier au moins une.",
+    icon: Radio,
+    accent: ACCENT.amber,
+  },
+  {
+    title: "Marché & prix",
+    body: "Le côté à prendre (YES/NO), le prix actuel, la barre de vie. C’est l’info opérationnelle.",
+    icon: Target,
+    accent: ACCENT.brand,
+  },
+]
+
+const sectionLireSignal: LearnContentBlocks = {
+  standard: (
+    <>
+      <Lede>
+        Une fiche signal est découpée en{" "}
+        <strong className="text-ink">4 zones</strong>. Chacune répond à une
+        question précise : <em>quoi</em>, <em>combien</em>, <em>pourquoi</em>,{" "}
+        <em>où</em>.
+      </Lede>
+      <ExampleGrid columns={2}>
+        {signalZones.map((z) => (
+          <ExampleCard key={z.title} {...z} />
+        ))}
+      </ExampleGrid>
+      <PrimaryCallout icon={ScanText}>
+        L’ordre n’est pas décoratif — c’est l’ordre dans lequel ton œil
+        doit balayer la card pour décider en moins de 10&#x202F;secondes.
+      </PrimaryCallout>
+    </>
+  ),
+  discoverer: (
+    <>
+      <Lede>
+        Tu n’as pas besoin de tout lire en détail. Une fiche signal est
+        toujours organisée pareil — quatre zones, dans le même ordre.
+      </Lede>
+      <Paragraph>
+        Voici comment les pros lisent une carte en moins de 10&#x202F;secondes.
+        Le but : décider sans deviner.
+      </Paragraph>
+      <ExampleGrid columns={2}>
+        {signalZones.map((z) => (
+          <ExampleCard key={z.title} {...z} />
+        ))}
+      </ExampleGrid>
+      <PrimaryCallout icon={ScanText}>
+        Astuce : si une zone te manque (par exemple, pas de source
+        cliquable visible), considère le signal comme incomplet et passe
+        au suivant.
+      </PrimaryCallout>
+    </>
+  ),
+  expert: (
+    <ExpertAppendix title="Mapping vers le payload API">
+      <p>
+        Chaque zone est rendue depuis un sous-objet du payload{" "}
+        <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+          /api/signals/:id
+        </code>{" "}
+        :
+      </p>
+      <ul className="list-disc space-y-1 pl-5">
+        <li>
+          <strong className="text-ink">Header</strong> →{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            market.title
+          </code>
+          ,{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            sources[0].tier
+          </code>
+          ,{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            emitted_at
+          </code>
+          .
+        </li>
+        <li>
+          <strong className="text-ink">Score</strong> →{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            score.value
+          </code>{" "}
+          + label dérivé côté front (cf. section 5).
+        </li>
+        <li>
+          <strong className="text-ink">Sources</strong> →{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            sources[]
+          </code>{" "}
+          (toujours triées par tier croissant — le tier-1 est en
+          premier).
+        </li>
+        <li>
+          <strong className="text-ink">Marché & prix</strong> →{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            recommendation.side
+          </code>
+          ,{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            market.price
+          </code>
+          ,{" "}
+          <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+            life_bar.value
+          </code>
+          .
+        </li>
+      </ul>
+    </ExpertAppendix>
+  ),
+}
+
+/* ───────────── Section ⑧ Combien miser ? ─────────────
+ *
+ * The first action-oriented section in chapter 3. We explicitly call
+ * out the 1–3% rule because it is the single behavioural change that
+ * has the largest impact on long-term outcomes — far more than any
+ * model improvement on our side.
+ */
+
+const sectionPositionSizing: LearnContentBlocks = {
+  standard: (
+    <>
+      <Lede>
+        Règle de base&#x202F;:{" "}
+        <strong className="text-ink">1 à 3&#x202F;% de ton bankroll</strong>{" "}
+        par signal. Pas plus, même quand le score est de 95.
+      </Lede>
+      <Paragraph>
+        Pourquoi&#x202F;? Parce qu’un score élevé ne supprime pas le
+        risque — il le rend juste meilleur en moyenne. Sur 50 signaux
+        notés 90+, il y en aura toujours 5 à 10 qui partent dans le mur.
+        Ta taille de mise doit pouvoir absorber cette série sans casser
+        le bankroll.
+      </Paragraph>
+      <PrimaryCallout icon={Scale}>
+        Bankroll de 200&#x202F;USDC → mise type =
+        2&#x202F;USDC à 6&#x202F;USDC. Bankroll de 2&#x202F;000&#x202F;USDC →
+        20 à 60&#x202F;USDC. C’est inconfortablement petit. C’est
+        normal&#x202F;: c’est ce qui te garde dans le jeu.
+      </PrimaryCallout>
+      <Paragraph>
+        Tu pourras moduler dans cette fenêtre selon le score&#x202F;:
+        ~1&#x202F;% pour un signal entre 70 et 80, ~2&#x202F;% entre 80
+        et 90, ~3&#x202F;% au-dessus de 90. Mais ne sors jamais de la
+        fenêtre.
+      </Paragraph>
+    </>
+  ),
+  discoverer: (
+    <>
+      <Lede>
+        La question n’est pas «&#x202F;quel signal prendre&#x202F;?&#x202F;»
+        mais{" "}
+        <strong className="text-ink">«&#x202F;combien je mets dessus&#x202F;?&#x202F;»</strong>.
+        C’est ce qui sépare ceux qui durent de ceux qui crament leur
+        compte en deux semaines.
+      </Lede>
+      <Paragraph>
+        La règle qu’on te donne est simple et un peu frustrante&#x202F;:
+        ne mets jamais plus de 3&#x202F;% de ce que tu as déposé sur un
+        seul signal. Même si tu es certain. Surtout si tu es certain.
+      </Paragraph>
+      <PrimaryCallout icon={Wallet}>
+        Tu as déposé 100&#x202F;USDC&#x202F;? Mise type =
+        1 à 3&#x202F;USDC par signal. Oui, c’est petit. C’est le prix de
+        rester en jeu six mois plus tard.
+      </PrimaryCallout>
+      <Paragraph>
+        Tu vas avoir envie de mettre plus quand un signal te paraît
+        évident. C’est le piège&#x202F;: tout le monde le ressent, et
+        c’est exactement quand on perd le plus.
+      </Paragraph>
+    </>
+  ),
+  expert: (
+    <ExpertAppendix title="Cadre quantitatif — Kelly fractionnaire">
+      <p>
+        La règle 1–3&#x202F;% est une approximation conservative de
+        Kelly fractionnaire. La taille optimale est{" "}
+        <code className="mx-1 rounded bg-obsidian-800 px-1 py-0.5 text-body-sm text-ink">
+          f* = (p · b − q) / b
+        </code>{" "}
+        avec{" "}
+        <em>p</em> = proba de gain estimée,{" "}
+        <em>b</em> = payout net (en multiples de la mise),{" "}
+        <em>q = 1 − p</em>.
+      </p>
+      <p>
+        En pratique on applique{" "}
+        <strong className="text-ink">¼ Kelly</strong>{" "}
+        — le full-Kelly suppose que ton estimation de <em>p</em> est
+        exacte, ce qui n’arrive jamais. La fraction ¼ amortit l’erreur
+        d’estimation tout en conservant une croissance géométrique
+        positive sur l’historique back-testé.
+      </p>
+      <p>
+        Garde-fou supplémentaire&#x202F;:{" "}
+        <strong className="text-ink">corrélation des positions</strong>.
+        Deux signaux sur le même événement (par ex. deux marchés
+        d’élection américaine) ne comptent pas pour deux positions —
+        traite-les comme une seule pour le sizing.
+      </p>
+    </ExpertAppendix>
+  ),
+}
+
 /* ───────────── Final CTA (shown on the index page) ───────────── */
 
 export function IndexCTA() {
@@ -969,12 +1206,17 @@ export function IndexCTA() {
 /* ───────────── Public registry ───────────── */
 
 export const LEARN_CONTENT: Record<string, LearnContentBlocks> = {
+  // Chapitre 1 · Comprendre
   polymarket: section1,
   opportunite: section2,
   rss: section3,
   tiers: section4,
+  // Chapitre 2 · Décoder
   score: section5,
+  "lire-signal": sectionLireSignal,
   "barre-vie": section6,
+  // Chapitre 3 · Agir
+  "position-sizing": sectionPositionSizing,
   vendre: section7,
   risques: section8,
   faq: section9,

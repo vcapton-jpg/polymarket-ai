@@ -11,6 +11,7 @@ import {
   LEARN_SECTIONS,
   findLearnSection,
   findLearnSectionIndex,
+  getChapter,
   markLearnSectionRead,
 } from "@/data/learn"
 import { useProfile } from "@/lib/useProfile"
@@ -58,6 +59,7 @@ export default function LearnSection() {
   const prev = index > 0 ? LEARN_SECTIONS[index - 1] : null
   const next = index < LEARN_SECTIONS.length - 1 ? LEARN_SECTIONS[index + 1] : null
 
+  const chapter = getChapter(section.chapter)
   const Icon = section.icon
 
   return (
@@ -84,7 +86,7 @@ export default function LearnSection() {
           transition={{ duration: DURATIONS.default, ease: EASE_PREMIUM }}
           className="mb-6 border-b border-line/60 pb-5"
         >
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <span
               className={cn(
                 "inline-flex h-7 w-7 items-center justify-center rounded-full font-mono text-label-xs font-semibold ring-1",
@@ -95,6 +97,10 @@ export default function LearnSection() {
             </span>
             <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">
               Section {section.number} sur {LEARN_SECTIONS.length}
+            </span>
+            <span className="text-ink-dim" aria-hidden>·</span>
+            <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-brand-300">
+              {chapter.label}
             </span>
           </div>
           <h1 className="font-display text-[1.625rem] font-semibold leading-tight tracking-tight text-ink md:text-[2rem]">

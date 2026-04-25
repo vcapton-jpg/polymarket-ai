@@ -5,7 +5,11 @@ import { AnimatePresence, motion, useScroll, useSpring, useReducedMotion } from 
 import { EASE_PREMIUM, DURATIONS, STAGGER, fadeInUp } from "@/lib/motion"
 import { BookOpen, CheckCircle2, Clock, Sparkles, X } from "lucide-react"
 import { AppShell } from "@/components/layout/AppShell"
-import { LEARN_SECTIONS, readLearnProgress } from "@/data/learn"
+import {
+  LEARN_SECTIONS,
+  readLearnProgress,
+  sectionsByChapter,
+} from "@/data/learn"
 import {
   useProfile,
   getApprendreBannerCopy,
@@ -155,8 +159,8 @@ export default function Apprendre() {
             }}
             className="mt-1 max-w-2xl text-[0.9375rem] text-ink-muted"
           >
-            9 sections courtes pour maîtriser la plateforme, le système de
-            détection et le cadre. Pas de vidéos, pas de jargon inutile.
+            {totalCount}&#x202F;sections courtes regroupées en 3&#x202F;chapitres&#x202F;:
+            comprendre, décoder, agir. Pas de vidéos, pas de jargon inutile.
           </motion.p>
 
           {/* Profile banner */}
@@ -207,73 +211,113 @@ export default function Apprendre() {
           </p>
         </div>
 
-        {/* Grid of 9 cards */}
-        <div className="grid gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
-          {LEARN_SECTIONS.map((section, i) => {
-            const isRead = Boolean(progress[section.slug])
-            const Icon = section.icon
-            return (
-              <motion.div
-                key={section.slug}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{
-                  duration: DURATIONS.default,
-                  delay: Math.min(i * STAGGER.default, 0.24),
-                  ease: EASE_PREMIUM,
-                }}
-              >
-                <Link
-                  to={`/apprendre/${section.slug}`}
-                  className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line-strong bg-obsidian-850/60 px-5 py-5 transition-premium hover:border-brand-500/40 hover:bg-obsidian-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60"
+        {/* Chaptered grid — 3 chapters with their own heading + accent
+            divider. Cards are a 1/2/3-col grid inside each chapter. We
+            keep a single global `i` index so the entrance stagger is
+            continuous from the top of the page rather than restarting
+            at each chapter (which would feel choppy on first paint). */}
+        {(() => {
+          let cardIndex = 0
+          return sectionsByChapter().map(({ chapter, sections }) => (
+            <section
+              key={chapter.id}
+              aria-labelledby={`chapter-${chapter.id}`}
+              className="space-y-4"
+            >
+              {/* Chapter heading + accent line */}
+              <div className="space-y-1">
+                <p className="font-mono text-label-xs uppercase tracking-[0.18em] text-ink-dim">
+                  {chapter.label}
+                </p>
+                <h2
+                  id={`chapter-${chapter.id}`}
+                  className="font-display text-title-sm font-semibold text-ink md:text-title-md"
                 >
-                  {/* Number + icon */}
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <span
-                      className={cn(
-                        "inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-label-sm font-semibold ring-1",
-                        section.accentClass,
-                      )}
+                  {chapter.title}
+                </h2>
+                <p className="max-w-2xl text-body-sm text-ink-muted">
+                  {chapter.tagline}
+                </p>
+                <div
+                  aria-hidden
+                  className={cn(
+                    "mt-2 h-px w-full bg-gradient-to-r",
+                    chapter.accentClass,
+                  )}
+                />
+              </div>
+
+              {/* Cards for this chapter */}
+              <div className="grid gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
+                {sections.map((section) => {
+                  const i = cardIndex++
+                  const isRead = Boolean(progress[section.slug])
+                  const Icon = section.icon
+                  return (
+                    <motion.div
+                      key={section.slug}
+                      initial={{ opacity: 0, y: 14 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.3 }}
+                      transition={{
+                        duration: DURATIONS.default,
+                        delay: Math.min(i * STAGGER.default, 0.24),
+                        ease: EASE_PREMIUM,
+                      }}
                     >
-                      {String(section.number).padStart(2, "0")}
-                    </span>
-                    <Icon
-                      className="h-4 w-4 text-ink-dim transition-premium group-hover:text-ink-muted"
-                      aria-hidden
-                    />
-                  </div>
+                      <Link
+                        to={`/apprendre/${section.slug}`}
+                        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line-strong bg-obsidian-850/60 px-5 py-5 transition-premium hover:border-brand-500/40 hover:bg-obsidian-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60"
+                      >
+                        {/* Number + icon */}
+                        <div className="mb-4 flex items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-label-sm font-semibold ring-1",
+                              section.accentClass,
+                            )}
+                          >
+                            {String(section.number).padStart(2, "0")}
+                          </span>
+                          <Icon
+                            className="h-4 w-4 text-ink-dim transition-premium group-hover:text-ink-muted"
+                            aria-hidden
+                          />
+                        </div>
 
-                  {/* Title + tagline */}
-                  <h2 className="mb-1 font-display text-[1rem] font-semibold text-ink md:text-body-lg">
-                    {section.title}
-                  </h2>
-                  <p className="mb-4 flex-1 text-body-sm leading-relaxed text-ink-muted">
-                    {section.tagline}
-                  </p>
+                        {/* Title + tagline */}
+                        <h3 className="mb-1 font-display text-[1rem] font-semibold text-ink md:text-body-lg">
+                          {section.title}
+                        </h3>
+                        <p className="mb-4 flex-1 text-body-sm leading-relaxed text-ink-muted">
+                          {section.tagline}
+                        </p>
 
-                  {/* Footer meta */}
-                  <div className="flex items-center justify-between border-t border-line/60 pt-3 text-label-sm">
-                    <span className="inline-flex items-center gap-1 text-ink-dim">
-                      <Clock className="h-3 w-3" aria-hidden />
-                      {section.readingTimeMinutes} min
-                    </span>
-                    {isRead ? (
-                      <span className="inline-flex items-center gap-1 font-medium text-signal-yes">
-                        <CheckCircle2 className="h-3 w-3" aria-hidden />
-                        Lu
-                      </span>
-                    ) : (
-                      <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">
-                        À lire →
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              </motion.div>
-            )
-          })}
-        </div>
+                        {/* Footer meta */}
+                        <div className="flex items-center justify-between border-t border-line/60 pt-3 text-label-sm">
+                          <span className="inline-flex items-center gap-1 text-ink-dim">
+                            <Clock className="h-3 w-3" aria-hidden />
+                            {section.readingTimeMinutes} min
+                          </span>
+                          {isRead ? (
+                            <span className="inline-flex items-center gap-1 font-medium text-signal-yes">
+                              <CheckCircle2 className="h-3 w-3" aria-hidden />
+                              Lu
+                            </span>
+                          ) : (
+                            <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">
+                              À lire →
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </section>
+          ))
+        })()}
 
         {/* Final CTA */}
         <IndexCTA />
