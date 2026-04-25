@@ -9,7 +9,6 @@ import hashlib
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
@@ -17,7 +16,7 @@ from app.workers.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
-def _signal_dedupe_key(market_id: str, event_title: str, bucket: Optional[str]) -> str:
+def _signal_dedupe_key(market_id: str, event_title: str, bucket: str | None) -> str:
     norm = f"{bucket or ''}|{market_id}|{(event_title or '').strip().lower()[:500]}"
     return hashlib.sha256(norm.encode()).hexdigest()[:48]
 
@@ -126,7 +125,7 @@ RESOLVED_PRICE_HIGH = 0.97       # market priced "almost certainly YES"
 RESOLVED_PRICE_LOW = 0.03        # market priced "almost certainly NO"
 
 
-def _market_quality_reject(market) -> Optional[str]:
+def _market_quality_reject(market) -> str | None:
     """Return rejection reason if the market is too low-quality to signal on.
 
     Three sub-filters, all on Polymarket-side state (not signal-side):
@@ -177,10 +176,10 @@ CATALYST_MARKET_DISAGREE_THRESHOLD = 0.5
 
 
 def _catalyst_disagrees_with_market(
-    event_summary: Optional[str],
+    event_summary: str | None,
     direction: str,
-    last_trade_price: Optional[float],
-) -> Optional[str]:
+    last_trade_price: float | None,
+) -> str | None:
     """Return rejection reason if catalyst confidently asserts YES but market
     disagrees (BUY_YES < 0.5). Returns None otherwise.
 
@@ -308,6 +307,10 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
     from app.core.config import get_settings
     from app.db.database import get_session_factory
     async_session_factory = get_session_factory()
+    # Importing app.measurement registers the four built-in baselines into
+    # the global VariantRegistry singleton — required before
+    # record_baselines_for_signal is invoked below.
+    import app.measurement  # noqa: F401
     from app.db.models import (
         Event,
         EventMarketAnalysis,
@@ -317,16 +320,12 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         Signal,
     )
     from app.llm.impact_analyzer import create_impact_analyzer
+    from app.measurement.pipeline import record_baselines_for_signal
     from app.processing.embedding_service import get_embedding
     from app.processing.freshness import signal_event_still_fresh
     from app.retrieval import hybrid_search_markets  # dispatcher (v1 by default)
     from app.signal.signal_builder import create_signal_builder
     from app.sourcing.prod_trace import record_prod_signal_articles
-    # Importing app.measurement registers the four built-in baselines into
-    # the global VariantRegistry singleton — required before
-    # record_baselines_for_signal is invoked below.
-    import app.measurement  # noqa: F401
-    from app.measurement.pipeline import record_baselines_for_signal
 
     settings = get_settings()
     max_llm = settings.llm_impact_max_candidates
@@ -447,7 +446,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             event_full_text = f"{event.event_title}. {event.event_summary or ''}"
             analyzer = create_impact_analyzer()
 
-            async def _analyze_one(cand_dict: dict) -> Optional[dict]:
+            async def _analyze_one(cand_dict: dict) -> dict | None:
                 mid = cand_dict["market_id"]
                 market = (
                     await session.execute(
@@ -571,6 +570,86 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             if not market:
                 continue
 
+            # ── Persist EventMarketFeatures BEFORE any rejection gate ──
+            # Audit 2026-04-25 follow-up: the offline gate-effectiveness
+            # backtest needs at-time features for every analyzed pair —
+            # including those rejected by Filter A / cooloff / etc. We
+            # snapshot here and let the gates filter downstream signal
+            # creation as before.
+            analysis = (
+                await session.execute(
+                    select(EventMarketAnalysis)
+                    .where(
+                        EventMarketAnalysis.event_id == event_id,
+                        EventMarketAnalysis.market_id == mid,
+                    )
+                    .order_by(EventMarketAnalysis.id.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+
+            event_data = {
+                "first_seen": event.first_seen,
+                "last_seen": event.last_seen,
+                "unique_sources_count": event.unique_sources_count,
+                # Real per-event source authority — best-of-cluster.
+                # Audit 2026-04-25 P0-2 + P1.3.
+                "source_weight": event_src_signals["source_weight"],
+                "source_tier": event_src_signals["source_tier"],
+            }
+            # Audit 2026-04-25 follow-up [P0]: use is-not-None helpers so
+            # legitimate zeros (deeply-NO price, zero spread, ambiguity=0)
+            # reach the SignalBuilder instead of being coerced to None.
+            market_data = _build_market_data(market)
+            llm_data = _build_llm_data(analysis)
+
+            try:
+                from app.scoring.event_market_features_writer import (
+                    upsert_event_market_features,
+                )
+                from app.scoring.feature_dict import build_feature_dict
+
+                ref_dt = (
+                    event.last_seen
+                    or event.first_seen
+                    or datetime.now(timezone.utc)
+                )
+                source_count = event.unique_sources_count or 1
+                features_dict = build_feature_dict(
+                    event_data=event_data,
+                    market_data=market_data,
+                    ref_dt=ref_dt,
+                    source_count=source_count,
+                )
+                await upsert_event_market_features(
+                    session,
+                    event_id=event_id,
+                    market_id=mid,
+                    features=features_dict,
+                    impact_strength=(
+                        float(analysis.impact_strength)
+                        if analysis is not None and analysis.impact_strength is not None
+                        else None
+                    ),
+                    llm_confidence=(
+                        float(analysis.llm_confidence)
+                        if analysis is not None and analysis.llm_confidence is not None
+                        else None
+                    ),
+                    ambiguity_score=(
+                        float(analysis.ambiguity_score)
+                        if analysis is not None and analysis.ambiguity_score is not None
+                        else None
+                    ),
+                )
+            except Exception:
+                # Persistence is observability — never block scoring on a
+                # features write failure.
+                logger.exception(
+                    "event_market_features upsert failed event=%s market=%s",
+                    event_id, mid,
+                )
+
             # Filter A — market quality (volume / liquidity / resolved).
             # Pre-build_signal because there's no point scoring a $57/24h
             # market with $9k liquidity (the Ternus case).
@@ -616,33 +695,6 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             if recent_market_signal:
                 logger.info("Market cooloff: market %s already has signal in last 6h", mid)
                 continue
-
-            analysis = (
-                await session.execute(
-                    select(EventMarketAnalysis)
-                    .where(
-                        EventMarketAnalysis.event_id == event_id,
-                        EventMarketAnalysis.market_id == mid,
-                    )
-                    .order_by(EventMarketAnalysis.id.desc())
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-
-            event_data = {
-                "first_seen": event.first_seen,
-                "last_seen": event.last_seen,
-                "unique_sources_count": event.unique_sources_count,
-                # Real per-event source authority — best-of-cluster.
-                # Audit 2026-04-25 P0-2 + P1.3.
-                "source_weight": event_src_signals["source_weight"],
-                "source_tier": event_src_signals["source_tier"],
-            }
-            # Audit 2026-04-25 follow-up [P0]: use is-not-None helpers so
-            # legitimate zeros (deeply-NO price, zero spread, ambiguity=0)
-            # reach the SignalBuilder instead of being coerced to None.
-            market_data = _build_market_data(market)
-            llm_data = _build_llm_data(analysis)
 
             mid_cosine = cosine_by_mid.get(mid)
             signal = builder.build_signal(
@@ -902,7 +954,7 @@ def rescore_zero_signal_events(self):
 
 
 async def _rescore_zero_signal_events_async() -> dict:
-    from sqlalchemy import func, select
+    from sqlalchemy import select
 
     from app.core.config import get_settings
     from app.db.database import get_session_factory
@@ -997,6 +1049,7 @@ def _broadcast_signal(signal):
 
     try:
         import redis as _redis
+
         from app.core.config import get_settings
         _settings = get_settings()
         r = _redis.from_url(_settings.redis_url)
@@ -1082,7 +1135,7 @@ def _send_push_notification(signal):
         logger.debug("Push notification failed for signal %d", signal.id, exc_info=True)
 
 
-def _safe_float(val, scale: int = 1) -> Optional[float]:
+def _safe_float(val, scale: int = 1) -> float | None:
     if val is None:
         return None
     try:
@@ -1113,10 +1166,11 @@ def _is_quota_error(exc: BaseException) -> bool:
 
 async def _backfill_reasoning_async(limit: int = 50, *, analyzer=None) -> int:
     from sqlalchemy import delete, select
+
     from app.db.database import get_session_factory
     from app.db.models import SignalPendingReasoning
-    from app.signal.signal_builder import build_signal
     from app.llm.reasoning_analyzer import create_reasoning_analyzer
+    from app.signal.signal_builder import build_signal
 
     analyzer = analyzer or create_reasoning_analyzer()
 

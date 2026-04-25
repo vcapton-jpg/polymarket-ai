@@ -2,10 +2,10 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from app.db.models import Signal
 from app.scoring.feature_builder import create_feature_builder
+from app.scoring.feature_dict import build_feature_dict
 from app.scoring.heuristic_scorer import create_heuristic_scorer
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ MIN_SIGNAL_STRENGTH = 45
 
 def _build_score_explanation(
     score: int, strength: int, trade_q: int,
-    features: dict, llm_analysis: Optional[dict],
+    features: dict, llm_analysis: dict | None,
 ) -> str:
     parts = []
     if score >= 90:
@@ -50,7 +50,7 @@ def _build_score_explanation(
     return " ".join(parts)
 
 
-def _estimate_window(market_data: dict) -> Optional[str]:
+def _estimate_window(market_data: dict) -> str | None:
     end_date = market_data.get("end_date")
     if not end_date:
         return None
@@ -73,7 +73,7 @@ def _estimate_window(market_data: dict) -> Optional[str]:
     return "> 1 month"
 
 
-def _yes_probability_explanation(direction: str, price: Optional[float]) -> Optional[str]:
+def _yes_probability_explanation(direction: str, price: float | None) -> str | None:
     if price is None:
         return None
     pct = round(float(price) * 100, 1)
@@ -107,9 +107,9 @@ class SignalBuilder:
         market_id: str,
         event_data: dict,
         market_data: dict,
-        llm_analysis: Optional[dict] = None,
-        cosine_score: Optional[float] = None,
-    ) -> Optional[Signal]:
+        llm_analysis: dict | None = None,
+        cosine_score: float | None = None,
+    ) -> Signal | None:
         """Build a Signal from event/market data + optional LLM analysis.
 
         Returns None if the score is below threshold or hard-exclusion applies.
@@ -175,25 +175,13 @@ class SignalBuilder:
 
         source_count = event_data.get("unique_sources_count", 1)
 
-        features = {
-            "freshness": self.feature_builder.build_freshness_factor(ref_dt),
-            "source_weight": self.feature_builder.build_source_weight(
-                event_data.get("source_weight", 0.5)
-            ),
-            "confirmation": self.feature_builder.build_confirmation_factor(
-                source_count,
-                source_tier=event_data.get("source_tier", 2),
-            ),
-            "liquidity": self.feature_builder.build_liquidity_factor(
-                market_data.get("liquidity")
-            ),
-            "spread": self.feature_builder.build_spread_penalty(
-                spread
-            ),
-            "time_to_resolution": self.feature_builder.build_time_to_resolution_factor(
-                market_data.get("end_date")
-            ),
-        }
+        features = build_feature_dict(
+            event_data=event_data,
+            market_data=market_data,
+            ref_dt=ref_dt,
+            source_count=source_count,
+            feature_builder=self.feature_builder,
+        )
 
         llm_combined = None
         if llm_analysis:
@@ -330,6 +318,7 @@ async def build_signal(
 
 async def _persist_signal(assembled: dict, articles: list[dict]) -> None:
     from sqlalchemy import update
+
     from app.db.database import get_session_factory
     from app.db.models import EventNewsLink, Signal
 

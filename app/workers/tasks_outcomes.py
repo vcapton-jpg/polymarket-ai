@@ -3,13 +3,70 @@
 Phase 7: capture_price, check_resolved_markets
 """
 
-import asyncio
 import logging
 
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+def binary_label(price: float | None) -> int | None:
+    """Single source of truth for the binary-band resolution rule.
+
+    Used by both `signal_outcomes.outcome_label` (inside the signal loop)
+    and `event_market_features.outcome_label` (back-populated for all
+    analyzed pairs). Boundaries are inclusive — matches DEC-013 semantics.
+    """
+    if price is None:
+        return None
+    if price >= 0.95:
+        return 1
+    if price <= 0.05:
+        return 0
+    return None
+
+
+async def _backpop_event_market_features_outcome(session, *, market_ids):
+    """Fill `event_market_features.outcome_label` for every (event, market)
+    pair whose market resolved in the binary band.
+
+    Only updates rows where `outcome_label IS NULL` — never overwrites a
+    previous label, so the function is idempotent under retries and safe
+    to compose with manual backfills.
+    """
+    if not market_ids:
+        return 0
+
+    from sqlalchemy import select, update
+
+    from app.db.models import EventMarketFeatures, Market
+
+    markets = (
+        await session.execute(
+            select(Market).where(Market.market_id.in_(list(market_ids)))
+        )
+    ).scalars().all()
+
+    updated = 0
+    for m in markets:
+        if not m.closed:
+            continue
+        label = binary_label(
+            float(m.last_trade_price) if m.last_trade_price is not None else None
+        )
+        if label is None:
+            continue
+        result = await session.execute(
+            update(EventMarketFeatures)
+            .where(
+                EventMarketFeatures.market_id == m.market_id,
+                EventMarketFeatures.outcome_label.is_(None),
+            )
+            .values(outcome_label=label)
+        )
+        updated += result.rowcount or 0
+    return updated
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -254,12 +311,7 @@ async def _check_resolved_async() -> dict:
                         float(final_price),
                     )
 
-                if final_price >= 0.95:
-                    outcome.outcome_label = 1
-                elif final_price <= 0.05:
-                    outcome.outcome_label = 0
-                else:
-                    outcome.outcome_label = None
+                outcome.outcome_label = binary_label(final_price)
 
                 # Measurement: refresh all variant rows for this signal.
                 try:
@@ -274,6 +326,25 @@ async def _check_resolved_async() -> dict:
                     )
 
                 resolved += 1
+
+            # Back-pop event_market_features.outcome_label for ALL analyzed
+            # pairs whose market just resolved — including pairs that never
+            # became signals. Required for the offline gate-effectiveness
+            # backtest (audit 2026-04-25 follow-up).
+            try:
+                emf_backfilled = await _backpop_event_market_features_outcome(
+                    session, market_ids=market_ids,
+                )
+                if emf_backfilled:
+                    logger.info(
+                        "event_market_features.outcome_label backfilled %d rows",
+                        emf_backfilled,
+                    )
+            except Exception:
+                logger.exception(
+                    "event_market_features outcome_label backfill failed — "
+                    "signal_outcomes path unaffected"
+                )
 
             await session.commit()
 
