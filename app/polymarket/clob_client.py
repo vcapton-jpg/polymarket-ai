@@ -79,6 +79,42 @@ class ClobClient:
                 return _to_float(token.get("price"))
         return None
 
+    @retry(stop=stop_after_attempt(2), wait=wait_exponential(min=1, max=5))
+    async def get_price_24h_ago(self, yes_token_id: str) -> Optional[float]:
+        """Fetch the YES price as of ~24h ago from /prices-history.
+
+        Used by the measurement layer to enable `baseline_momentum`. We pull
+        the 1-day window (`interval=1d`) and pick the earliest datapoint —
+        Polymarket returns a uniform-bucket time series so the first row is
+        the oldest sample within the window.
+
+        Returns None if Polymarket has no history yet (brand-new market) or
+        the call errors out — the caller treats None as "skip momentum".
+        """
+        client = await self._get_client()
+        try:
+            resp = await client.get(
+                "/prices-history",
+                params={"market": yes_token_id, "interval": "1d"},
+            )
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError as e:
+            logger.warning(
+                "ClobClient.get_price_24h_ago: token=%s failed: %s", yes_token_id, e,
+            )
+            return None
+
+        history = data.get("history") or []
+        if not history:
+            return None
+        # First point in `interval=1d` is the oldest (~24h old); newest is
+        # the current price. We want the oldest.
+        first = history[0]
+        return _to_float(first.get("p"))
+
 
 def _to_float(val) -> Optional[float]:
     if val is None:

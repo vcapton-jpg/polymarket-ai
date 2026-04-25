@@ -118,6 +118,86 @@ LOW_DIVERSITY_THRESHOLD = 2    # need >= 2 distinct source_name to avoid penalty
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Measurement-layer helpers — fetch data the baselines need at signal time.
+# Kept module-level (not nested) so the integration tests can patch them.
+# ══════════════════════════════════════════════════════════════════════════
+
+async def _fetch_baseline_articles(session, *, event_id: int) -> list[dict]:
+    """Return [{source_weight: float}, ...] for the news_sentiment baseline.
+
+    Joins event_news_links → news_clean → news to recover the per-article
+    source_weight that was lost when we collapsed to (clean_id, excerpt) for
+    the audit row. Capped at 20 articles — the sigmoid in the baseline
+    saturates well before then and we don't want to spend N×SELECT on tail
+    sources for an O(1) prediction.
+
+    Failure-tolerant: any exception → empty list (news_sentiment baseline
+    silently returns None and no row is written for that variant).
+    """
+    from sqlalchemy import select
+
+    from app.db.models import EventNewsLink, News, NewsClean
+
+    try:
+        rows = (
+            await session.execute(
+                select(News.source_weight)
+                .join(NewsClean, NewsClean.news_id == News.id)
+                .join(EventNewsLink, EventNewsLink.clean_id == NewsClean.id)
+                .where(EventNewsLink.event_id == event_id)
+                .order_by(EventNewsLink.relevance_score.desc().nullslast())
+                .limit(20)
+            )
+        ).all()
+    except Exception:
+        logger.exception(
+            "tasks_scoring._fetch_baseline_articles: event_id=%s failed",
+            event_id,
+        )
+        return []
+
+    return [
+        {"source_weight": float(r[0])}
+        for r in rows
+        if r[0] is not None
+    ]
+
+
+async def _fetch_market_price_24h_ago(market) -> float | None:
+    """Pull the YES probability ~24h ago from Polymarket's /prices-history.
+
+    Returns None when:
+      • `market` or its `clob_token_ids` are missing (legacy rows)
+      • the YES token id can't be resolved
+      • the API call fails / 404s / returns no history (brand-new markets)
+
+    The momentum_24h baseline treats None as 'skip this prediction' so a
+    transient Polymarket outage simply means one fewer baseline row, not a
+    failed signal commit.
+    """
+    if market is None:
+        return None
+    token_ids = getattr(market, "clob_token_ids", None) or {}
+    yes_token_id = token_ids.get("yes") if isinstance(token_ids, dict) else None
+    if not yes_token_id:
+        return None
+
+    from app.polymarket.clob_client import ClobClient
+
+    client = ClobClient()
+    try:
+        return await client.get_price_24h_ago(str(yes_token_id))
+    except Exception:
+        logger.exception(
+            "tasks_scoring._fetch_market_price_24h_ago: token=%s failed",
+            yes_token_id,
+        )
+        return None
+    finally:
+        await client.close()
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Phase 5 — Hybrid search → LLM impact → score → signal (all in one task)
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -338,6 +418,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         signals_created = 0
         best_signal = None
         best_signal_mid = None
+        best_market = None  # captured alongside best_signal for clob_token_ids lookup
         best_score = -1
 
         scored_mids = set()
@@ -540,6 +621,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 best_score = signal.signal_score
                 best_signal = signal
                 best_signal_mid = mid
+                best_market = market
 
         if best_signal is not None:
             dedupe_key = _signal_dedupe_key(best_signal_mid, event.event_title, event.bucket)
@@ -582,8 +664,30 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             # signal commit. The sync builder stashed `_features` and
             # `_llm_combined` on the Signal so the optional
             # 'heuristic_shadow' row can be written when the flag is on.
+            #
+            # We feed two pieces of richer context here:
+            #   • `articles` with real `source_weight` from the News table
+            #     so the news_sentiment baseline has weights to aggregate.
+            #     `direction` is left implicit (NEUTRAL) until per-article
+            #     directional sentiment is added in a future chantier — the
+            #     baseline currently degenerates to a constant 0.5 / BUY_NO
+            #     prediction. Wiring the path now means the moment we add
+            #     direction labels upstream, the baseline activates without
+            #     touching this file.
+            #   • `market_price_24h_ago` fetched from Polymarket
+            #     /prices-history so the momentum_24h baseline produces a
+            #     real, non-degenerate prediction. Failures (network, 404,
+            #     missing token id, brand-new market) silently fall back to
+            #     None — the baseline returns None and the row is skipped.
+            articles_for_baselines = await _fetch_baseline_articles(
+                session, event_id=event_id
+            )
+            price_24h_ago = await _fetch_market_price_24h_ago(best_market)
             await record_baselines_for_signal(
-                session, signal=best_signal, articles=[]
+                session,
+                signal=best_signal,
+                articles=articles_for_baselines,
+                market_price_24h_ago=price_24h_ago,
             )
 
             _schedule_price_captures(best_signal.id, best_signal_mid)
@@ -897,38 +1001,14 @@ def _is_quota_error(exc: BaseException) -> bool:
     )
 
 
-async def _score_event_market_async(event, market, articles, *, analyzer=None):
-    from app.llm.reasoning_analyzer import create_reasoning_analyzer
-    from app.signal.signal_builder import build_signal
-    from app.db.database import get_session_factory
-    from app.db.models import SignalPendingReasoning
-
-    analyzer = analyzer or create_reasoning_analyzer()
-
-    try:
-        return await build_signal(
-            event=event, market=market, articles=articles,
-            analyzer=analyzer, persist=True,
-        )
-    except Exception as e:
-        if _is_quota_error(e):
-            logger.warning(
-                "llm.quota_exceeded event_id=%s market_id=%s — staging for backfill",
-                event.get("id"), market.get("id"),
-            )
-            session_factory = get_session_factory()
-            async with session_factory() as s:
-                s.add(SignalPendingReasoning(
-                    event_id=event["id"],
-                    market_id=market["id"],
-                    inputs={
-                        "event": event, "market": market, "articles": articles,
-                    },
-                    last_error=str(e)[:500],
-                ))
-                await s.commit()
-            return None
-        raise
+# NOTE 2026-04-25: `_score_event_market_async` was removed in this commit.
+# It was the only writer to `SignalPendingReasoning` and was orphan in
+# production (the live scoring path uses the sync `SignalBuilder` via
+# `_run_full_scoring_pipeline`). Its sole consumer was a unit test that
+# exercised an unreachable circuit breaker. The `_backfill_reasoning_async`
+# task below still drains `SignalPendingReasoning` for safety in case rows
+# linger from past releases, but with no producer it's effectively a no-op.
+# A future cleanup chantier can drop the table + the beat schedule entirely.
 
 
 async def _backfill_reasoning_async(limit: int = 50, *, analyzer=None) -> int:

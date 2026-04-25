@@ -731,12 +731,7 @@ npm run test         # Vitest
 
 ### 16.3 Script utile — backfill raisonnement
 
-```bash
-docker compose exec app python -m scripts.backfill_reasoning --days 7 --dry-run
-docker compose exec app python -m scripts.backfill_reasoning --days 7
-```
-
-Remplit `reasoning` + `source_tier_mix` sur les signaux pré-Axis-A (voir `scripts/backfill_reasoning.py`).
+Le script ad-hoc `scripts/backfill_reasoning.py` (un-shot pour pré-Axis-A) a été retiré le 2026-04-25 — toutes les signaux post-Axis-A persistent déjà `reasoning` + `source_tier_mix` au moment de la création. Le drain Celery `backfill_reasoning` (10 min) reste actif mais lit une table sans producteur (`signals_pending_reasoning`) ; à supprimer dans un futur ménage.
 
 ---
 
