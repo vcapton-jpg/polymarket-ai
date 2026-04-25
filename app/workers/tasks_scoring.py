@@ -29,6 +29,36 @@ def _signal_dedupe_key(market_id: str, event_title: str, bucket: Optional[str]) 
 # "Ternus appointed CEO of Apple" signal on a market trading at 32%
 # (illiquid + hallucinated catalyst). See comments in each helper.
 
+# ── Per-event source-quality derivation (audit 2026-04-25 P0-2 + P1.3) ──
+#
+# The SignalBuilder consumes `event_data["source_weight"]` and
+# `event_data["source_tier"]` to score the cluster. Pre-fix, the call site
+# hardcoded source_weight=0.8 and never passed source_tier (defaulting to
+# tier 2 inside FeatureBuilder), throwing away the actual source quality
+# we already had in News rows.
+#
+# Selection: max(weight) and min(tier) across the cluster — best-of-cluster,
+# matching the heuristic intuition that one Reuters confirmation defines
+# the cluster's authority even if other repostings are weaker. NULLs are
+# skipped (vs. treated as 0/∞) so old rows missing the metadata don't
+# poison the derivation.
+def _derive_event_source_signals(
+    rows: list[tuple[str | None, int | None, float | None]],
+) -> dict:
+    """Pure helper — derive per-event source_weight + source_tier from a
+    list of (source_name, source_tier, source_weight) cluster rows.
+
+    Returns a dict with keys 'source_weight' (float) and 'source_tier' (int).
+    Defaults match SignalBuilder/FeatureBuilder behaviour: 0.5 / 2.
+    """
+    weights = [w for _n, _t, w in rows if w is not None]
+    tiers = [t for _n, t, _w in rows if t is not None]
+    return {
+        "source_weight": max(weights) if weights else 0.5,
+        "source_tier": min(tiers) if tiers else 2,
+    }
+
+
 # Filter A thresholds — markets too thin/resolved to trade meaningfully
 MIN_VOLUME_24H_USD = 500.0       # below this, market is dead inventory
 MIN_LIQUIDITY_USD = 2_000.0      # below this, slippage destroys edge
@@ -447,15 +477,20 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         from app.db.models import News, NewsClean
         src_rows = (
             await session.execute(
-                select(News.source_name, News.source_tier)
+                select(News.source_name, News.source_tier, News.source_weight)
                 .join(NewsClean, NewsClean.news_id == News.id)
                 .join(EventNewsLink, EventNewsLink.clean_id == NewsClean.id)
                 .where(EventNewsLink.event_id == event_id)
             )
         ).all()
         distinct_source_names = {r[0] for r in src_rows if r[0]}
+        # Per-event source authority (best-of-cluster) — feeds the SignalBuilder.
+        # Audit 2026-04-25 P0-2 + P1.3.
+        event_src_signals = _derive_event_source_signals(
+            [(r[0], r[1], r[2]) for r in src_rows]
+        )
         tier_counts: dict[str, int] = {}
-        for _name, tier in src_rows:
+        for _name, tier, _weight in src_rows:
             if tier is None:
                 continue
             key = f"tier_{int(tier)}"
@@ -538,7 +573,10 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 "first_seen": event.first_seen,
                 "last_seen": event.last_seen,
                 "unique_sources_count": event.unique_sources_count,
-                "source_weight": 0.8,
+                # Real per-event source authority — best-of-cluster.
+                # Audit 2026-04-25 P0-2 + P1.3.
+                "source_weight": event_src_signals["source_weight"],
+                "source_tier": event_src_signals["source_tier"],
             }
             market_data = {
                 "liquidity": float(market.liquidity) if market.liquidity else None,
