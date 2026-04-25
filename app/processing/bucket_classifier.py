@@ -123,6 +123,29 @@ DEFAULT_TRAINING_DATA = {
         "espionage intelligence spy agency foreign interference election",
         "territorial waters south china sea disputed islands sovereignty claim",
     ],
+    # Audit follow-up: the "other" bucket previously had ZERO training
+    # examples, so the model could never predict it — irrelevant content
+    # got force-assigned to one of the 6 real topics, polluting clusters.
+    # These cover the irrelevant content the ingestion pipeline actually
+    # sees: lifestyle, celebrity, weather, local human-interest, recipes,
+    # entertainment — content that has no prediction-market relevance.
+    "other": [
+        "celebrity wedding paparazzi photos red carpet gown designer hollywood",
+        "movie premiere box office opening weekend trailer release sequel",
+        "music album release tour concert tickets streaming chart top hits",
+        "fashion week runway show designer collection model brand luxury",
+        "travel destination vacation resort beach hotel review tourism guide",
+        "recipe cooking ingredients dish chef restaurant menu dining cuisine",
+        "horoscope zodiac astrology star sign reading prediction tarot card",
+        "weather forecast rain snow temperature storm hurricane warning local",
+        "lifestyle wellness yoga meditation mindfulness self care routine tips",
+        "viral video meme tiktok trend social media post likes shares funny",
+        "garden plants flowers landscaping diy home improvement decor inspiration",
+        "pet dog cat animal rescue adoption shelter veterinarian breed grooming",
+        "wedding engagement honeymoon ceremony reception bridal party venue",
+        "obituary memorial funeral remembrance tribute legacy beloved community",
+        "human interest local community charity event fundraiser volunteer story",
+    ],
 }
 
 
