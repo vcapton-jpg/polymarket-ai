@@ -2,10 +2,9 @@
 
 import logging
 from collections import Counter
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 
-from app.db.models import Event, EventNewsLink
+from app.db.models import Event
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +44,14 @@ def build_event_from_cluster(
 
     sources = {a.get("source_name") for a in articles if a.get("source_name")}
 
-    dates = [
-        a.get("publish_date") or a.get("ingestion_date")
-        for a in articles
-        if a.get("publish_date") or a.get("ingestion_date")
-    ]
-    first_seen = min(dates) if dates else datetime.now(timezone.utc)
-    last_seen = max(dates) if dates else datetime.now(timezone.utc)
+    # Conservative seen-window from each article's older-of-(publish_date,
+    # ingestion_date) — see app.processing.freshness.compute_event_seen_window.
+    # Shared with the fast-path in tasks_pipeline so both paths produce
+    # identical timestamps and the staleness gate cannot drift.
+    from app.processing.freshness import compute_event_seen_window
+    first_seen, last_seen = compute_event_seen_window(
+        [(a.get("publish_date"), a.get("ingestion_date")) for a in articles]
+    )
 
     from app.processing.text_composers import compose_event_v1
     event_retrieval_text = compose_event_v1(

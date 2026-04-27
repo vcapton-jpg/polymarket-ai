@@ -36,8 +36,8 @@ async def _process_article_async(news_id: int) -> dict:
     from app.processing.bucket_classifier import get_bucket_classifier
     from app.processing.embedding_service import get_embedding
     from app.processing.freshness import is_fresh_enough
-    from app.processing.news_cleaner import NewsCleaner
     from app.processing.ner_extractor import NERExtractor
+    from app.processing.news_cleaner import NewsCleaner
 
     settings = get_settings()
     cleaner = NewsCleaner()
@@ -262,11 +262,13 @@ async def _try_instant_event_async(clean_id: int) -> dict:
 
         sources = set()
         titles = []
+        cluster_article_dates: list[tuple] = []
         for ca in cluster_articles:
             n = (await session.execute(select(News).where(News.id == ca.news_id))).scalar_one_or_none()
             if n:
                 sources.add(n.source_name)
                 titles.append(n.title)
+                cluster_article_dates.append((n.publish_date, n.ingestion_date))
 
         event_title = titles[0] if titles else "Untitled event"
         event_summary = " | ".join(t[:200] for t in titles[:5])
@@ -283,6 +285,14 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         from app.processing.text_composers import compose_event_v1
         retrieval_text = compose_event_v1(event_title, event_summary, key_ents).text
 
+        # Bug fix 2026-04-27: pre-fix, the fast path omitted first_seen /
+        # last_seen so the DB `server_default=NOW()` kicked in and stale
+        # tweets (publish_date 17 h ago) were treated as fresh, slipping
+        # past `signal_event_max_age_hours = 6h` and emitting signals
+        # on already-priced-in news.
+        from app.processing.freshness import compute_event_seen_window
+        first_seen, last_seen = compute_event_seen_window(cluster_article_dates)
+
         event = Event(
             event_title=event_title,
             event_summary=event_summary[:2000],
@@ -292,6 +302,8 @@ async def _try_instant_event_async(clean_id: int) -> dict:
             bucket=anchor.bucket,
             articles_count=len(cluster_ids),
             unique_sources_count=len(sources),
+            first_seen=first_seen,
+            last_seen=last_seen,
             processing_status="new",
             embedding=None,
         )
@@ -448,7 +460,7 @@ async def _build_events_async() -> dict:
     from app.core.config import get_settings
     from app.db.database import get_session_factory
     async_session_factory = get_session_factory()
-    from app.db.models import ArticleEntity, Event, EventNewsLink, News, NewsClean
+    from app.db.models import ArticleEntity, EventNewsLink, News, NewsClean
     from app.event_engine.event_builder import build_event_from_cluster
     from app.event_engine.simple_clusterer import create_simple_clusterer
     from app.processing.embedding_reader import get_active_embedding
@@ -587,6 +599,7 @@ async def _check_simhash_dup(session, simhash_val: int | None, threshold: float)
         return False
 
     from sqlalchemy import select
+
     from app.db.models import NewsClean
 
     result = await session.execute(
