@@ -98,7 +98,15 @@ class Settings(BaseSettings):
     cors_extra_origins: str = Field(default="")
 
     # ── Ingestion intervals (seconds) ─────────────────────────────────────
+    # Slow cadence for tier-2/3 sources (commentary, World News API,
+    # less-active X accounts).
     rss_poll_interval_seconds: int = Field(default=90)
+    # Fast cadence for tier-1 wire sources (Reuters, AFP, AP, BBCBreaking,
+    # FirstSquawk, business). Combined with `RSSHub CACHE_EXPIRE=60` this
+    # brings publish→ingestion p50 lag from ~5 min to ~60-75 s. Going
+    # below 15 s yields diminishing returns because RSSHub returns the
+    # same cached content for the full 60 s TTL window.
+    tier1_rss_poll_interval_seconds: int = Field(default=15)
     x_poll_interval_seconds: int = Field(default=60)
     market_refresh_interval_seconds: int = Field(default=900)
     market_percentile_interval_seconds: int = Field(default=86400)

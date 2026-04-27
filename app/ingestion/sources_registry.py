@@ -1,7 +1,6 @@
 """Sources registry — load active sources from DB, cache in memory."""
 
 import logging
-from typing import Optional
 
 from sqlalchemy import select
 
@@ -55,7 +54,28 @@ async def get_sources_by_type(*source_types: str) -> list[dict]:
     ]
 
 
-def get_source_weight(source_name: str) -> Optional[dict]:
+async def get_sources_by_tier_and_type(
+    tiers: tuple[int, ...],
+    source_types: tuple[str, ...],
+) -> list[dict]:
+    """Filter cached sources by both tier set and source_type set.
+
+    Used by the split-cadence ingestion: tier-1 sources poll every
+    `tier1_rss_poll_interval_seconds` (default 15 s) for low publish→signal
+    latency on the wire-grade accounts; tier-2/3 stay on the slower
+    `rss_poll_interval_seconds` (default 90 s) cadence to avoid
+    over-fetching the upstream feeds.
+    """
+    if not _sources_cache:
+        await load_sources()
+
+    return [
+        s for s in _sources_cache.values()
+        if s["source_type"] in source_types and s["tier"] in tiers
+    ]
+
+
+def get_source_weight(source_name: str) -> dict | None:
     """Get cached source info by name. Returns None if not found."""
     return _sources_cache.get(source_name)
 
