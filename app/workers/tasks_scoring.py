@@ -287,6 +287,224 @@ async def _fetch_market_price_24h_ago(market) -> float | None:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Pipeline helpers (P1-5 chantier — extracted from `_run_full_scoring_pipeline`)
+#
+# These are the four step-shaped slices of the old 860-line god function.
+# Each is intentionally a small, self-contained async coroutine that takes
+# the live session as its first argument; they all read & mutate the
+# session in place, mirroring the inline logic exactly. The purpose of
+# the split is to make the orchestrator readable in a single screen and
+# to give each step its own grep-able name in stack traces.
+# ══════════════════════════════════════════════════════════════════════════
+
+
+async def _ensure_event_embeddings(session, event) -> list[float] | None:
+    """Step 1: ensure raw + v2 embeddings exist on `event`.
+
+    Returns the **raw** embedding as a list (or None if it could not be
+    computed). v2 is best-effort — failures only emit a warning. Both
+    columns are flushed (not committed) so the caller's outer commit
+    captures them in the same transaction as the rest of the pipeline.
+    """
+    from app.processing.embedding_service import get_embedding
+
+    raw_embedding = event.embedding
+    if raw_embedding is None:
+        text_for_embed = event.event_retrieval_text or event.event_title
+        raw_embedding = await get_embedding(text_for_embed)
+        if raw_embedding is not None:
+            event.embedding = raw_embedding
+            await session.flush()
+
+    # v2 event embedding — best-effort; failure does not block scoring
+    if event.embedding_v2 is None:
+        from app.processing.text_composers import compose_event_v2
+
+        composed_v2 = compose_event_v2(
+            event.event_title,
+            event.event_summary or "",
+            list(event.key_entities or []),
+            bucket=event.bucket,
+        )
+        try:
+            v2_emb = await get_embedding(composed_v2.text)
+        except Exception as exc:
+            logger.warning("event embedding_v2 failed event_id=%s: %s", event.id, exc)
+            v2_emb = None
+        if v2_emb is not None:
+            event.embedding_v2 = v2_emb
+            event.embedding_v2_composition = composed_v2.composition_version
+            event.embedding_v2_computed_at = datetime.now(timezone.utc)
+            await session.flush()
+
+    return list(raw_embedding) if raw_embedding is not None else None
+
+
+async def _persist_candidates(session, event_id: int, candidates: list[dict]) -> None:
+    """Step 2 (write): upsert one EventMarketCandidate per (event, market) pair.
+
+    On second runs of the same event we update the scores in place
+    rather than appending duplicates. The sequential SELECT-then-add
+    pattern is intentional — `candidates` is small (≤ top_k_markets,
+    default 10) so a per-row check is cheaper than a bulk fetch + diff.
+    """
+    from sqlalchemy import select
+
+    from app.db.models import EventMarketCandidate
+
+    for c in candidates:
+        existing = (
+            await session.execute(
+                select(EventMarketCandidate).where(
+                    EventMarketCandidate.event_id == event_id,
+                    EventMarketCandidate.market_id == c["market_id"],
+                )
+            )
+        ).scalar_one_or_none()
+
+        if existing:
+            existing.bm25_score = c.get("bm25_score")
+            existing.cosine_score = c.get("cosine_score")
+            existing.rrf_score = c.get("rrf_score")
+            existing.rank = c.get("rank")
+        else:
+            session.add(
+                EventMarketCandidate(
+                    event_id=event_id,
+                    market_id=c["market_id"],
+                    bm25_score=c.get("bm25_score"),
+                    cosine_score=c.get("cosine_score"),
+                    rrf_score=c.get("rrf_score"),
+                    rank=c.get("rank"),
+                )
+            )
+
+
+async def _load_event_source_context(session, event_id: int) -> dict:
+    """Step 4 prefix: pre-fetch event-level source data once.
+
+    Used downstream by:
+      • Filter B (penalty for single-source events) → distinct_source_names
+      • Filter E (`source_tier_mix` shares persisted on Signal)
+      • SignalBuilder (`source_weight` + `source_tier` best-of-cluster
+        — audit 2026-04-25 P0-2 + P1.3)
+    """
+    from sqlalchemy import select
+
+    from app.db.models import EventNewsLink, News, NewsClean
+
+    src_rows = (
+        await session.execute(
+            select(News.source_name, News.source_tier, News.source_weight)
+            .join(NewsClean, NewsClean.news_id == News.id)
+            .join(EventNewsLink, EventNewsLink.clean_id == NewsClean.id)
+            .where(EventNewsLink.event_id == event_id)
+        )
+    ).all()
+    distinct_source_names = {r[0] for r in src_rows if r[0]}
+    event_src_signals = _derive_event_source_signals(
+        [(r[0], r[1], r[2]) for r in src_rows]
+    )
+    tier_counts: dict[str, int] = {}
+    for _name, tier, _weight in src_rows:
+        if tier is None:
+            continue
+        key = f"tier_{int(tier)}"
+        tier_counts[key] = tier_counts.get(key, 0) + 1
+    total_articles = sum(tier_counts.values()) or 0
+    source_tier_mix = (
+        {k: round(v / total_articles, 4) for k, v in tier_counts.items()}
+        if total_articles
+        else None
+    )
+    return {
+        "distinct_source_names": distinct_source_names,
+        "event_src_signals": event_src_signals,
+        "source_tier_mix": source_tier_mix,
+    }
+
+
+async def _persist_best_signal(
+    session,
+    *,
+    event,
+    best_signal,
+    best_signal_mid: str,
+    best_market,
+) -> None:
+    """Step 5: commit the chosen signal + write its audit + measurement rows.
+
+    Side effects:
+      1. set dedupe_key + flush so we have an id
+      2. record_prod_signal_articles (signal_articles audit row)
+      3. record_baselines_for_signal (heuristic_v1 + 4 baselines)
+      4. schedule price captures (background)
+      5. refresh `created_at` so the WS broadcast carries the timestamp
+      6. broadcast over WebSocket
+
+    Each step swallows its own failures the way the inline code did so
+    a flaky baseline write never aborts the signal commit.
+    """
+    from sqlalchemy import select
+
+    from app.db.models import EventNewsLink
+    from app.measurement.pipeline import record_baselines_for_signal
+    from app.sourcing.prod_trace import record_prod_signal_articles
+
+    dedupe_key = _signal_dedupe_key(best_signal_mid, event.event_title, event.bucket)
+    best_signal.dedupe_key = dedupe_key
+    session.add(best_signal)
+    await session.flush()
+
+    # Audit row — feeds the SignalCard "sources" list and shadow-variant joins.
+    try:
+        links_result = await session.execute(
+            select(EventNewsLink.clean_id, EventNewsLink.key_excerpt)
+            .where(EventNewsLink.event_id == event.id)
+            .order_by(EventNewsLink.relevance_score.desc().nullslast())
+            .limit(10)
+        )
+        article_rows = [
+            {"news_clean_id": cid, "excerpt": exc} for cid, exc in links_result.all()
+        ]
+        if article_rows:
+            await record_prod_signal_articles(
+                session, signal_id=best_signal.id, articles=article_rows,
+            )
+    except Exception:
+        logger.exception(
+            "tasks_scoring: record_prod_signal_articles failed signal_id=%s",
+            best_signal.id,
+        )
+
+    # Measurement layer — heuristic_v1 + 4 baselines into signal_predictions.
+    articles_for_baselines = await _fetch_baseline_articles(session, event_id=event.id)
+    price_24h_ago = await _fetch_market_price_24h_ago(best_market)
+    await record_baselines_for_signal(
+        session,
+        signal=best_signal,
+        articles=articles_for_baselines,
+        market_price_24h_ago=price_24h_ago,
+    )
+
+    _schedule_price_captures(best_signal.id, best_signal_mid)
+    # Server-side default on `created_at` — Python attr stays None after
+    # flush() until refresh(). Without this, every WS subscriber gets
+    # created_at=null.
+    await session.refresh(best_signal, ["created_at"])
+    await _broadcast_signal(best_signal)
+
+    logger.info(
+        "Signal created: id=%d event=%d market=%s score=%.1f dir=%s",
+        best_signal.id,
+        event.id,
+        best_signal_mid,
+        best_signal.signal_score,
+        best_signal.direction,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Phase 5 — Hybrid search → LLM impact → score → signal (all in one task)
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -301,7 +519,15 @@ def run_hybrid_search(self, event_id: int):
 
 
 async def _run_full_scoring_pipeline(event_id: int) -> dict:
-    """Combined hybrid-search + parallel-LLM + score pipeline in one async call."""
+    """Orchestrator: hybrid search → parallel LLM → score → best-signal commit.
+
+    The five extracted helpers above (`_ensure_event_embeddings`,
+    `_persist_candidates`, `_load_event_source_context`, the inline
+    Step 3 LLM block, and `_persist_best_signal`) keep this body
+    readable in one screen while preserving the original transactional
+    semantics — every helper takes the live session and only flushes,
+    leaving the outer commit at the end of `async with`.
+    """
     from sqlalchemy import select
 
     from app.core.config import get_settings
@@ -309,23 +535,13 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
     async_session_factory = get_session_factory()
     # Importing app.measurement registers the four built-in baselines into
     # the global VariantRegistry singleton — required before
-    # record_baselines_for_signal is invoked below.
+    # `_persist_best_signal` invokes record_baselines_for_signal below.
     import app.measurement  # noqa: F401
-    from app.db.models import (
-        Event,
-        EventMarketAnalysis,
-        EventMarketCandidate,
-        EventNewsLink,
-        Market,
-        Signal,
-    )
+    from app.db.models import Event, EventMarketAnalysis, Market, Signal
     from app.llm.impact_analyzer import create_impact_analyzer
-    from app.measurement.pipeline import record_baselines_for_signal
-    from app.processing.embedding_service import get_embedding
     from app.processing.freshness import signal_event_still_fresh
     from app.retrieval import hybrid_search_markets  # dispatcher (v1 by default)
     from app.signal.signal_builder import create_signal_builder
-    from app.sourcing.prod_trace import record_prod_signal_articles
 
     settings = get_settings()
     max_llm = settings.llm_impact_max_candidates
@@ -348,40 +564,13 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
 
         skip_llm = event.processing_status in ("llm_done", "scoring_done")
 
-        # ── Step 1: Event embedding ──────────────────────────────────
-        raw_embedding = event.embedding
-        if raw_embedding is None:
-            text_for_embed = event.event_retrieval_text or event.event_title
-            raw_embedding = await get_embedding(text_for_embed)
-            if raw_embedding is not None:
-                event.embedding = raw_embedding
-                await session.flush()
-
-        # v2 event embedding — best-effort; failure does not block scoring
-        if event.embedding_v2 is None:
-            from app.processing.text_composers import compose_event_v2
-            composed_v2 = compose_event_v2(
-                event.event_title, event.event_summary or "",
-                list(event.key_entities or []), bucket=event.bucket,
-            )
-            try:
-                v2_emb = await get_embedding(composed_v2.text)
-            except Exception as exc:
-                logger.warning("event embedding_v2 failed event_id=%s: %s", event_id, exc)
-                v2_emb = None
-            if v2_emb is not None:
-                # datetime/timezone come from module-level import at top of file
-                event.embedding_v2 = v2_emb
-                event.embedding_v2_composition = composed_v2.composition_version
-                event.embedding_v2_computed_at = datetime.now(timezone.utc)
-                await session.flush()
-
-        if raw_embedding is None:
+        # ── Step 1: Event embedding (raw + v2) ──────────────────────
+        embedding = await _ensure_event_embeddings(session, event)
+        if embedding is None:
             event.processing_status = "failed_no_embedding"
             await session.commit()
             return {"status": "no_embedding", "event_id": event_id}
 
-        embedding = list(raw_embedding)
         event_text = event.event_retrieval_text or event.event_title
 
         # ── Step 2: Hybrid search ────────────────────────────────────
@@ -397,31 +586,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             await session.commit()
             return {"status": "no_candidates", "event_id": event_id}
 
-        for c in candidates:
-            existing = (
-                await session.execute(
-                    select(EventMarketCandidate).where(
-                        EventMarketCandidate.event_id == event_id,
-                        EventMarketCandidate.market_id == c["market_id"],
-                    )
-                )
-            ).scalar_one_or_none()
-
-            if existing:
-                existing.bm25_score = c.get("bm25_score")
-                existing.cosine_score = c.get("cosine_score")
-                existing.rrf_score = c.get("rrf_score")
-                existing.rank = c.get("rank")
-            else:
-                session.add(EventMarketCandidate(
-                    event_id=event_id,
-                    market_id=c["market_id"],
-                    bm25_score=c.get("bm25_score"),
-                    cosine_score=c.get("cosine_score"),
-                    rrf_score=c.get("rrf_score"),
-                    rank=c.get("rank"),
-                ))
-
+        await _persist_candidates(session, event_id, candidates)
         event.processing_status = "candidates_found"
         await session.flush()
 
@@ -565,36 +730,13 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             cosine_by_mid[c["market_id"]] = c.get("cosine_score")
 
         # ── Pre-fetch event-level source data once (avoids N+1) ──────
-        # Used by:
-        #  • Filter B (penalty for single-source events)
-        #  • Filter E (source_tier_mix as shares, persisted on the Signal)
-        from app.db.models import News, NewsClean
-        src_rows = (
-            await session.execute(
-                select(News.source_name, News.source_tier, News.source_weight)
-                .join(NewsClean, NewsClean.news_id == News.id)
-                .join(EventNewsLink, EventNewsLink.clean_id == NewsClean.id)
-                .where(EventNewsLink.event_id == event_id)
-            )
-        ).all()
-        distinct_source_names = {r[0] for r in src_rows if r[0]}
-        # Per-event source authority (best-of-cluster) — feeds the SignalBuilder.
-        # Audit 2026-04-25 P0-2 + P1.3.
-        event_src_signals = _derive_event_source_signals(
-            [(r[0], r[1], r[2]) for r in src_rows]
-        )
-        tier_counts: dict[str, int] = {}
-        for _name, tier, _weight in src_rows:
-            if tier is None:
-                continue
-            key = f"tier_{int(tier)}"
-            tier_counts[key] = tier_counts.get(key, 0) + 1
-        total_articles = sum(tier_counts.values()) or 0
-        source_tier_mix = (
-            {k: round(v / total_articles, 4) for k, v in tier_counts.items()}
-            if total_articles
-            else None
-        )
+        # Used by Filter B (penalty for single-source events), Filter E
+        # (source_tier_mix as shares persisted on the Signal), and the
+        # SignalBuilder (best-of-cluster source_weight + source_tier).
+        source_ctx = await _load_event_source_context(session, event_id)
+        distinct_source_names = source_ctx["distinct_source_names"]
+        event_src_signals = source_ctx["event_src_signals"]
+        source_tier_mix = source_ctx["source_tier_mix"]
 
         for mid in scored_mids:
             # P1-7: dict lookup instead of `SELECT Market WHERE market_id = ?`
@@ -792,87 +934,14 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 best_market = market
 
         if best_signal is not None:
-            dedupe_key = _signal_dedupe_key(best_signal_mid, event.event_title, event.bucket)
-            best_signal.dedupe_key = dedupe_key
-            session.add(best_signal)
-            await session.flush()
-
-            # Persist the prod signal_articles audit row so the SignalCard
-            # `0 sources` bug is fixed and shadow variants have a baseline
-            # to join against. The articles are sourced from event_news_links
-            # ordered by relevance (NULLS last, since older rows lack scores).
-            try:
-                links_result = await session.execute(
-                    select(EventNewsLink.clean_id, EventNewsLink.key_excerpt)
-                    .where(EventNewsLink.event_id == event_id)
-                    .order_by(EventNewsLink.relevance_score.desc().nullslast())
-                    .limit(10)
-                )
-                article_rows = [
-                    {"news_clean_id": cid, "excerpt": exc}
-                    for cid, exc in links_result.all()
-                ]
-                if article_rows:
-                    await record_prod_signal_articles(
-                        session, signal_id=best_signal.id, articles=article_rows,
-                    )
-            except Exception:
-                logger.exception(
-                    "tasks_scoring: record_prod_signal_articles failed signal_id=%s",
-                    best_signal.id,
-                )
-
-            # Measurement layer — write heuristic_v1 + 4 baseline rows into
-            # signal_predictions so chantier #1 metrics (Brier, Wilson CI,
-            # simulated_pnl) actually have data to chew on for live prod
-            # signals. Without this call, the prod path produces zero
-            # evaluable predictions and the 10-day clean-collect window
-            # yields no usable benchmark data. The helper internally
-            # swallows failures so a broken baseline cannot abort the
-            # signal commit. The sync builder stashed `_features` and
-            # `_llm_combined` on the Signal so the optional
-            # 'heuristic_shadow' row can be written when the flag is on.
-            #
-            # We feed two pieces of richer context here:
-            #   • `articles` with real `source_weight` from the News table
-            #     so the news_sentiment baseline has weights to aggregate.
-            #     `direction` is left implicit (NEUTRAL) until per-article
-            #     directional sentiment is added in a future chantier — the
-            #     baseline currently degenerates to a constant 0.5 / BUY_NO
-            #     prediction. Wiring the path now means the moment we add
-            #     direction labels upstream, the baseline activates without
-            #     touching this file.
-            #   • `market_price_24h_ago` fetched from Polymarket
-            #     /prices-history so the momentum_24h baseline produces a
-            #     real, non-degenerate prediction. Failures (network, 404,
-            #     missing token id, brand-new market) silently fall back to
-            #     None — the baseline returns None and the row is skipped.
-            articles_for_baselines = await _fetch_baseline_articles(
-                session, event_id=event_id
-            )
-            price_24h_ago = await _fetch_market_price_24h_ago(best_market)
-            await record_baselines_for_signal(
+            await _persist_best_signal(
                 session,
-                signal=best_signal,
-                articles=articles_for_baselines,
-                market_price_24h_ago=price_24h_ago,
+                event=event,
+                best_signal=best_signal,
+                best_signal_mid=best_signal_mid,
+                best_market=best_market,
             )
-
-            _schedule_price_captures(best_signal.id, best_signal_mid)
-            # Audit follow-up [P1]: Signal.created_at uses
-            # server_default=func.now(); the Python attribute stays None
-            # after flush() until refresh() (session has
-            # expire_on_commit=False so commit alone doesn't reload).
-            # Without this refresh, every WS subscriber gets created_at=null.
-            await session.refresh(best_signal, ["created_at"])
-            await _broadcast_signal(best_signal)
             signals_created = 1
-
-            logger.info(
-                "Signal created: id=%d event=%d market=%s score=%.1f dir=%s",
-                best_signal.id, event_id, best_signal_mid,
-                best_signal.signal_score, best_signal.direction,
-            )
 
         event.processing_status = "scoring_done"
         await session.commit()
