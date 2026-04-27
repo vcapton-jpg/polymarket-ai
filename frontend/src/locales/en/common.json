@@ -147,13 +147,7 @@
   },
   "onboarding": {
     "tutorialTitle": "",
-    "quizTitle": "",
-    "budgetTitle": ""
-  },
-  "limits": {
-    "weeklyBudget": "",
-    "maxStake": "",
-    "cooloffActive": ""
+    "quizTitle": ""
   },
   "time": {
     "now": "",

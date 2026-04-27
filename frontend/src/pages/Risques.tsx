@@ -32,9 +32,8 @@ export default function Risques() {
           </li>
           <li>Tu restes seul responsable de tes décisions d'investissement.</li>
           <li>
-            Si tu te sens dépassé, utilise la pause (cooloff) dans Settings ou
-            contacte Joueurs Info Service au 09 74 75 13 13 (appel
-            non-surtaxé, anonyme et gratuit).
+            Si tu te sens dépassé, prends une pause et contacte Joueurs Info
+            Service au 09 74 75 13 13 (appel non-surtaxé, anonyme et gratuit).
           </li>
         </ul>
         <section className="rounded-xl border border-signal-no/30 bg-signal-no/5 p-4 text-sm text-ink">
