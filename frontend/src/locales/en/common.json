@@ -231,6 +231,12 @@
       "resetCta": "Reset filters"
     }
   },
+  "performance": {
+    "title": "Performance",
+    "eyebrow": "Performance",
+    "heading": "Your numbers. Unfiltered.",
+    "subheading": "Everything since you signed up — including the categories you lose on."
+  },
   "settings": {
     "breadcrumb": "Settings",
     "savedToast": "Saved",
