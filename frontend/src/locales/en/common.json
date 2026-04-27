@@ -204,6 +204,14 @@
       "cta": "Tune your alerts in 30 sec →",
       "dismissAria": "Dismiss reminder"
     },
+    "coachMark": {
+      "firstSignal": "Your first signal is at the top — click to see the full analysis: sources, sizing, window."
+    },
+    "headerSubtitle": "{{count}} opportunity · sorted by {{sort}}. You always decide.",
+    "headerSubtitlePlural": "{{count}} opportunities · sorted by {{sort}}. You always decide.",
+    "headerH1": "{{count}} opportunity detected",
+    "headerH1Plural": "{{count}} opportunities detected",
+    "headerH1Empty": "No active signal",
     "apiError": {
       "title": "API unavailable.",
       "demoFallback": "Showing demo data."

@@ -204,6 +204,14 @@
       "cta": "Calibre tes alertes en 30 sec →",
       "dismissAria": "Fermer le rappel"
     },
+    "coachMark": {
+      "firstSignal": "Ton premier signal est en haut — clique pour voir l'analyse complète : sources, sizing, fenêtre."
+    },
+    "headerSubtitle": "{{count}} opportunité · triée par {{sort}}. Tu décides, toujours.",
+    "headerSubtitlePlural": "{{count}} opportunités · triées par {{sort}}. Tu décides, toujours.",
+    "headerH1": "{{count}} opportunité détectée",
+    "headerH1Plural": "{{count}} opportunités détectées",
+    "headerH1Empty": "Aucun signal actif",
     "apiError": {
       "title": "API indisponible.",
       "demoFallback": "Affichage des données de démo."

@@ -667,7 +667,7 @@ export default function Signals() {
         targetId="first-signal-card"
         open={coachOpen && filtered.length > 0}
         onDismiss={dismissCoach}
-        message={"Ton premier signal est en haut — clique pour voir l\u2019analyse complète\u00A0: sources, sizing, fenêtre."}
+        message={t("signals.coachMark.firstSignal")}
       />
 
       {/* Mobile filters drawer */}
