@@ -231,6 +231,12 @@
       "resetCta": "Réinitialiser les filtres"
     }
   },
+  "performance": {
+    "title": "Performance",
+    "eyebrow": "Performance",
+    "heading": "Tes chiffres. Sans filtre.",
+    "subheading": "Tout depuis ton inscription — y compris les catégories où tu perds."
+  },
   "settings": {
     "breadcrumb": "Réglages",
     "savedToast": "Enregistré",

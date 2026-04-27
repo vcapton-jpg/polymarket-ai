@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS, useMotionConfig } from "@/lib/motion"
 import {
@@ -71,14 +72,15 @@ function isPositionLike(x: unknown): x is Position {
 
 type HistoryFilter = "all" | "correct" | "incorrect" | "pending"
 
-const FILTERS: Array<{ key: HistoryFilter; label: string }> = [
-  { key: "all", label: "Tout" },
-  { key: "correct", label: "Corrects" },
-  { key: "incorrect", label: "Incorrects" },
-  { key: "pending", label: "En attente" },
+const FILTERS: Array<{ key: HistoryFilter; labelKey: string }> = [
+  { key: "all", labelKey: "portfolio.filters.all" },
+  { key: "correct", labelKey: "portfolio.filters.correct" },
+  { key: "incorrect", labelKey: "portfolio.filters.incorrect" },
+  { key: "pending", labelKey: "portfolio.filters.pending" },
 ]
 
 export default function Portfolio() {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<HistoryFilter>("all")
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hideStake, setHideStake] = useState(false)
@@ -263,16 +265,16 @@ export default function Portfolio() {
 
   return (
     <AppShell
-      breadcrumb={[{ label: "Portfolio" }]}
+      breadcrumb={[{ label: t("portfolio.title") }]}
       liveCount={MOCK_PERFORMANCE.totalSignalsGenerated}
     >
       {/* Page header */}
       <div className="border-b border-line/60 bg-obsidian-900">
         <div className="px-4 pt-6 pb-5 md:px-8 md:pt-8 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">Portfolio</p>
+            <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">{t("portfolio.eyebrow")}</p>
             <h1 className="font-display text-[1.75rem] font-semibold tracking-tight text-ink md:text-[2.125rem]">
-              Tes positions, là où elles en sont.
+              {t("portfolio.heading")}
             </h1>
             <p className="mt-1 text-[0.9375rem] text-ink-muted">
               <span className="num text-ink">{activePositions.length}</span> positions en cours ·{" "}
@@ -358,22 +360,22 @@ export default function Portfolio() {
           <section>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
               <KPIStat
-                label="Capital engagé"
+                label={t("portfolio.kpi.capital")}
                 value={capital}
                 format={(n) => (hideStake ? "•••" : formatMoney(n))}
                 sub={`Sur ${activePositions.length} position${activePositions.length > 1 ? "s" : ""}`}
                 icon={<Wallet className="h-3.5 w-3.5" />}
               />
               <KPIStat
-                label="Gain estimé"
+                label={t("portfolio.kpi.gain")}
                 value={gain}
                 format={(n) => (hideStake ? "•••" : formatMoney(n, { signed: true }))}
                 tone={gain >= 0 ? "positive" : "negative"}
-                sub="Actives + résolues"
+                sub={t("portfolio.kpi.gainSub")}
                 icon={gain >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
               />
               <KPIStat
-                label="Taux de réussite"
+                label={t("portfolio.kpi.winRate")}
                 value={winRate}
                 suffix="%"
                 tone="brand"
@@ -381,9 +383,9 @@ export default function Portfolio() {
                 icon={<CheckCircle2 className="h-3.5 w-3.5" />}
               />
               <KPIStat
-                label="Signaux suivis"
+                label={t("portfolio.kpi.followed")}
                 value={signalsFollowed}
-                sub="Depuis inscription"
+                sub={t("portfolio.kpi.followedSub")}
                 icon={<Radio className="h-3.5 w-3.5" />}
               />
             </div>
@@ -392,9 +394,9 @@ export default function Portfolio() {
           {/* Section 2 — Active positions */}
           <section>
             <SectionHeader
-              eyebrow="En cours"
+              eyebrow={t("portfolio.sections.active.eyebrow")}
               title={`${activePositions.length} position${activePositions.length > 1 ? "s" : ""} active${activePositions.length > 1 ? "s" : ""}`}
-              caption="La barre de vie se vide en temps réel — surveille tes niveaux."
+              caption={t("portfolio.sections.active.caption")}
             />
             {loading ? (
               <div className="grid gap-4 md:gap-5 xl:grid-cols-2">
@@ -426,7 +428,7 @@ export default function Portfolio() {
           {resolvedPositions.length > 0 && (
             <section>
               <SectionHeader
-                eyebrow="Historique"
+                eyebrow={t("portfolio.sections.history.eyebrow")}
                 title={`${resolvedCount} positions résolues`}
               />
               <div role="radiogroup" aria-label="Filtrer l'historique" className="mb-4 flex flex-wrap gap-1.5">
@@ -445,7 +447,7 @@ export default function Portfolio() {
                         : "border-line bg-obsidian-850/60 text-ink-muted hover:text-ink hover:border-line-strong",
                     )}
                   >
-                    {f.label}
+                    {t(f.labelKey)}
                   </button>
                 ))}
               </div>
@@ -456,7 +458,7 @@ export default function Portfolio() {
                   ))
                 ) : (
                   <div className="rounded-lg border border-dashed border-line-strong bg-obsidian-850/40 p-8 text-center text-body-md text-ink-muted">
-                    Aucune position pour ce filtre.
+                    {t("portfolio.emptyFilter")}
                   </div>
                 )}
               </div>

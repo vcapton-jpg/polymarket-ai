@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { motion } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS } from "@/lib/motion"
 import {
@@ -43,6 +44,7 @@ const SCATTER_EMPTY_STATE_THRESHOLD = 30
 /* ───────────── Page ───────────── */
 
 export default function Performance() {
+  const { t } = useTranslation()
   const { formatMoney, language } = useUserPreferences()
   const { stats: MOCK_PERFORMANCE, loading: loadingCharts } = usePerformance()
 
@@ -92,20 +94,20 @@ export default function Performance() {
 
   return (
     <AppShell
-      breadcrumb={[{ label: "Performance" }]}
+      breadcrumb={[{ label: t("performance.title") }]}
       liveCount={MOCK_PERFORMANCE.totalSignalsGenerated}
     >
       {/* Page header */}
       <div className="border-b border-line/60 bg-obsidian-900">
         <div className="px-4 pt-6 pb-5 md:px-8 md:pt-8">
           <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">
-            Performance
+            {t("performance.eyebrow")}
           </p>
           <h1 className="font-display text-[1.75rem] font-semibold tracking-tight text-ink md:text-[2.125rem]">
-            Tes chiffres. Sans filtre.
+            {t("performance.heading")}
           </h1>
           <p className="mt-1 text-[0.9375rem] text-ink-muted">
-            Tout depuis ton inscription — y compris les catégories où tu perds.
+            {t("performance.subheading")}
           </p>
         </div>
       </div>
