@@ -17,11 +17,19 @@ type Props = {
 
 const STEPS = [
   { id: "connecting_wallet", label: "Connecte ton wallet (MetaMask)" },
+  { id: "signing_challenge", label: "Signe la preuve de propriété" },
   { id: "deploying_safe", label: "Déploiement de ton Safe Polymarket" },
   { id: "done", label: "Dépose des USDC dans ton Safe" },
 ] as const
 
-const STEP_ORDER = ["idle", "connecting_wallet", "deploying_safe", "done", "error"] as const
+const STEP_ORDER = [
+  "idle",
+  "connecting_wallet",
+  "signing_challenge",
+  "deploying_safe",
+  "done",
+  "error",
+] as const
 
 export function WalletSetupModal({ open, onSuccess, onClose, step, error, startSetup }: Props) {
 
@@ -33,7 +41,10 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
   }, [step, onSuccess])
 
   const currentIdx = STEP_ORDER.indexOf(step)
-  const isLoading = step === "connecting_wallet" || step === "deploying_safe"
+  const isLoading =
+    step === "connecting_wallet" ||
+    step === "signing_challenge" ||
+    step === "deploying_safe"
 
   return (
     <AnimatePresence>
@@ -125,7 +136,11 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {step === "connecting_wallet" ? "Connexion…" : "Déploiement…"}
+                    {step === "connecting_wallet"
+                      ? "Connexion…"
+                      : step === "signing_challenge"
+                        ? "Signature…"
+                        : "Déploiement…"}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
