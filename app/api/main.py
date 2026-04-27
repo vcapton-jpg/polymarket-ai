@@ -13,12 +13,39 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+_INSECURE_JWT_SECRET_DEFAULTS = {
+    "change-me-in-production",
+    "foresight-dev-secret-key-change-in-prod-2026",
+    "",
+}
+
+
+def _assert_jwt_secret_safe_for_env() -> None:
+    """Refuse to boot in production when JWT_SECRET_KEY is a known
+    default. Pre-fix (P0-4 audit, 2026-04-27), the source-code default
+    `change-me-in-production` was silently used if the env var was
+    absent — meaning any token signed with that public string was
+    valid against any deployment that forgot to override it.
+    Dev/test envs continue to allow defaults so local stacks boot
+    without ceremony.
+    """
+    if settings.env != "production":
+        return
+    if settings.jwt_secret_key in _INSECURE_JWT_SECRET_DEFAULTS:
+        raise RuntimeError(
+            "JWT_SECRET_KEY is set to a known default in production. "
+            "Set a strong, unique value via the JWT_SECRET_KEY env var "
+            "before booting (e.g. `openssl rand -hex 32`)."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Schema is owned by Alembic — `alembic upgrade head` runs in the
     # Docker entrypoint before uvicorn boots. Audit follow-up: previous
     # in-lifespan auto-table-init raced concurrent boots and silently
     # masked drift between SQLAlchemy models and migration state.
+    _assert_jwt_secret_safe_for_env()
     logger.info("Foresight API started")
     yield
     await engine.dispose()
@@ -66,19 +93,19 @@ from app.api.push import router as push_router  # noqa: E402
 
 app.include_router(push_router, prefix="/api")
 
-from app.api.routes.trading import router as trading_router  # noqa: E402
-from app.api.routes.trading_wallet import router as trading_wallet_router  # noqa: E402
+from app.api.routes.admin_metrics import router as admin_metrics_router  # noqa: E402
 from app.api.routes.agents import router as agents_router  # noqa: E402
 from app.api.routes.api_keys import router as api_keys_router  # noqa: E402
-from app.api.routes.subscriptions import router as subs_router  # noqa: E402
 from app.api.routes.auth import router as auth_router  # noqa: E402
-from app.api.routes.portfolio_v2 import router as portfolio_v2_router  # noqa: E402
+from app.api.routes.outcome_views import router as outcome_views_router  # noqa: E402
+from app.api.routes.paper import router as paper_router  # noqa: E402
 from app.api.routes.performance_v2 import router as performance_v2_router  # noqa: E402
+from app.api.routes.portfolio_v2 import router as portfolio_v2_router  # noqa: E402
 from app.api.routes.quota import router as quota_router  # noqa: E402
 from app.api.routes.sources import router as sources_router  # noqa: E402
-from app.api.routes.paper import router as paper_router  # noqa: E402
-from app.api.routes.outcome_views import router as outcome_views_router  # noqa: E402
-from app.api.routes.admin_metrics import router as admin_metrics_router  # noqa: E402
+from app.api.routes.subscriptions import router as subs_router  # noqa: E402
+from app.api.routes.trading import router as trading_router  # noqa: E402
+from app.api.routes.trading_wallet import router as trading_wallet_router  # noqa: E402
 
 app.include_router(trading_router, prefix="/api")
 app.include_router(trading_wallet_router, prefix="/api")
@@ -91,10 +118,10 @@ app.include_router(performance_v2_router, prefix="/api")
 app.include_router(quota_router, prefix="/api")
 app.include_router(sources_router, prefix="/api")
 # `paper` keeps its bac-à-sable role inside Apprendre — no real-money
-# implications. The L&T trading-test gates (onboarding/, quiz/) were
-# removed; their route files remain on disk for one cycle and will be
-# deleted in a follow-up commit once we've confirmed nothing else (CI,
-# scheduled jobs, telemetry) consumes /api/onboarding/status.
+# implications. The L&T trading-test gates (the former /api/onboarding/*
+# and /api/quiz/* route files) were removed in the 2026-04-27 P0 audit
+# cleanup once we confirmed nothing else (CI, scheduled jobs, telemetry)
+# consumed them.
 app.include_router(paper_router, prefix="/api")
 app.include_router(outcome_views_router, prefix="/api")
 app.include_router(admin_metrics_router, prefix="/api")
@@ -111,8 +138,9 @@ app.include_router(tg_webhook_router, prefix="/api")
 @app.get("/.well-known/apple-developer-merchantid-domain-association")
 async def apple_pay_domain_verification():
     """Serve Apple Pay domain verification file for Stripe."""
-    from fastapi.responses import PlainTextResponse
     import pathlib
+
+    from fastapi.responses import PlainTextResponse
 
     path = pathlib.Path(__file__).parent.parent.parent / "static" / "apple-developer-merchantid-domain-association"
     if path.exists():

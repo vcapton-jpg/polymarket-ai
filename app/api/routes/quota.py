@@ -22,7 +22,6 @@ from app.core.config import get_settings
 from app.db.database import get_session_factory
 from app.db.models import UserLimits, UserProfile
 
-
 router = APIRouter(prefix="/me", tags=["me"])
 
 FREE_DAILY_LIMIT = 5
@@ -99,10 +98,13 @@ async def get_my_limits(
 ) -> UserLimitsOut:
     """Authoritative Learn & Trade limits for the current user.
 
-    Returns safe, locked defaults (quiz/age = False, 20€/10€ caps) when no
-    row exists — the frontend treats this as "not unlocked yet" rather than
-    failing. The backfill script creates rows for pre-pivot users; new users
-    get a row on first `/api/onboarding/budget` submission.
+    Returns safe, locked defaults (age = False, cooloff = None) when no
+    row exists — the frontend treats this as "not unlocked yet" rather
+    than failing. Post-2026-04-27 the only fields the backend actually
+    enforces are `age_confirmed_18` and `cooloff_until`; the legacy
+    `budget_weekly_eur` / `max_stake_eur` / `quiz_passed` fields stay
+    in the response shape for analytics back-compat but no longer cap
+    trades. New users get a row on first real-trade attempt.
     """
     factory = get_session_factory()
     async with factory() as s:
