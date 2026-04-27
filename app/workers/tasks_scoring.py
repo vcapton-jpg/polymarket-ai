@@ -1214,7 +1214,7 @@ async def _send_telegram_alert(signal):
         f"*Market price:* {price_str} YES\n"
         f"*Confidence:* {conf}\n"
         f"*Urgency:* {urgency}\n\n"
-        f"[Open in Signal](https://signal.app/opportunity/{signal.id})"
+        f"[Open in Foresight](https://getforesight.io/opportunity/{signal.id})"
     )
 
     try:
