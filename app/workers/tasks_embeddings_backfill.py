@@ -47,7 +47,7 @@ def recompute_embedding_v2(self, *, surface: str, batch_size: int = 100) -> dict
         return _run_async(_run_backfill(surface, batch_size))
     except Exception as exc:
         logger.exception("recompute_embedding_v2 failed surface=%s", surface)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _run_backfill(surface: str, batch_size: int) -> dict:

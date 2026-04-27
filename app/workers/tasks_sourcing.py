@@ -36,7 +36,7 @@ def sourcing_shadow_rerun(self, signal_id: int) -> None:
         return _run_async(_run_shadow(signal_id))
     except Exception as exc:  # noqa: BLE001
         logger.warning("sourcing_shadow_rerun failed signal_id=%s: %s", signal_id, exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 def _dir_llm_to_db(d: str | None) -> str | None:

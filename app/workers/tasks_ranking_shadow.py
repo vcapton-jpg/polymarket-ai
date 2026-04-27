@@ -40,7 +40,7 @@ def record_shadow_ranking(self, *, event_id: int) -> dict:
         return _run_async(_do(event_id))
     except Exception as exc:
         logger.exception("record_shadow_ranking failed event_id=%s", event_id)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _do(event_id: int) -> dict:

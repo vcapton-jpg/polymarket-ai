@@ -4,10 +4,15 @@ import type { SignalSource } from "@/types/signal"
 
 type Props = { sources: SignalSource[] }
 
+// Dark-theme tier badges — light Tailwind defaults (bg-green-100, bg-amber-100,
+// bg-gray-100) rendered nearly invisible on the obsidian background. We use
+// the project's signal palette + tinted fills + 1px tone-matched borders so
+// the badge is legible at a glance and the tier ranking reads from color
+// alone (T1 green / T2 amber / T3 muted).
 const tierBadgeClass: Record<1 | 2 | 3, string> = {
-  1: "bg-green-100 text-green-900",
-  2: "bg-amber-100 text-amber-900",
-  3: "bg-gray-100 text-gray-800",
+  1: "bg-signal-yes/15 text-signal-yes border border-signal-yes/30",
+  2: "bg-signal-amber/15 text-signal-amber border border-signal-amber/30",
+  3: "bg-obsidian-800 text-ink-dim border border-line",
 }
 
 export function SourcesList({ sources }: Props) {

@@ -297,7 +297,7 @@ def run_hybrid_search(self, event_id: int):
         return _run_async(_run_full_scoring_pipeline(event_id))
     except Exception as exc:
         logger.exception("run_hybrid_search failed for event_id=%s", event_id)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _run_full_scoring_pipeline(event_id: int) -> dict:
@@ -873,7 +873,7 @@ def run_llm_impact(self, event_id: int):
         return _run_async(_run_full_scoring_pipeline(event_id))
     except Exception as exc:
         logger.exception("run_llm_impact failed for event_id=%s", event_id)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 @celery_app.task(bind=True, max_retries=1)
@@ -892,7 +892,7 @@ def retry_stuck_events(self):
         return _run_async(_retry_stuck_events_async())
     except Exception as exc:
         logger.exception("retry_stuck_events failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _retry_stuck_events_async() -> dict:
@@ -950,7 +950,7 @@ def rescore_zero_signal_events(self):
         return _run_async(_rescore_zero_signal_events_async())
     except Exception as exc:
         logger.exception("rescore_zero_signal_events failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _rescore_zero_signal_events_async() -> dict:
@@ -1180,14 +1180,15 @@ def _is_quota_error(exc: BaseException) -> bool:
     )
 
 
-# NOTE 2026-04-25: `_score_event_market_async` was removed in this commit.
-# It was the only writer to `SignalPendingReasoning` and was orphan in
-# production (the live scoring path uses the sync `SignalBuilder` via
-# `_run_full_scoring_pipeline`). Its sole consumer was a unit test that
-# exercised an unreachable circuit breaker. The `_backfill_reasoning_async`
-# task below still drains `SignalPendingReasoning` for safety in case rows
-# linger from past releases, but with no producer it's effectively a no-op.
-# A future cleanup chantier can drop the table + the beat schedule entirely.
+# NOTE 2026-04-25 (updated 2026-04-27): `_score_event_market_async` was
+# removed; it was the only writer to `SignalPendingReasoning`. The live
+# scoring path uses the sync `SignalBuilder` via `_run_full_scoring_pipeline`.
+# The 10-min beat schedule was removed in 2026-04-27 (P1-4) since the
+# table has had zero producers for months. The task below remains as an
+# ad-hoc manual rescue (`celery -A app.workers.celery_app call
+# app.workers.tasks_scoring.backfill_reasoning`) in case stragglers from
+# pre-2026-04-25 deploys ever resurface. A future chantier can drop the
+# `SignalPendingReasoning` table + this task entirely.
 
 
 async def _backfill_reasoning_async(limit: int = 50, *, analyzer=None) -> int:

@@ -23,7 +23,7 @@ def process_article(self, news_id: int):
         return _run_async(_process_article_async(news_id))
     except Exception as exc:
         logger.exception("process_article failed for news_id=%s", news_id)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _process_article_async(news_id: int) -> dict:
@@ -171,7 +171,7 @@ def try_instant_event(self, clean_id: int):
         return _run_async(_try_instant_event_async(clean_id))
     except Exception as exc:
         logger.exception("try_instant_event failed for clean_id=%s", clean_id)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _try_instant_event_async(clean_id: int) -> dict:
@@ -386,7 +386,7 @@ def compute_embedding_batch(self, clean_ids: list[int] | None = None, limit: int
         return _run_async(_compute_embedding_batch_async(clean_ids, limit))
     except Exception as exc:
         logger.exception("compute_embedding_batch failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _compute_embedding_batch_async(
@@ -451,7 +451,7 @@ def build_events(self):
         return _run_async(_build_events_async())
     except Exception as exc:
         logger.exception("build_events failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _build_events_async() -> dict:

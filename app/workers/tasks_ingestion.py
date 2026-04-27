@@ -42,7 +42,7 @@ def fetch_markets(self):
         return _run_async(_fetch_markets_async())
     except Exception as exc:
         logger.exception("fetch_markets failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _fetch_markets_async() -> dict:
@@ -294,7 +294,7 @@ def compute_market_percentiles(self):
         return _run_async(_compute_percentiles_async())
     except Exception as exc:
         logger.exception("compute_market_percentiles failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _compute_percentiles_async() -> dict:
@@ -354,7 +354,7 @@ def fetch_rss_feeds(self):
         return _run_async(_fetch_rss_async(tiers=(2, 3)))
     except Exception as exc:
         logger.exception("fetch_rss_feeds failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
@@ -374,7 +374,7 @@ def fetch_rss_tier1(self):
         return _run_async(_fetch_rss_async(tiers=(1,)))
     except Exception as exc:
         logger.exception("fetch_rss_tier1 failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _fetch_rss_async(*, tiers: tuple[int, ...] = (1, 2, 3)) -> dict:
@@ -470,7 +470,7 @@ def fetch_worldnews(self):
         return _run_async(_fetch_worldnews_async())
     except Exception as exc:
         logger.exception("fetch_worldnews failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _fetch_worldnews_async() -> dict:
@@ -558,7 +558,7 @@ def ingest_x_scraper_inbox(self):
         return _run_async(_ingest_x_scraper_inbox_async())
     except Exception as exc:
         logger.exception("ingest_x_scraper_inbox failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _ingest_x_scraper_inbox_async() -> dict:
