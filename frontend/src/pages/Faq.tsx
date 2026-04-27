@@ -8,44 +8,44 @@ import { cn } from "@/lib/utils"
 
 const FAQ_ITEMS = [
   {
-    q: "C'est quoi Foresight ?",
-    a: "Foresight est un outil qui surveille l'actualité en temps réel et génère des signaux de trading sur Polymarket. En moins de 90 secondes après une news, tu reçois une recommandation claire : quoi acheter, avec quel score de conviction, et pourquoi.",
+    q: "C’est quoi Foresight ?",
+    a: "Foresight est un outil qui surveille l’actualité en temps réel et génère des signaux de trading sur Polymarket. En moins de 90 secondes après une news, tu reçois une recommandation claire : quoi acheter, avec quel score de conviction, et pourquoi.",
   },
   {
-    q: "C'est quoi Polymarket ?",
-    a: "Polymarket est un marché de prédiction décentralisé où tu paries sur l'issue d'événements réels : élections, conflits, crypto, sport, science. Si tu as raison, ton pari vaut 1 $. Foresight t'aide à identifier les marchés mal valorisés avant que le prix s'ajuste.",
+    q: "C’est quoi Polymarket ?",
+    a: "Polymarket est un marché de prédiction décentralisé où tu paries sur l’issue d’événements réels : élections, conflits, crypto, sport, science. Si tu as raison, ton pari vaut 1 $. Foresight t’aide à identifier les marchés mal valorisés avant que le prix s’ajuste.",
   },
   {
     q: "Comment Foresight détecte-t-il les signaux ?",
-    a: "Notre pipeline surveille 50+ sources Tier-1 (Reuters, AP, Bloomberg…) 24h/24. Dès qu'une news éclate, un moteur de recherche hybride la croise avec tous les marchés Polymarket ouverts. Un LLM calcule ensuite le score de conviction, la direction (BUY YES / BUY NO) et l'urgence.",
+    a: "Notre pipeline surveille 50+ sources Tier-1 (Reuters, AP, Bloomberg…) 24h/24. Dès qu’une news éclate, un moteur de recherche hybride la croise avec tous les marchés Polymarket ouverts. Un LLM calcule ensuite le score de conviction, la direction (BUY YES / BUY NO) et l’urgence.",
   },
   {
-    q: "Qu'est-ce que le score de conviction ?",
-    a: "C'est une note de 0 à 100 qui reflète la force du signal. Un score de 80+ indique un fort décalage entre la news et le prix du marché. En dessous de 50, le signal est trop incertain pour agir. Nous recommandons de ne trader qu'au-dessus de 60.",
+    q: "Qu’est-ce que le score de conviction ?",
+    a: "C’est une note de 0 à 100 qui reflète la force du signal. Un score de 80+ indique un fort décalage entre la news et le prix du marché. En dessous de 50, le signal est trop incertain pour agir. Nous recommandons de ne trader qu’au-dessus de 60.",
   },
   {
     q: "Quelle est la différence entre Free et Pro ?",
-    a: "Le plan Free donne accès à 5 signaux par jour avec un délai de 15 minutes. Le plan Pro donne accès à tous les signaux en temps réel (< 90 s), avec les explications complètes, les alertes Telegram, et l'historique complet des signaux passés.",
+    a: "Le plan Free donne accès à 5 signaux par jour avec un délai de 15 minutes. Le plan Pro donne accès à tous les signaux en temps réel (< 90 s), avec les explications complètes, les alertes Telegram, et l’historique complet des signaux passés.",
   },
   {
     q: "Les signaux sont-ils garantis gagnants ?",
-    a: "Non. Foresight identifie des opportunités statistiquement intéressantes, pas des certitudes. Notre backtest montre un taux de réussite directionnel d'environ 68%, mais chaque trade comporte un risque. Ne mise jamais plus que tu n'es prêt à perdre.",
+    a: "Non. Foresight identifie des opportunités statistiquement intéressantes, pas des certitudes. Notre backtest montre un taux de réussite directionnel d’environ 68%, mais chaque trade comporte un risque. Ne mise jamais plus que tu n’es prêt à perdre.",
   },
   {
-    q: "Comment fonctionne l'alerte Telegram ?",
-    a: "Avec le plan Pro, tu reçois chaque signal directement dans ton Telegram dès qu'il est généré. Le message contient : la question du marché, le score, la direction, la fenêtre d'action estimée, et les sources. Tu n'as plus besoin d'ouvrir le dashboard.",
+    q: "Comment fonctionne l’alerte Telegram ?",
+    a: "Avec le plan Pro, tu reçois chaque signal directement dans ton Telegram dès qu’il est généré. Le message contient : la question du marché, le score, la direction, la fenêtre d’action estimée, et les sources. Tu n’as plus besoin d’ouvrir le dashboard.",
   },
   {
     q: "Faut-il un compte Polymarket pour utiliser Foresight ?",
-    a: "Pour consulter les signaux, non. Pour agir dessus, oui — tu dois avoir un compte Polymarket et des fonds pour placer tes paris. Foresight ne passe pas d'ordres à ta place : c'est toi qui décides.",
+    a: "Pour consulter les signaux, non. Pour agir dessus, oui — tu dois avoir un compte Polymarket et des fonds pour placer tes paris. Foresight ne passe pas d’ordres à ta place : c’est toi qui décides.",
   },
   {
     q: "Est-ce légal dans mon pays ?",
-    a: "Polymarket est accessible dans la plupart des pays, mais certaines juridictions (notamment les États-Unis) imposent des restrictions. Vérifie les conditions d'utilisation de Polymarket selon ta localisation. Foresight lui-même est un outil d'analyse accessible mondialement.",
+    a: "Polymarket est accessible dans la plupart des pays, mais certaines juridictions (notamment les États-Unis) imposent des restrictions. Vérifie les conditions d’utilisation de Polymarket selon ta localisation. Foresight lui-même est un outil d’analyse accessible mondialement.",
   },
   {
     q: "Comment annuler mon abonnement Pro ?",
-    a: "Tu peux annuler à tout moment depuis les paramètres de ton compte, en un clic. Ton accès Pro reste actif jusqu'à la fin de la période déjà payée. Aucune question posée, aucuns frais d'annulation.",
+    a: "Tu peux annuler à tout moment depuis les paramètres de ton compte, en un clic. Ton accès Pro reste actif jusqu’à la fin de la période déjà payée. Aucune question posée, aucuns frais d’annulation.",
   },
 ]
 

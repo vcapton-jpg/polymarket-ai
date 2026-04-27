@@ -319,12 +319,19 @@ export default function Welcome() {
                 ) : (
                   <>
                     <div className="mb-8 text-center">
-                      <h1
+                      {/* P2-10: per-step prompt is an h2 — the page's
+                          single h1 is the final RecapView heading
+                          ("Tu es {profileType}"). Keeping a unique h1
+                          per page prevents AnimatePresence transitions
+                          from briefly rendering two headings at once
+                          and matches the screen-reader hierarchy other
+                          wizard pages use. */}
+                      <h2
                         id={`welcome-q-${step}`}
                         className="font-display text-[1.875rem] font-semibold tracking-tight text-ink text-balance md:text-[2.25rem]"
                       >
                         {activeTitle}
-                      </h1>
+                      </h2>
                       <p className="mt-2 text-[0.9375rem] text-ink-muted">{activeSubtitle}</p>
                     </div>
 

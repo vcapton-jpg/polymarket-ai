@@ -1,5 +1,6 @@
 """Authentication routes — email/password with JWT tokens."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
@@ -14,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import UserProfile
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer_scheme = HTTPBearer()
@@ -309,9 +312,15 @@ async def login_google(body: GoogleTokenRequest, db: AsyncSession = Depends(get_
             settings.google_client_id,
         )
     except ValueError as e:
+        # P2-1: do NOT echo `str(e)` back to the client. Google's
+        # `verify_oauth2_token` raises ValueError with the verbatim
+        # internal reason (clock skew, kid mismatch, JWK fetch URL,
+        # etc.) — useful for an operator log, never for an unauth'd
+        # caller. Log loud, return generic.
+        logger.warning("Google OAuth token verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Google token: {e!s}",
+            detail="Invalid Google token",
         ) from e
 
     if idinfo.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):

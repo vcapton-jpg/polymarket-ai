@@ -665,7 +665,7 @@ Source unique : `app/core/config.py` (pydantic-settings).
 
 | Setting | Défaut | Rôle |
 |---|---|---|
-| `signal_score_threshold` | 55 | Score min pour signal actionnable |
+| `signal_score_threshold` | 65 | Score min pour signal actionnable |
 | `signal_min_cosine_score` | 0.52 | Similarité sémantique min |
 | `hard_exclusion_spread` | 0.15 | Spread max (15¢) |
 | `hard_exclusion_ambiguity` | 0.80 | Ambiguïté LLM max |

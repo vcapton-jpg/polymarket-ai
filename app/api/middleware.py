@@ -102,7 +102,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     """Optional API key gate. When SIGNAL_API_KEY is set, all non-public
-    endpoints require `X-API-Key` header or `api_key` query param."""
+    endpoints require the `X-API-Key` header.
+
+    P2-2 (2026-04-27): the `api_key=…` query-string fallback was removed.
+    Query params land verbatim in webserver access logs, browser history,
+    and the `Referer` header forwarded to any third-party resource the
+    page loads — a header-only contract eliminates that leak class. A
+    single 5xx-style 401 with the explicit "header required" hint is
+    returned so old integrations that relied on the query param fail
+    loud rather than silently re-leaking the key on retry.
+    """
 
     async def dispatch(self, request: Request, call_next):
         settings = get_settings()
@@ -119,7 +128,20 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if not path.startswith("/api"):
             return await call_next(request)
 
-        provided = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+        # If a caller still tries the legacy `api_key` query param, refuse
+        # explicitly so they update their integration rather than retrying
+        # over and over with the leak-prone form.
+        if "api_key" in request.query_params:
+            logger.warning(
+                "API key passed via query param at %s; rejecting (header required)",
+                path,
+            )
+            raise HTTPException(
+                status_code=401,
+                detail="API key must be sent in the X-API-Key header, not the query string",
+            )
+
+        provided = request.headers.get("X-API-Key")
         if provided != required_key:
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
