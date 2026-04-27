@@ -143,7 +143,38 @@
     "sortedBy": "",
     "disclaimer": "",
     "catalystStrength": "",
-    "watchOnPolymarket": ""
+    "watchOnPolymarket": "",
+    "cta": {
+      "takePosition": "Take a position"
+    }
+  },
+  "orderForm": {
+    "stakeLabel": "Stake (USDC)",
+    "amountAria": "USDC amount",
+    "presetsAria": "Quick stakes",
+    "gainIf": "Gain if ✓",
+    "lossIf": "Loss if ✗",
+    "feesNote": "Amounts exclude Polymarket fees.",
+    "totalLossWarning": "⚠ Total loss possible: if the event resolves against you, you lose 100% of your stake.",
+    "shareLine": "{{shares}} shares at ${{price}}",
+    "buyCta": "Buy {{shares}} shares {{direction}}",
+    "submittedCta": "Order submitted to Polymarket",
+    "successToastTitle": "Position opened — heading to portfolio…",
+    "successToastDetail": "{{direction}} position opened on Polymarket — track it in your portfolio.",
+    "rejection": {
+      "inCooloff": {
+        "title": "You are on cooldown",
+        "description": "3 consecutive losses — the server blocks new trades for 24h."
+      },
+      "ageNotConfirmed": {
+        "title": "18+ confirmation required",
+        "description": "Update your profile before taking a position."
+      },
+      "generic": {
+        "title": "Trade refused by the server",
+        "descriptionFallback": "Try again later."
+      }
+    }
   },
   "onboarding": {
     "tutorialTitle": "",

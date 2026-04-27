@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowUpRight, Check, ChevronRight, Sparkles, TriangleAlert, X } from "lucide-react"
 import type { OrderDraft, Position, Signal, UserProfile } from "@/types/signal"
@@ -74,6 +75,7 @@ function buildSizingHint(profileType: ProfileType, currency: "USD" | "EUR"): str
  * Actual CLOB submission is backend scope; we log the draft for now.
  */
 export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderFormProps) {
+  const { t } = useTranslation()
   const { formatMoney, currency } = useUserPreferences()
   const profile = useProfile()
   const navigate = useNavigate()
@@ -341,18 +343,17 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
                 ?.reason
             const rejectionMessages: Record<string, { title: string; description: string }> = {
               in_cooloff: {
-                title: "Tu es en pause (cooloff)",
-                description:
-                  "3 pertes consécutives — le serveur bloque les nouveaux trades pendant 24h.",
+                title: t("orderForm.rejection.inCooloff.title"),
+                description: t("orderForm.rejection.inCooloff.description"),
               },
               age_not_confirmed: {
-                title: "Confirmation 18+ requise",
-                description: "Vérifie ton profil avant de prendre position.",
+                title: t("orderForm.rejection.ageNotConfirmed.title"),
+                description: t("orderForm.rejection.ageNotConfirmed.description"),
               },
             }
             const msg = (reason && rejectionMessages[reason]) || {
-              title: "Trade refusé par le serveur",
-              description: reason ?? "Réessaie plus tard.",
+              title: t("orderForm.rejection.generic.title"),
+              description: reason ?? t("orderForm.rejection.generic.descriptionFallback"),
             }
             addToast({ type: "info", ...msg, duration: 6000 })
             return
@@ -371,7 +372,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
 
     addToast({
       type: "success",
-      title: "Position ouverte — direction portfolio…",
+      title: t("orderForm.successToastTitle"),
       duration: 1500,
     })
     navTimeoutRef.current = window.setTimeout(() => {
@@ -489,7 +490,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
           htmlFor="order-amount"
           className="mb-1.5 flex items-center justify-between font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim"
         >
-          <span>Mise (USDC)</span>
+          <span>{t("orderForm.stakeLabel")}</span>
           <span className="normal-case tracking-normal text-ink-dim">
             ≈ {formatMoney(amount)}
           </span>
@@ -521,7 +522,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
                 ? "border-signal-no/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-no/25"
                 : "border-line-strong focus-visible:outline-none focus-visible:border-brand-500/60 focus-visible:ring-2 focus-visible:ring-brand-500/20",
             )}
-            aria-label="Montant USDC"
+            aria-label={t("orderForm.amountAria")}
           />
         </div>
         <AnimatePresence initial={false}>
@@ -542,7 +543,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
         </AnimatePresence>
         <div
           role="radiogroup"
-          aria-label="Mises rapides"
+          aria-label={t("orderForm.presetsAria")}
           className="flex flex-wrap gap-1.5"
         >
           {amountPresets.map((p) => {
@@ -604,19 +605,28 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       {/* Honest Gain/Perte — 2-up equal prominence */}
       <div className="mb-2 grid grid-cols-2 gap-3">
         <div className="rounded-md border border-signal-yes/20 bg-signal-yes/5 p-4">
-          <p className="text-label-sm text-ink-readable">Gain si ✓</p>
+          <p className="text-label-sm text-ink-readable">{t("orderForm.gainIf")}</p>
           <p className="num mt-1 text-title-md font-semibold text-signal-yes">
             {amountRaw === "" ? "\u2014" : `+$${Math.max(estimatedReturn, 0).toFixed(2)}`}
           </p>
         </div>
         <div className="rounded-md border border-signal-no/20 bg-signal-no/5 p-4">
-          <p className="text-label-sm text-ink-readable">Perte si ✗</p>
+          <p className="text-label-sm text-ink-readable">{t("orderForm.lossIf")}</p>
           <p className="num mt-1 text-title-md font-semibold text-signal-no">
             {amountRaw === "" ? "\u2014" : `-$${amount.toFixed(2)}`}
           </p>
         </div>
       </div>
-      <p className="mb-2 text-label-sm text-ink-dim">Montants hors frais Polymarket.</p>
+      <p className="mb-1 text-label-sm text-ink-dim">{t("orderForm.feesNote")}</p>
+      {/* Risk disclosure (DEC-005 + AMF). Same prominence as the Perte
+          panel above so the user cannot miss the total-loss framing.
+          Required by audit P0-8 (2026-04-27). */}
+      <p
+        role="note"
+        className="mb-2 text-label-sm font-medium text-signal-no"
+      >
+        {t("orderForm.totalLossWarning")}
+      </p>
       <p className="num mb-5 text-label-sm text-ink-dim">
         {shares > 0 ? shares.toFixed(1) : "\u2014"} parts à ${pricePerShare.toFixed(2)}
       </p>
@@ -631,7 +641,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       >
         {submitted ? (
           <>
-            <Check className="h-4 w-4" /> Ordre transmis à Polymarket
+            <Check className="h-4 w-4" /> {t("orderForm.submittedCta")}
           </>
         ) : (
           <>

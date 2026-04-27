@@ -11,6 +11,41 @@ import { ApiError } from "@/lib/api/client"
 // only path. These tests pin that contract so a future regression that
 // reintroduces a slider clamp without re-evaluating the cap design fails.
 
+// Stub i18n so `t()` returns the FR translation the rest of the test
+// expects (the form is i18n-migrated as of 2026-04-27 audit P0-7;
+// without this stub `t()` falls back to the raw key and breaks the
+// assertions that match French strings).
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, vars?: Record<string, unknown>) => {
+      const dict: Record<string, string> = {
+        "signal.cta.takePosition": "Prendre position",
+        "orderForm.stakeLabel": "Mise (USDC)",
+        "orderForm.amountAria": "Montant USDC",
+        "orderForm.presetsAria": "Mises rapides",
+        "orderForm.gainIf": "Gain si ✓",
+        "orderForm.lossIf": "Perte si ✗",
+        "orderForm.feesNote": "Montants hors frais Polymarket.",
+        "orderForm.totalLossWarning":
+          "⚠ Perte totale possible : si l'événement résout contre toi, tu perds 100 % de ta mise.",
+        "orderForm.buyCta": `Acheter ${vars?.shares ?? ""} parts ${vars?.direction ?? ""}`,
+        "orderForm.submittedCta": "Ordre transmis à Polymarket",
+        "orderForm.successToastTitle": "Position ouverte — direction portfolio…",
+        "orderForm.successToastDetail": "Position ouverte sur Polymarket",
+        "orderForm.rejection.inCooloff.title": "Tu es en pause (cooloff)",
+        "orderForm.rejection.inCooloff.description":
+          "3 pertes consécutives — le serveur bloque les nouveaux trades pendant 24h.",
+        "orderForm.rejection.ageNotConfirmed.title": "Confirmation 18+ requise",
+        "orderForm.rejection.ageNotConfirmed.description":
+          "Vérifie ton profil avant de prendre position.",
+        "orderForm.rejection.generic.title": "Trade refusé par le serveur",
+        "orderForm.rejection.generic.descriptionFallback": "Réessaie plus tard.",
+      }
+      return dict[key] ?? key
+    },
+  }),
+}))
+
 vi.mock("@/lib/api/auth", () => ({
   hasToken: () => true,
   clearToken: vi.fn(),
