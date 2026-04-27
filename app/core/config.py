@@ -1,7 +1,6 @@
 """Core configuration — all settings from Blueprint V4."""
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,40 +25,40 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://redis:6379/0")
 
     # ── OpenAI ────────────────────────────────────────────────────────────
-    openai_api_key: Optional[str] = Field(default=None)
+    openai_api_key: str | None = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_llm_model: str = Field(default="gpt-4o-mini")
     openai_impact_model: str = Field(default="gpt-4o")
 
     # ── World News API ────────────────────────────────────────────────────
-    worldnews_api_key: Optional[str] = Field(default=None)
+    worldnews_api_key: str | None = Field(default=None)
     worldnews_poll_interval_seconds: int = Field(default=120)
 
     # ── Telegram (kept for optional alerts) ───────────────────────────────
-    telegram_bot_token: Optional[str] = Field(default=None)
-    telegram_chat_id: Optional[str] = Field(default=None)
+    telegram_bot_token: str | None = Field(default=None)
+    telegram_chat_id: str | None = Field(default=None)
 
     # ── Auth / Security ──────────────────────────────────────────────────
     jwt_secret_key: str = Field(default="change-me-in-production")
     jwt_algorithm: str = Field(default="HS256")
     jwt_expire_days: int = Field(default=7)
     # Google Sign-In (OAuth 2.0 Web client ID — same value as VITE_GOOGLE_CLIENT_ID on frontend)
-    google_client_id: Optional[str] = Field(default=None)
-    signal_api_key: Optional[str] = Field(default=None)
+    google_client_id: str | None = Field(default=None)
+    signal_api_key: str | None = Field(default=None)
     # Comma-separated list of emails allowed to hit /api/admin/* endpoints.
     # Not a role column — temporary until we need >1 permission tier.
     admin_emails: str = Field(default="")
 
     # ── Push Notifications (VAPID) ────────────────────────────────────
-    vapid_private_key: Optional[str] = Field(default=None)
-    vapid_public_key: Optional[str] = Field(default=None)
+    vapid_private_key: str | None = Field(default=None)
+    vapid_public_key: str | None = Field(default=None)
     vapid_email: str = Field(default="hello@getforesight.io")
 
     # ── Polymarket Builder ─────────────────────────────────────────────
-    builder_api_key: Optional[str] = Field(default=None)
-    builder_api_secret: Optional[str] = Field(default=None)
-    builder_api_passphrase: Optional[str] = Field(default=None)
-    builder_private_key: Optional[str] = Field(default=None)
+    builder_api_key: str | None = Field(default=None)
+    builder_api_secret: str | None = Field(default=None)
+    builder_api_passphrase: str | None = Field(default=None)
+    builder_private_key: str | None = Field(default=None)
     polygon_chain_id: int = Field(default=137)
 
     # Polymarket Builder attribution code (bytes32 hex from polymarket.com/settings?tab=builder)
@@ -85,10 +84,10 @@ class Settings(BaseSettings):
     )
 
     # ── Stripe ─────────────────────────────────────────────────────────
-    stripe_secret_key: Optional[str] = Field(default=None)
-    stripe_webhook_secret: Optional[str] = Field(default=None)
-    stripe_price_pro: Optional[str] = Field(default=None)
-    stripe_price_trader: Optional[str] = Field(default=None)
+    stripe_secret_key: str | None = Field(default=None)
+    stripe_webhook_secret: str | None = Field(default=None)
+    stripe_price_pro: str | None = Field(default=None)
+    stripe_price_trader: str | None = Field(default=None)
 
     # ── Environment ───────────────────────────────────────────────────────
     env: str = Field(default="development")
@@ -139,11 +138,27 @@ class Settings(BaseSettings):
     min_title_words: int = Field(default=5)
     article_freshness_hours: int = Field(default=12)
     embedding_batch_size: int = Field(default=100)
-    rss_max_article_age_hours: float = Field(default=24.0)
+    # Tightened from 24 → 2 (2026-04-27, lag audit).
+    # Measured tweet-ingestion lag (X via RSSHub) shows p50 = 5-24 min for
+    # high-volume tier-1 accounts (Reuters, FirstSquawk, business) but
+    # p50 = 3-7 hours for lower-volume tier-1 accounts (AP, AFP, WSJmarkets,
+    # BBCBreaking). Articles older than 2h have lost their pricing edge on
+    # Polymarket — info has been digested. Reject them at ingestion rather
+    # than scoring on stale news. Trade-off: ~50 % of low-volume tier-1
+    # tweets dropped, but those were already weak signals when they did fire.
+    rss_max_article_age_hours: float = Field(default=2.0)
     # Beat intervals — backfill only; fast-path handles real-time flow
     embedding_batch_interval_seconds: int = Field(default=120)
     build_events_interval_seconds: int = Field(default=300)
-    signal_event_max_age_hours: float = Field(default=6.0)
+    # Tightened from 6 → 2 (2026-04-27, lag audit).
+    # Aligns with `rss_max_article_age_hours = 2` so the freshness chain
+    # is consistent end-to-end. Combined with the freshness fix in
+    # `compute_event_seen_window` (which makes `event.last_seen` reflect
+    # the article's `publish_date`, not NOW), an event whose oldest
+    # article is > 2h old will be rejected at scoring time before any
+    # LLM call. Caveat for the retry/backfill paths: stuck events older
+    # than 2h are now considered abandoned, not retried.
+    signal_event_max_age_hours: float = Field(default=2.0)
     signal_dedupe_window_hours: float = Field(default=72.0)
 
     # ── Event LLM (cluster ≥ min_articles) ───────────────────────────────
