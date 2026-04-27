@@ -150,11 +150,27 @@ class Settings(BaseSettings):
     min_title_words: int = Field(default=5)
     article_freshness_hours: int = Field(default=12)
     embedding_batch_size: int = Field(default=100)
-    rss_max_article_age_hours: float = Field(default=24.0)
+    # Tightened from 24 → 2 (2026-04-27, lag audit).
+    # Measured tweet-ingestion lag (X via RSSHub) shows p50 = 5-24 min for
+    # high-volume tier-1 accounts (Reuters, FirstSquawk, business) but
+    # p50 = 3-7 hours for lower-volume tier-1 accounts (AP, AFP, WSJmarkets,
+    # BBCBreaking). Articles older than 2h have lost their pricing edge on
+    # Polymarket — info has been digested. Reject them at ingestion rather
+    # than scoring on stale news. Trade-off: ~50 % of low-volume tier-1
+    # tweets dropped, but those were already weak signals when they did fire.
+    rss_max_article_age_hours: float = Field(default=2.0)
     # Beat intervals — backfill only; fast-path handles real-time flow
     embedding_batch_interval_seconds: int = Field(default=120)
     build_events_interval_seconds: int = Field(default=300)
-    signal_event_max_age_hours: float = Field(default=6.0)
+    # Tightened from 6 → 2 (2026-04-27, lag audit).
+    # Aligns with `rss_max_article_age_hours = 2` so the freshness chain
+    # is consistent end-to-end. Combined with the freshness fix in
+    # `compute_event_seen_window` (which makes `event.last_seen` reflect
+    # the article's `publish_date`, not NOW), an event whose oldest
+    # article is > 2h old will be rejected at scoring time before any
+    # LLM call. Caveat for the retry/backfill paths: stuck events older
+    # than 2h are now considered abandoned, not retried.
+    signal_event_max_age_hours: float = Field(default=2.0)
     signal_dedupe_window_hours: float = Field(default=72.0)
 
     # ── Event LLM (cluster ≥ min_articles) ───────────────────────────────

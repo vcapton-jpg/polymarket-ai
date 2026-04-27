@@ -37,6 +37,13 @@ services:
     environment:
       CACHE_TYPE: redis
       REDIS_URL: redis://redis:6379/5
+      # Default `CACHE_EXPIRE` is 300s (5 min). Combined with our 90 s
+      # poll interval, that adds up to ~6 min of avoidable lag on cache
+      # misses. 60 s aligns the cache TTL with the poll, keeping the
+      # cache hot for repeated callers but releasing fresh feeds within
+      # a poll cycle. Trade-off: ~6× more upstream Twitter scrapes per
+      # source per hour. RSSHub's burner-cookie path can sustain it.
+      CACHE_EXPIRE: "60"
       NODE_ENV: production
       # Twitter scraping requires session cookies from a logged-in (burner) X account.
       # Values live in .env (gitignored). See docs runbook: setup-rsshub-twitter.md.
