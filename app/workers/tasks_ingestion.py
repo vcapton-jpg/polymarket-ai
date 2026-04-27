@@ -46,7 +46,6 @@ def fetch_markets(self):
 
 
 async def _fetch_markets_async() -> dict:
-    import asyncio
 
     from sqlalchemy import select
 
@@ -239,8 +238,9 @@ async def _compute_market_embeddings():
             texts = [m.market_retrieval_text for m in markets]
             embeddings = await get_embeddings(texts)
 
-            from app.processing.text_composers import compose_market_v2
             from datetime import datetime, timezone
+
+            from app.processing.text_composers import compose_market_v2
 
             computed = 0
             for market, emb in zip(markets, embeddings):
@@ -345,15 +345,39 @@ def _percentile_rank(value: float, sorted_values: list[float]) -> float:
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=30)
 def fetch_rss_feeds(self):
-    """Poll all RSS + X_RSS sources, persist new articles, trigger processing."""
+    """Poll tier-2 and tier-3 RSS + X_RSS sources at the slow cadence
+    (`rss_poll_interval_seconds`, default 90 s). Tier-1 wire sources are
+    polled separately by `fetch_rss_tier1` at a faster cadence — see
+    that task's docstring for the latency reasoning.
+    """
     try:
-        return _run_async(_fetch_rss_async())
+        return _run_async(_fetch_rss_async(tiers=(2, 3)))
     except Exception as exc:
         logger.exception("fetch_rss_feeds failed")
         raise self.retry(exc=exc)
 
 
-async def _fetch_rss_async() -> dict:
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
+def fetch_rss_tier1(self):
+    """Poll TIER-1 RSS + X_RSS sources at the fast cadence
+    (`tier1_rss_poll_interval_seconds`, default 15 s).
+
+    Why a dedicated task: lag audit on 7 days of @Reuters / @FirstSquawk /
+    @business / @AP showed publish→ingestion p50 = 4-24 min and p95 up
+    to 17 h. The dominant contributor was the 90 s poll interval combined
+    with RSSHub's 60 s cache TTL — a tweet that landed in the cache just
+    after a poll could wait 90 s for the next pickup. Polling tier-1 at
+    15 s aligns with the cache TTL so a fresh tweet reaches us within
+    one cache-window cycle. Tier-2/3 stay at 90 s to avoid over-fetching.
+    """
+    try:
+        return _run_async(_fetch_rss_async(tiers=(1,)))
+    except Exception as exc:
+        logger.exception("fetch_rss_tier1 failed")
+        raise self.retry(exc=exc)
+
+
+async def _fetch_rss_async(*, tiers: tuple[int, ...] = (1, 2, 3)) -> dict:
     from sqlalchemy import select
 
     from app.core.config import get_settings
@@ -361,14 +385,14 @@ async def _fetch_rss_async() -> dict:
     async_session_factory = get_session_factory()
     from app.db.models import News
     from app.ingestion.rss_scraper import fetch_sources
-    from app.ingestion.sources_registry import get_sources_by_type
+    from app.ingestion.sources_registry import get_sources_by_tier_and_type
     from app.processing.freshness import is_fresh_enough
 
     settings = get_settings()
-    sources = await get_sources_by_type("rss", "x_rss")
+    sources = await get_sources_by_tier_and_type(tiers, ("rss", "x_rss"))
     if not sources:
-        logger.warning("No RSS/X_RSS sources found in DB")
-        return {"status": "no_sources"}
+        logger.warning("No RSS/X_RSS sources found in DB for tiers=%s", tiers)
+        return {"status": "no_sources", "tiers": list(tiers)}
 
     articles = await fetch_sources(sources)
 
@@ -676,6 +700,7 @@ async def _resolve_or_create_source(
     weight: float = 0.4,
 ) -> int:
     from sqlalchemy import select
+
     from app.db.models import SourceRegistry
 
     row = (await session.execute(
@@ -703,6 +728,7 @@ async def _resolve_or_create_source(
 async def _fetch_gdelt_async(queries: list[str] | None = None) -> int:
     """Run one GDELT ingestion pass. Returns count of inserted news rows."""
     from sqlalchemy import select
+
     from app.db.database import get_session_factory
     from app.db.models import News, SourceRegistry
 

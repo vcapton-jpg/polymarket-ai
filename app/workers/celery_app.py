@@ -51,8 +51,20 @@ celery_app.conf.task_routes = {
 }
 
 _beat_schedule = {
-    # ── Ingestion — RSS feeds ────────────────────────────────────────
-    "fetch-rss-tier1": {
+    # ── Ingestion — RSS tier-1 (wire sources) at fast cadence ──────
+    # Reuters, AFP, AP, BBCBreaking, FirstSquawk, business etc. — the
+    # latency-critical accounts. Polls every
+    # `tier1_rss_poll_interval_seconds` (default 15 s) to stay near
+    # RSSHub's 60 s cache TTL floor.
+    "fetch-rss-tier1-fast": {
+        "task": "app.workers.tasks_ingestion.fetch_rss_tier1",
+        "schedule": settings.tier1_rss_poll_interval_seconds,
+        "options": {"queue": "ingestion"},
+    },
+    # ── Ingestion — RSS tier-2/3 at slow cadence ────────────────────
+    # Commentary feeds, secondary X accounts, World News API. Polled
+    # every `rss_poll_interval_seconds` (default 90 s).
+    "fetch-rss-tier-low": {
         "task": "app.workers.tasks_ingestion.fetch_rss_feeds",
         "schedule": settings.rss_poll_interval_seconds,
         "options": {"queue": "ingestion"},
