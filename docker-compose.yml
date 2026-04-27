@@ -145,10 +145,41 @@ services:
       - ./prompts:/app/prompts
 
   # ── Worker: scoring (fast-path events + hybrid search + LLM + signals) ──
+  # Realtime hot path only — see worker-scoring-batch for the heavy/batch
+  # twin that drains the four subordinate queues (P1-9 split).
   worker-scoring:
     build: .
     container_name: foresight-worker-scoring
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q scoring -n scoring@%h
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@db:5432/signal
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./app:/app/app
+      - ./prompts:/app/prompts
+
+  # ── Worker: scoring-batch (sourcing / embeddings / ranking_shadow / recovery) ──
+  # Drains the four queues that used to share `scoring` and would HOL-block
+  # the realtime path. HOL inside this worker is acceptable: every task here
+  # is non-latency-sensitive (shadow re-runs, batch backfills, recovery
+  # sweeps). Adding more parallelism would mostly buy contention on the LLM
+  # quota and shared sessions; bump only after observing real backlog.
+  worker-scoring-batch:
+    build: .
+    container_name: foresight-worker-scoring-batch
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q sourcing,embeddings,ranking_shadow,scoring_recovery -n scoring-batch@%h
     deploy:
       resources:
         limits:
