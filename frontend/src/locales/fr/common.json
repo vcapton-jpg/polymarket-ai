@@ -148,6 +148,13 @@
       "takePosition": "Prendre position"
     }
   },
+  "signalOutcome": {
+    "unresolved": {
+      "body": "Ce signal n'est pas encore résolu. Reviens quand le marché aura tranché — on te montrera ce qui s'est passé et pourquoi.",
+      "back": "Retour au signal"
+    },
+    "exitCta": "Compris, voir d'autres signaux"
+  },
   "orderForm": {
     "stakeLabel": "Mise (USDC)",
     "amountAria": "Montant USDC",
