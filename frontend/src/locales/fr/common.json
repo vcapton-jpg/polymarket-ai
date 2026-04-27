@@ -148,6 +148,81 @@
       "takePosition": "Prendre position"
     }
   },
+  "signals": {
+    "header": {
+      "eyebrow": "Signaux",
+      "subtitle": "{{count}} opportunité · triée par {{sort}}. Tu décides, toujours.",
+      "subtitlePlural": "{{count}} opportunités · triées par {{sort}}. Tu décides, toujours.",
+      "h1": "{{count}} opportunité détectée",
+      "h1Plural": "{{count}} opportunités détectées",
+      "h1Empty": "Aucun signal actif"
+    },
+    "search": {
+      "placeholder": "Rechercher un marché…",
+      "aria": "Rechercher dans les signaux",
+      "clearAria": "Effacer la recherche"
+    },
+    "actions": {
+      "refresh": "Rafraîchir",
+      "reset": "Réinitialiser",
+      "advancedFilters": "Filtres avancés",
+      "filters": "Filtres"
+    },
+    "categories": {
+      "all": "Tous",
+      "geopolitics": "🌍 Géopolitique",
+      "politics": "🏛️ Politique",
+      "economics": "📈 Économie",
+      "crypto": "₿ Crypto",
+      "sports": "⚽ Sport"
+    },
+    "scoreSteps": {
+      "all": "Tous",
+      "actionable": "60+ · Actionnable",
+      "strong": "75+ · Signal fort",
+      "exceptional": "90+ · Exceptionnel"
+    },
+    "sorts": {
+      "label": "Tri",
+      "recent": "Plus récents",
+      "score": "Meilleur score",
+      "urgent": "Plus urgent"
+    },
+    "directionFilter": {
+      "label": "Direction",
+      "all": "Tous"
+    },
+    "catalystLabel": "Catalyseur",
+    "categoriesLabel": "Catégorie",
+    "catalystMinLabel": "Catalyseur minimum",
+    "viewResults": "Voir les résultats",
+    "closeAria": "Fermer",
+    "activeFilters": "{{count}} filtre actif",
+    "activeFiltersPlural": "{{count}} filtres actifs",
+    "skipBanner": {
+      "body": "Profil par défaut actif.",
+      "cta": "Calibre tes alertes en 30 sec →",
+      "dismissAria": "Fermer le rappel"
+    },
+    "apiError": {
+      "title": "API indisponible.",
+      "demoFallback": "Affichage des données de démo."
+    },
+    "paywall": {
+      "exceptionalTitle": "Signal exceptionnel · Réservé Pro",
+      "exceptionalSubtitle": "{{count}} signaux 90+ détectés cette semaine",
+      "freePlan": "Plan Free",
+      "limitHitTitle": "Tu as vu tes 5 signaux d'aujourd'hui",
+      "limitHitBody": "Pro débloque l'illimité",
+      "limitHitCta": "Essai 7 jours gratuit",
+      "lockedTitle": "Réservé Pro"
+    },
+    "empty": {
+      "title": "Aucun signal dans cette tranche",
+      "body": "Essaie d'élargir les filtres — le pipeline scanne en continu.",
+      "resetCta": "Réinitialiser les filtres"
+    }
+  },
   "signalOutcome": {
     "unresolved": {
       "body": "Ce signal n'est pas encore résolu. Reviens quand le marché aura tranché — on te montrera ce qui s'est passé et pourquoi.",

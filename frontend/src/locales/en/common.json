@@ -148,6 +148,81 @@
       "takePosition": "Take a position"
     }
   },
+  "signals": {
+    "header": {
+      "eyebrow": "Signals",
+      "subtitle": "{{count}} opportunity · sorted by {{sort}}. You always decide.",
+      "subtitlePlural": "{{count}} opportunities · sorted by {{sort}}. You always decide.",
+      "h1": "{{count}} opportunity detected",
+      "h1Plural": "{{count}} opportunities detected",
+      "h1Empty": "No active signal"
+    },
+    "search": {
+      "placeholder": "Search a market…",
+      "aria": "Search in signals",
+      "clearAria": "Clear search"
+    },
+    "actions": {
+      "refresh": "Refresh",
+      "reset": "Reset",
+      "advancedFilters": "Advanced filters",
+      "filters": "Filters"
+    },
+    "categories": {
+      "all": "All",
+      "geopolitics": "🌍 Geopolitics",
+      "politics": "🏛️ Politics",
+      "economics": "📈 Economics",
+      "crypto": "₿ Crypto",
+      "sports": "⚽ Sports"
+    },
+    "scoreSteps": {
+      "all": "All",
+      "actionable": "60+ · Actionable",
+      "strong": "75+ · Strong signal",
+      "exceptional": "90+ · Exceptional"
+    },
+    "sorts": {
+      "label": "Sort",
+      "recent": "Most recent",
+      "score": "Best score",
+      "urgent": "Most urgent"
+    },
+    "directionFilter": {
+      "label": "Direction",
+      "all": "All"
+    },
+    "catalystLabel": "Catalyst",
+    "categoriesLabel": "Category",
+    "catalystMinLabel": "Minimum catalyst",
+    "viewResults": "View results",
+    "closeAria": "Close",
+    "activeFilters": "{{count}} filter active",
+    "activeFiltersPlural": "{{count}} filters active",
+    "skipBanner": {
+      "body": "Default profile active.",
+      "cta": "Tune your alerts in 30 sec →",
+      "dismissAria": "Dismiss reminder"
+    },
+    "apiError": {
+      "title": "API unavailable.",
+      "demoFallback": "Showing demo data."
+    },
+    "paywall": {
+      "exceptionalTitle": "Exceptional signal · Pro only",
+      "exceptionalSubtitle": "{{count}} signals 90+ detected this week",
+      "freePlan": "Free plan",
+      "limitHitTitle": "You've seen your 5 signals for today",
+      "limitHitBody": "Pro unlocks unlimited",
+      "limitHitCta": "7-day free trial",
+      "lockedTitle": "Pro only"
+    },
+    "empty": {
+      "title": "No signal in this slice",
+      "body": "Try widening the filters — the pipeline scans continuously.",
+      "resetCta": "Reset filters"
+    }
+  },
   "signalOutcome": {
     "unresolved": {
       "body": "This signal hasn't resolved yet. Come back once the market settles — we'll show you what happened and why.",
