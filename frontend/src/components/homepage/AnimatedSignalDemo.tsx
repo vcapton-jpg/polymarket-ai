@@ -199,7 +199,7 @@ export function AnimatedSignalDemo() {
       if (cancelled) return
       resetToInitial()
 
-      /* Beat 1 — cursor appears and glides to "Investir" CTA. */
+      /* Beat 1 — cursor appears and glides to "Prendre position" CTA. */
       schedule(() => {
         setCardHover(true)
         moveCursorTo("cta")
@@ -447,7 +447,7 @@ function DemoSignalCardBody({
         <p className="text-sm leading-relaxed text-ink/90">{SIG.catalyst}</p>
       </div>
 
-      {/* Footer: sources + bookmark + Investir */}
+      {/* Footer: sources + bookmark + Prendre position */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
         <div className="flex items-center gap-2 text-[0.75rem] text-ink-muted">
           <Target className="h-3.5 w-3.5 text-brand-400" aria-hidden />
@@ -468,7 +468,7 @@ function DemoSignalCardBody({
             data-demo-cta
             className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-500 px-3 text-[0.8125rem] font-medium text-obsidian-900 shadow-[0_0_0_1px_rgba(11,224,166,0.25),0_6px_20px_-8px_rgba(11,224,166,0.45)]"
           >
-            Investir
+            Prendre position
             <ChevronRight className="h-3.5 w-3.5" />
           </span>
         </div>

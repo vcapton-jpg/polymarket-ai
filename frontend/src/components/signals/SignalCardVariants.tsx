@@ -96,7 +96,7 @@ export function SignalCardV1({ signal }: { signal: Signal }) {
             type="button"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-[0.8125rem] font-semibold text-obsidian-900 hover:bg-brand-400 transition-colors shadow-[0_0_0_1px_rgba(11,224,166,0.3),0_6px_20px_-8px_rgba(11,224,166,0.5)]"
           >
-            Investir
+            Prendre position
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -217,7 +217,7 @@ export function SignalCardV2({ signal }: { signal: Signal }) {
               type="button"
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-[0.8125rem] font-semibold text-obsidian-900 hover:bg-brand-400 transition-colors shadow-[0_0_0_1px_rgba(11,224,166,0.3),0_6px_20px_-8px_rgba(11,224,166,0.5)]"
             >
-              Investir
+              Prendre position
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -324,7 +324,7 @@ export function SignalCardV3({ signal }: { signal: Signal }) {
               type="button"
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-[0.8125rem] font-semibold text-obsidian-900 hover:bg-brand-400 transition-colors shadow-[0_0_0_1px_rgba(11,224,166,0.3),0_6px_20px_-8px_rgba(11,224,166,0.5)]"
             >
-              Investir
+              Prendre position
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -481,7 +481,7 @@ export function SignalCardV4({ signal }: { signal: Signal }) {
               type="button"
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-500 px-4 text-[0.8125rem] font-semibold text-obsidian-900 hover:bg-brand-400 transition-colors shadow-[0_0_0_1px_rgba(11,224,166,0.3),0_6px_20px_-8px_rgba(11,224,166,0.5)]"
             >
-              Investir
+              Prendre position
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>

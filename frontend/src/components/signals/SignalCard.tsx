@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
+import { useTranslation } from "react-i18next"
 import { ArrowUpRight, Bookmark, ChevronRight, Clock, Target, Timer } from "lucide-react"
 import type { Signal } from "@/types/signal"
 import { cn, timeSinceISO, categoryFallback, scoreTone, toneForLevel, type MetricTone } from "@/lib/utils"
@@ -19,6 +20,7 @@ type SignalCardProps = {
 }
 
 export function SignalCard({ signal, variant = "default", flash, index = 0, className, example }: SignalCardProps) {
+  const { t } = useTranslation()
   const isYes = signal.direction === "YES"
   const isTeaser = variant === "teaser"
   const isCompact = variant === "compact"
@@ -164,7 +166,7 @@ export function SignalCard({ signal, variant = "default", flash, index = 0, clas
                 aria-hidden
                 className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-500 px-3 text-[0.8125rem] font-medium text-obsidian-900 group-hover:bg-brand-400 transition-premium shadow-[0_0_0_1px_rgba(11,224,166,0.25),0_6px_20px_-8px_rgba(11,224,166,0.45)]"
               >
-                Investir
+                {t("signal.cta.takePosition")}
                 <ChevronRight className="h-3.5 w-3.5" />
               </span>
             )}

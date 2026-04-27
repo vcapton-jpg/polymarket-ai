@@ -143,7 +143,38 @@
     "sortedBy": "Trié par {{sort}}",
     "disclaimer": "Signal informatif — tu prends la décision finale.",
     "catalystStrength": "Catalyseur",
-    "watchOnPolymarket": "Voir sur Polymarket"
+    "watchOnPolymarket": "Voir sur Polymarket",
+    "cta": {
+      "takePosition": "Prendre position"
+    }
+  },
+  "orderForm": {
+    "stakeLabel": "Mise (USDC)",
+    "amountAria": "Montant USDC",
+    "presetsAria": "Mises rapides",
+    "gainIf": "Gain si ✓",
+    "lossIf": "Perte si ✗",
+    "feesNote": "Montants hors frais Polymarket.",
+    "totalLossWarning": "⚠ Perte totale possible : si l'événement résout contre toi, tu perds 100 % de ta mise.",
+    "shareLine": "{{shares}} parts à ${{price}}",
+    "buyCta": "Acheter {{shares}} parts {{direction}}",
+    "submittedCta": "Ordre transmis à Polymarket",
+    "successToastTitle": "Position ouverte — direction portfolio…",
+    "successToastDetail": "Position {{direction}} ouverte sur Polymarket · suis-la dans ton portfolio.",
+    "rejection": {
+      "inCooloff": {
+        "title": "Tu es en pause (cooloff)",
+        "description": "3 pertes consécutives — le serveur bloque les nouveaux trades pendant 24h."
+      },
+      "ageNotConfirmed": {
+        "title": "Confirmation 18+ requise",
+        "description": "Vérifie ton profil avant de prendre position."
+      },
+      "generic": {
+        "title": "Trade refusé par le serveur",
+        "descriptionFallback": "Réessaie plus tard."
+      }
+    }
   },
   "onboarding": {
     "tutorialTitle": "Tutoriel — 5 scénarios",
