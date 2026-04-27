@@ -75,15 +75,12 @@ async def _get_or_create_portfolio(
 ) -> Portfolio:
     """Get the calling user's portfolio, creating it lazily if absent.
 
-    Pre-fix (P0-2 audit, 2026-04-27) this function ran an unfiltered
-    `select(Portfolio).limit(1)` which returned the FIRST portfolio in
-    the table — meaning every authenticated user read whoever's
-    portfolio happened to come first. The companion routes
-    (`get_portfolio`, `get_orders`) used the same pattern and exposed
-    cross-user positions and order history. The function also created
-    a ghost `UserProfile(plan="free")` row with no FK to the
-    authenticated caller; that orphan now lives in the DB but is
-    harmless once the auth filter is applied.
+    Filters on `user_id` so the cross-user leak fixed in PR #13 (P0-2)
+    cannot regress. The pre-fix version of this function also created
+    a ghost `UserProfile(plan="free")` row each time it was hit; those
+    orphans were swept by Alembic 026 (P1-3, 2026-04-27) and the
+    `user_profiles.email` column is now NOT NULL so the schema itself
+    forbids that pattern from ever recurring.
     """
     result = await db.execute(
         select(Portfolio).where(Portfolio.user_id == user.id).limit(1)
