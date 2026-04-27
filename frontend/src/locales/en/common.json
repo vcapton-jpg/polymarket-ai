@@ -148,6 +148,13 @@
       "takePosition": "Take a position"
     }
   },
+  "signalOutcome": {
+    "unresolved": {
+      "body": "This signal hasn't resolved yet. Come back once the market settles — we'll show you what happened and why.",
+      "back": "Back to the signal"
+    },
+    "exitCta": "Got it, show me other signals"
+  },
   "orderForm": {
     "stakeLabel": "Stake (USDC)",
     "amountAria": "USDC amount",

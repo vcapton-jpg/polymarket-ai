@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { apiPost } from "@/lib/api/client"
 import { fetchSignalDetailFromApi } from "@/lib/apiSignals"
@@ -20,6 +21,7 @@ import { Skeleton } from "@/components/ui/Skeleton"
  * instead of 404ing.
  */
 export default function SignalOutcome() {
+  const { t } = useTranslation()
   const { id = "" } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -53,15 +55,14 @@ export default function SignalOutcome() {
       <main id="main" className="mx-auto max-w-2xl space-y-4 p-6">
         <h1 className="text-2xl font-bold text-ink">{signal.question}</h1>
         <p className="text-sm text-ink-muted">
-          Ce signal n'est pas encore résolu. Reviens quand le marché aura
-          tranché — on te montrera ce qui s'est passé et pourquoi.
+          {t("signalOutcome.unresolved.body")}
         </p>
         <button
           type="button"
           onClick={() => navigate(`/signals/${id}`)}
           className="text-sm text-brand-400 underline hover:text-brand-300"
         >
-          Retour au signal
+          {t("signalOutcome.unresolved.back")}
         </button>
       </main>
     )
@@ -83,7 +84,7 @@ export default function SignalOutcome() {
         onClick={() => navigate("/signals")}
         className="w-full rounded-lg bg-brand-500 py-3 font-semibold text-obsidian-950 transition-premium hover:bg-brand-400"
       >
-        Compris, voir d'autres signaux
+        {t("signalOutcome.exitCta")}
       </button>
     </main>
   )
