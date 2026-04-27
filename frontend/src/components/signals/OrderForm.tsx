@@ -512,6 +512,22 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
             value={amountRaw}
             onChange={(e) => setAmountRaw(e.target.value)}
             onBlur={() => setTouched(true)}
+            onFocus={(e) => {
+              // Caret at the right edge of the value (`100|`), not the
+              // left (`|100`) — matches the right-aligned visual of the
+              // input. `<input type=number>` rejects `setSelectionRange`
+              // in some browsers (Safari throws InvalidStateError), so
+              // we defer + try/catch and fall back to select-all.
+              const el = e.currentTarget
+              requestAnimationFrame(() => {
+                try {
+                  const len = el.value.length
+                  el.setSelectionRange(len, len)
+                } catch {
+                  el.select()
+                }
+              })
+            }}
             aria-invalid={showError || undefined}
             aria-describedby={showError ? errorId : undefined}
             className={cn(
