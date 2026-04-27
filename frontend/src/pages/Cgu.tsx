@@ -43,11 +43,10 @@ export default function Cgu() {
           <h2 className="text-xl font-semibold text-ink">3. Paper trading et trading réel</h2>
           <p>
             Le Service propose un mode paper trading (simulation sans
-            argent réel) et, après validation du tutoriel, du quiz risque et
-            des limites, un mode trading réel via l'intégration Polymarket.
-            Les limites (budget hebdomadaire, mise max, pause après pertes
-            consécutives) sont appliquées côté serveur et non
-            contournables.
+            argent réel) et, après confirmation 18+, un mode trading réel
+            via l'intégration Polymarket. Une pause forcée de 24h est
+            appliquée côté serveur après 3 pertes consécutives ; cette
+            pause n'est pas contournable.
           </p>
         </section>
 

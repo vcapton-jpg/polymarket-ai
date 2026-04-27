@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MOCK_SIGNALS } from "@/data/signals"
 import { OrderForm } from "../OrderForm"
+import { ApiError } from "@/lib/api/client"
 
 // The per-signal spending caps (slider clamp + cooloff blocker + budget bar)
 // were removed 2026-04-27. The form now exposes the USDC stake input as the
@@ -11,9 +12,13 @@ import { OrderForm } from "../OrderForm"
 // reintroduces a slider clamp without re-evaluating the cap design fails.
 
 vi.mock("@/lib/api/auth", () => ({
-  hasToken: () => false,
+  hasToken: () => true,
   clearToken: vi.fn(),
-  getToken: () => null,
+  getToken: () => "stub-token",
+}))
+
+vi.mock("@/lib/api/trading", () => ({
+  placeTrade: vi.fn(),
 }))
 
 vi.mock("@/hooks/useAuth", () => ({
@@ -82,5 +87,78 @@ describe("OrderForm — stake input (post per-signal-cap removal)", () => {
   it("does NOT render a cooloff blocker", () => {
     render(wrap(<OrderForm signal={MOCK_SIGNALS[0]} />))
     expect(screen.queryByText(/en pause \(cooloff\)/i)).not.toBeInTheDocument()
+  })
+})
+
+// ── 403 rollback regression net ───────────────────────────────────────
+//
+// PR #11 removed the cooloff blocker JSX and the `inCooloff` submit-disabled
+// guard. The backend at `app/api/routes/trading.py` still raises HTTP 403
+// on `in_cooloff` / `age_not_confirmed` — without rollback, the optimistic
+// localStorage write + green success toast + 1.5s navigate to /portfolio
+// all fired regardless of the 403, leaving rejected users on a phantom
+// position. These tests pin the rollback contract.
+
+describe("OrderForm — 403 rollback contract", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("removes the optimistic position from localStorage when backend returns 403 in_cooloff", async () => {
+    const { placeTrade } = await import("@/lib/api/trading")
+    vi.mocked(placeTrade).mockRejectedValueOnce(
+      new ApiError(403, "in_cooloff", { detail: { reason: "in_cooloff" } }),
+    )
+
+    render(wrap(<OrderForm signal={MOCK_SIGNALS[0]} />))
+
+    const submit = screen.getByRole("button", { name: /acheter/i })
+    fireEvent.click(submit)
+
+    await waitFor(() => {
+      const raw = window.localStorage.getItem("foresight.positions")
+      const arr: unknown[] = raw ? JSON.parse(raw) : []
+      expect(arr).toHaveLength(0)
+    })
+  })
+
+  it("removes the optimistic position from localStorage when backend returns 403 age_not_confirmed", async () => {
+    const { placeTrade } = await import("@/lib/api/trading")
+    vi.mocked(placeTrade).mockRejectedValueOnce(
+      new ApiError(403, "age_not_confirmed", {
+        detail: { reason: "age_not_confirmed" },
+      }),
+    )
+
+    render(wrap(<OrderForm signal={MOCK_SIGNALS[0]} />))
+
+    const submit = screen.getByRole("button", { name: /acheter/i })
+    fireEvent.click(submit)
+
+    await waitFor(() => {
+      const raw = window.localStorage.getItem("foresight.positions")
+      const arr: unknown[] = raw ? JSON.parse(raw) : []
+      expect(arr).toHaveLength(0)
+    })
+  })
+
+  it("KEEPS the optimistic position on a non-403 failure (network / 5xx)", async () => {
+    const { placeTrade } = await import("@/lib/api/trading")
+    vi.mocked(placeTrade).mockRejectedValueOnce(new Error("network down"))
+
+    render(wrap(<OrderForm signal={MOCK_SIGNALS[0]} />))
+
+    const submit = screen.getByRole("button", { name: /acheter/i })
+    fireEvent.click(submit)
+
+    await waitFor(() => {
+      const raw = window.localStorage.getItem("foresight.positions")
+      const arr: unknown[] = raw ? JSON.parse(raw) : []
+      expect(arr).toHaveLength(1)
+    })
   })
 })

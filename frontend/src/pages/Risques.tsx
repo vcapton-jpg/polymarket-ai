@@ -39,15 +39,11 @@ export default function Risques() {
         <section className="rounded-xl border border-signal-no/30 bg-signal-no/5 p-4 text-sm text-ink">
           <h2 className="mb-2 font-semibold">Protections automatiques</h2>
           <ul className="list-disc space-y-1 pl-5 text-ink-muted">
+            <li>Confirmation 18+ obligatoire à l'inscription.</li>
             <li>
-              Budget hebdomadaire et mise max plafonnés côté serveur — aucun
-              ordre réel n'est passé au-delà de tes limites.
+              Pause forcée de 24h après 3 pertes consécutives (cooloff),
+              appliquée côté serveur pour casser le tilt.
             </li>
-            <li>
-              Pause forcée de 24h après 3 pertes consécutives (cooloff), pour
-              casser le tilt.
-            </li>
-            <li>Confirmation 18+ et quiz risque obligatoires avant le premier trade réel.</li>
           </ul>
         </section>
         <p className="text-sm text-ink-dim">
