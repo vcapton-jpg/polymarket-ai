@@ -53,7 +53,13 @@ services:
     container_name: foresight-app
     # Run Alembic migrations before starting uvicorn — the API lifespan no
     # longer auto-creates tables (Alembic owns the schema). Audit follow-up.
-    command: sh -c "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload"
+    # `--reload-dir app` scopes the file watcher to the application code.
+    # Without it, `--reload` watches the entire workdir including `.venv/`,
+    # and any `uv sync` / `pip install` triggers a watchfiles avalanche
+    # that wedges uvicorn in a 400-Bad-Request loop until the container
+    # is restarted. (Symptom: API returns "Invalid HTTP request received"
+    # to every request despite uvicorn appearing healthy.)
+    command: sh -c "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app"
     ports:
       - "8001:8000"
     env_file: .env

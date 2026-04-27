@@ -11,6 +11,16 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // Bind on all interfaces so the dev server is reachable from a
+    // Cloudflare quick tunnel (mobile dev workflow). Without `host: true`,
+    // Vite binds IPv6 [::1] only and tunnels resolving `localhost` to
+    // IPv4 fail to connect.
+    host: true,
+    // Allow any host header — Vite 5+ blocks unknown hosts by default
+    // and rejects `*.trycloudflare.com` with an HTTP 403. The dev server
+    // is not exposed to the public internet outside an explicit tunnel,
+    // so opening this is acceptable here.
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: "http://localhost:8001",
