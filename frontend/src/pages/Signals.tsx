@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "framer-motion"
 import FocusLock from "react-focus-lock"
 import { EASE_PREMIUM, DURATIONS } from "@/lib/motion"
@@ -58,26 +59,29 @@ type CategoryKey = SignalCategory | "all"
 type DirectionKey = "all" | "YES" | "NO"
 type SortKey = "recent" | "score" | "urgent"
 
-const CATEGORIES: Array<{ key: CategoryKey; label: string }> = [
-  { key: "all", label: "Tous" },
-  { key: "geopolitics", label: "🌍 Géopolitique" },
-  { key: "politics", label: "🏛️ Politique" },
-  { key: "economics", label: "📈 Économie" },
-  { key: "crypto", label: "₿ Crypto" },
-  { key: "sports", label: "⚽ Sport" },
+/** Filter / sort metadata at module level — only the i18n KEY is stored;
+ *  the rendered label is resolved via `t()` inside the component so
+ *  language toggles take effect without a remount. */
+const CATEGORIES: Array<{ key: CategoryKey; labelKey: string }> = [
+  { key: "all", labelKey: "signals.categories.all" },
+  { key: "geopolitics", labelKey: "signals.categories.geopolitics" },
+  { key: "politics", labelKey: "signals.categories.politics" },
+  { key: "economics", labelKey: "signals.categories.economics" },
+  { key: "crypto", labelKey: "signals.categories.crypto" },
+  { key: "sports", labelKey: "signals.categories.sports" },
 ]
 
-const SCORE_STEPS: Array<{ value: number; label: string }> = [
-  { value: 0, label: "Tous" },
-  { value: 60, label: "60+ · Actionnable" },
-  { value: 75, label: "75+ · Signal fort" },
-  { value: 90, label: "90+ · Exceptionnel" },
+const SCORE_STEPS: Array<{ value: number; labelKey: string }> = [
+  { value: 0, labelKey: "signals.scoreSteps.all" },
+  { value: 60, labelKey: "signals.scoreSteps.actionable" },
+  { value: 75, labelKey: "signals.scoreSteps.strong" },
+  { value: 90, labelKey: "signals.scoreSteps.exceptional" },
 ]
 
-const SORTS: Array<{ key: SortKey; label: string }> = [
-  { key: "recent", label: "Plus récents" },
-  { key: "score", label: "Meilleur score" },
-  { key: "urgent", label: "Plus urgent" },
+const SORTS: Array<{ key: SortKey; labelKey: string }> = [
+  { key: "recent", labelKey: "signals.sorts.recent" },
+  { key: "score", labelKey: "signals.sorts.score" },
+  { key: "urgent", labelKey: "signals.sorts.urgent" },
 ]
 
 const URGENCY_WEIGHT: Record<string, number> = {
@@ -88,6 +92,7 @@ const URGENCY_WEIGHT: Record<string, number> = {
 }
 
 export default function Signals() {
+  const { t } = useTranslation()
   const profile = useProfile()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -326,7 +331,7 @@ export default function Signals() {
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-line-strong bg-obsidian-800 px-3 text-body-sm text-ink-muted hover:text-ink hover:border-brand-500/40 transition-premium cursor-pointer"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-          Rafraîchir
+          {t("signals.actions.refresh")}
         </button>
       }
     >
@@ -335,7 +340,7 @@ export default function Signals() {
         <div className="px-4 pt-6 pb-5 md:px-8 md:pt-8">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">Signaux</p>
+              <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">{t("signals.header.eyebrow")}</p>
               <h1 id="signals-h1" className="font-display text-[1.75rem] font-semibold tracking-tight text-ink md:text-[2.125rem]">
                 {filtered.length > 0
                   ? `${filtered.length} opportunit${filtered.length > 1 ? "és" : "é"} détect${filtered.length > 1 ? "ées" : "ée"}`
@@ -343,7 +348,7 @@ export default function Signals() {
               </h1>
               <p className="mt-1 text-[0.9375rem] text-ink-muted">
                 <span className="num text-ink">{filtered.length}</span> opportunité{filtered.length > 1 ? "s" : ""} · triée{filtered.length > 1 ? "s" : ""} par{" "}
-                <span className="text-ink">{SORTS.find((s) => s.key === sort)?.label.toLowerCase()}</span>. Tu décides, toujours.
+                <span className="text-ink">{SORTS.find((s) => s.key === sort) ? t(SORTS.find((s) => s.key === sort)!.labelKey).toLowerCase() : ""}</span>. Tu décides, toujours.
               </p>
             </div>
 
@@ -353,15 +358,15 @@ export default function Signals() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher un marché…"
-                aria-label="Rechercher dans les signaux"
+                placeholder={t("signals.search.placeholder")}
+                aria-label={t("signals.search.aria")}
                 className="h-10 w-full rounded-md border border-line-strong bg-obsidian-800 pl-9 pr-9 text-body-md text-ink placeholder:text-ink-dim focus:outline-none focus:border-brand-500/40 focus:ring-2 focus:ring-brand-500/20"
               />
               {query && (
                 <button
                   onClick={() => setQuery("")}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 grid h-10 w-10 md:h-7 md:w-7 place-items-center rounded text-ink-dim hover:text-ink hover:bg-obsidian-700 cursor-pointer"
-                  aria-label="Effacer la recherche"
+                  aria-label={t("signals.search.clearAria")}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -379,7 +384,7 @@ export default function Signals() {
                   active={category === c.key}
                   onClick={() => setCategory(c.key)}
                 >
-                  {c.label}
+                  {t(c.labelKey)}
                 </FilterPill>
               ))}
             </div>
@@ -394,7 +399,7 @@ export default function Signals() {
               className="inline-flex items-center gap-1.5 rounded-md border border-line bg-obsidian-850/60 px-2.5 py-1 text-label-sm text-ink-muted hover:text-ink hover:border-line-strong transition-premium cursor-pointer"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filtres avancés
+              {t("signals.actions.advancedFilters")}
               <ChevronDown
                 className={cn(
                   "h-3.5 w-3.5 transition-transform",
@@ -411,7 +416,7 @@ export default function Signals() {
                     to reflect the L&T framing: the number measures how
                     strong the news catalyst is, not a grade. */}
                 <div id="adv-filters-panel" className="flex items-center gap-1.5">
-                  <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Catalyseur</span>
+                  <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">{t("signals.catalystLabel")}</span>
                   {SCORE_STEPS.map((s) => (
                     <FilterPill
                       key={s.value}
@@ -419,7 +424,7 @@ export default function Signals() {
                       onClick={() => setMinScore(s.value)}
                       size="sm"
                     >
-                      {s.label}
+                      {t(s.labelKey)}
                       {s.value === 90 && <PaywallChip />}
                     </FilterPill>
                   ))}
@@ -429,9 +434,9 @@ export default function Signals() {
 
                 {/* Direction */}
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Direction</span>
+                  <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">{t("signals.directionFilter.label")}</span>
                   <FilterPill active={direction === "all"} onClick={() => setDirection("all")} size="sm">
-                    Tous
+                    {t("signals.directionFilter.all")}
                   </FilterPill>
                   <FilterPill
                     active={direction === "YES"}
@@ -457,7 +462,7 @@ export default function Signals() {
 
             {/* Sort */}
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Tri</span>
+              <span className="font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">{t("signals.sorts.label")}</span>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
@@ -465,7 +470,7 @@ export default function Signals() {
               >
                 {SORTS.map((s) => (
                   <option key={s.key} value={s.key}>
-                    {s.label}
+                    {t(s.labelKey)}
                   </option>
                 ))}
               </select>
@@ -479,7 +484,7 @@ export default function Signals() {
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-line-strong bg-obsidian-800 px-3 py-2.5 text-body-md text-ink cursor-pointer"
             >
               <SlidersHorizontal className="h-4 w-4" />
-              Filtres
+              {t("signals.actions.filters")}
               {activeFilterCount > 0 && (
                 <span className="num ml-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand-500 px-1.5 text-label-xs font-semibold text-obsidian-900">
                   {activeFilterCount}
@@ -493,7 +498,7 @@ export default function Signals() {
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>
-                  {s.label}
+                  {t(s.labelKey)}
                 </option>
               ))}
             </select>
@@ -508,7 +513,7 @@ export default function Signals() {
                 onClick={resetFilters}
                 className="text-brand-400 hover:text-brand-300 underline decoration-line-strong underline-offset-2 cursor-pointer"
               >
-                Réinitialiser
+                {t("signals.actions.reset")}
               </button>
             </div>
           )}
@@ -535,7 +540,7 @@ export default function Signals() {
             <button
               type="button"
               onClick={dismissSkipBanner}
-              aria-label="Fermer le rappel"
+              aria-label={t("signals.skipBanner.dismissAria")}
               className="grid h-10 w-10 md:h-7 md:w-7 place-items-center rounded text-ink-dim hover:text-ink hover:bg-obsidian-800 cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
@@ -551,10 +556,10 @@ export default function Signals() {
             role="alert"
             className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-body-sm text-ink"
           >
-            <span className="font-medium text-amber-200">API indisponible.</span>{" "}
+            <span className="font-medium text-amber-200">{t("signals.apiError.title")}</span>{" "}
             <span className="text-ink-muted">{apiError}</span>
             {" · "}
-            <span className="text-ink-muted">Affichage des données de démo.</span>
+            <span className="text-ink-muted">{t("signals.apiError.demoFallback")}</span>
           </div>
         )}
         {apiLoading && !filtered.length ? (
@@ -725,6 +730,7 @@ function Divider() {
 }
 
 function EmptyState({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation()
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -734,15 +740,15 @@ function EmptyState({ onReset }: { onReset: () => void }) {
       <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-obsidian-800 text-ink-dim">
         <Filter className="h-6 w-6" />
       </div>
-      <h3 className="mb-1 font-display text-lg text-ink">Aucun signal dans cette tranche</h3>
+      <h3 className="mb-1 font-display text-lg text-ink">{t("signals.empty.title")}</h3>
       <p className="mb-5 px-8 text-body-md text-ink-muted">
-        Essaie d’élargir les filtres — le pipeline scanne en continu.
+        {t("signals.empty.body")}
       </p>
       <button
         onClick={onReset}
         className="inline-flex items-center gap-1.5 rounded-md border border-line-strong bg-obsidian-800 px-4 py-2 text-body-sm font-medium text-ink hover:border-brand-500/40 transition-premium cursor-pointer"
       >
-        Réinitialiser les filtres
+        {t("signals.empty.resetCta")}
       </button>
     </motion.div>
   )
@@ -767,6 +773,7 @@ function MobileFiltersDrawer({
   setDirection: (k: DirectionKey) => void
   onReset: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <>
       <motion.div
@@ -790,31 +797,31 @@ function MobileFiltersDrawer({
         <div className="sticky top-0 flex items-center justify-between border-b border-line/60 bg-obsidian-900/95 backdrop-blur px-5 py-4">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-brand-400" />
-            <h3 id="mobile-filters-title" className="font-display text-base font-semibold text-ink">Filtres</h3>
+            <h3 id="mobile-filters-title" className="font-display text-base font-semibold text-ink">{t("signals.actions.filters")}</h3>
           </div>
-          <button onClick={onClose} aria-label="Fermer" className="grid h-9 w-9 place-items-center rounded-md text-ink-dim hover:text-ink hover:bg-obsidian-800 cursor-pointer">
+          <button onClick={onClose} aria-label={t("signals.closeAria")} className="grid h-9 w-9 place-items-center rounded-md text-ink-dim hover:text-ink hover:bg-obsidian-800 cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-7 p-5 pb-8">
           <div>
-            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Catégorie</p>
+            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">{t("signals.categoriesLabel")}</p>
             <div className="flex flex-wrap gap-1.5">
               {CATEGORIES.map((c) => (
                 <FilterPill key={c.key} active={category === c.key} onClick={() => setCategory(c.key)}>
-                  {c.label}
+                  {t(c.labelKey)}
                 </FilterPill>
               ))}
             </div>
           </div>
 
           <div>
-            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Catalyseur minimum</p>
+            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">{t("signals.catalystMinLabel")}</p>
             <div className="flex flex-wrap gap-1.5">
               {SCORE_STEPS.map((s) => (
                 <FilterPill key={s.value} active={minScore === s.value} onClick={() => setMinScore(s.value)}>
-                  {s.label}
+                  {t(s.labelKey)}
                   {s.value === 90 && <PaywallChip />}
                 </FilterPill>
               ))}
@@ -822,10 +829,10 @@ function MobileFiltersDrawer({
           </div>
 
           <div>
-            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">Direction</p>
+            <p className="mb-2.5 font-mono text-label-xs uppercase tracking-[0.14em] text-ink-dim">{t("signals.directionFilter.label")}</p>
             <div className="flex flex-wrap gap-1.5">
               <FilterPill active={direction === "all"} onClick={() => setDirection("all")}>
-                Tous
+                {t("signals.directionFilter.all")}
               </FilterPill>
               <FilterPill active={direction === "YES"} onClick={() => setDirection("YES")} tone="yes">
                 ▲ YES
@@ -842,13 +849,13 @@ function MobileFiltersDrawer({
             onClick={onReset}
             className="flex-1 inline-flex items-center justify-center rounded-md border border-line-strong bg-obsidian-800 px-4 py-2.5 text-body-md font-medium text-ink cursor-pointer"
           >
-            Réinitialiser
+            {t("signals.actions.reset")}
           </button>
           <button
             onClick={onClose}
             className="flex-[2] inline-flex items-center justify-center rounded-md bg-brand-500 px-4 py-2.5 text-body-md font-semibold text-obsidian-900 hover:bg-brand-400 transition-premium cursor-pointer"
           >
-            Voir les résultats
+            {t("signals.viewResults")}
           </button>
         </div>
       </motion.div>
