@@ -442,32 +442,45 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         analyzed = 0
         llm_results: list = []
 
+        # P1-7: bulk-load Markets for the LLM phase in ONE round-trip
+        # instead of N concurrent `SELECT WHERE market_id = ?` from inside
+        # each `_analyze_one`. With ~10 candidates this drops 10 SELECTs
+        # to 1.
+        top_cand_mids = [c["market_id"] for c in top_cands]
+        markets_by_mid: dict[str, "Market"] = {}
+        if top_cand_mids:
+            market_rows = (
+                await session.execute(
+                    select(Market).where(Market.market_id.in_(top_cand_mids))
+                )
+            ).scalars().all()
+            markets_by_mid = {m.market_id: m for m in market_rows}
+
+        # P1-7 follow-up: pre-load the set of market_ids that already have
+        # an `EventMarketAnalysis` row so `_analyze_one` can short-circuit
+        # without a per-task SELECT. Newly-added analyses inside the gather
+        # are picked up by the `all_analyses` query *after* gather returns.
+        existing_analysis_mids: set[str] = set(
+            (
+                await session.execute(
+                    select(EventMarketAnalysis.market_id).where(
+                        EventMarketAnalysis.event_id == event_id
+                    )
+                )
+            ).scalars().all()
+        )
+
         if not skip_llm:
             event_full_text = f"{event.event_title}. {event.event_summary or ''}"
             analyzer = create_impact_analyzer()
 
             async def _analyze_one(cand_dict: dict) -> dict | None:
                 mid = cand_dict["market_id"]
-                market = (
-                    await session.execute(
-                        select(Market).where(Market.market_id == mid)
-                    )
-                ).scalar_one_or_none()
+                market = markets_by_mid.get(mid)
                 if not market:
                     return None
 
-                already = (
-                    await session.execute(
-                        select(EventMarketAnalysis)
-                        .where(
-                            EventMarketAnalysis.event_id == event_id,
-                            EventMarketAnalysis.market_id == mid,
-                        )
-                        .order_by(EventMarketAnalysis.id.desc())
-                        .limit(1)
-                    )
-                ).scalar_one_or_none()
-                if already:
+                if mid in existing_analysis_mids:
                     return {"market_id": mid, "skipped": True}
 
                 result = await analyzer.analyze(event_full_text, market.question)
@@ -522,8 +535,30 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 .where(EventMarketAnalysis.event_id == event_id)
             )
         ).scalars().all()
+        # P1-8: build a {market_id: latest_analysis} dict so the per-mid
+        # scoring loop reads from memory instead of issuing a second
+        # `SELECT … ORDER BY id DESC LIMIT 1` per market. Iterate so the
+        # highest id wins — same semantics as the previous query.
+        analysis_by_mid: dict[str, "EventMarketAnalysis"] = {}
         for a in all_analyses:
             scored_mids.add(a.market_id)
+            prev = analysis_by_mid.get(a.market_id)
+            if prev is None or a.id > prev.id:
+                analysis_by_mid[a.market_id] = a
+
+        # P1-7: extend `markets_by_mid` with any pre-existing analysis
+        # market_ids that were not in the current candidate list (e.g.
+        # from a previous run on the same event). One bulk fetch instead
+        # of N per-iteration SELECTs in the scoring loop below.
+        missing_market_mids = [m for m in scored_mids if m not in markets_by_mid]
+        if missing_market_mids:
+            extra_market_rows = (
+                await session.execute(
+                    select(Market).where(Market.market_id.in_(missing_market_mids))
+                )
+            ).scalars().all()
+            for m in extra_market_rows:
+                markets_by_mid[m.market_id] = m
 
         cosine_by_mid = {}
         for c in candidates:
@@ -562,11 +597,11 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         )
 
         for mid in scored_mids:
-            market = (
-                await session.execute(
-                    select(Market).where(Market.market_id == mid)
-                )
-            ).scalar_one_or_none()
+            # P1-7: dict lookup instead of `SELECT Market WHERE market_id = ?`
+            # per iteration. The bulk fetch above guarantees every mid in
+            # `scored_mids` is present (or absent for legitimately-missing
+            # markets, which we still skip).
+            market = markets_by_mid.get(mid)
             if not market:
                 continue
 
@@ -576,17 +611,10 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             # including those rejected by Filter A / cooloff / etc. We
             # snapshot here and let the gates filter downstream signal
             # creation as before.
-            analysis = (
-                await session.execute(
-                    select(EventMarketAnalysis)
-                    .where(
-                        EventMarketAnalysis.event_id == event_id,
-                        EventMarketAnalysis.market_id == mid,
-                    )
-                    .order_by(EventMarketAnalysis.id.desc())
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
+            #
+            # P1-8: dict lookup instead of re-SELECTing the same row we
+            # already loaded into `all_analyses` a few lines up.
+            analysis = analysis_by_mid.get(mid)
 
             event_data = {
                 "first_seen": event.first_seen,
