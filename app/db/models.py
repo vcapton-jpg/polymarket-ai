@@ -537,8 +537,12 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[Optional[str]] = mapped_column(
-        String(255), nullable=True, unique=True, index=True
+    # Auth identity. NOT NULL since 2026-04-27 (Alembic 026, P1-3); both
+    # legitimate creators (`/auth/signup`, `/auth/oauth/...`) always set
+    # email, and the orphan-with-NULL-email rows from the pre-fix
+    # `_get_or_create_portfolio` bug were swept by 026.
+    email: Mapped[str] = mapped_column(
+        String(255), nullable=False, unique=True, index=True
     )
     password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     wallet_address: Mapped[Optional[str]] = mapped_column(String(42), nullable=True, unique=True)
