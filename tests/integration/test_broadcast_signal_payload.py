@@ -41,10 +41,15 @@ async def test_broadcast_payload_has_real_created_at_and_zero_price(
         import json as _json
         captured["payload"] = _json.loads(payload_str)
 
-    class _FakeRedis:
-        def publish(self, channel, payload):
+    class _FakeAsyncRedis:
+        """Async-shaped Redis mock — `_broadcast_signal` was converted
+        to async (P0-5 audit fix, 2026-04-27) and now uses
+        `redis.asyncio.from_url(...)`."""
+
+        async def publish(self, channel, payload):
             _capture(payload)
-        def close(self):
+
+        async def aclose(self):
             pass
 
     try:
@@ -68,8 +73,10 @@ async def test_broadcast_payload_has_real_created_at_and_zero_price(
             await s.refresh(sig, ["created_at"])
 
             # Mock just the Redis client, then call the real broadcast.
-            with patch("redis.from_url", return_value=_FakeRedis()):
-                ts._broadcast_signal(sig)
+            with patch(
+                "redis.asyncio.from_url", return_value=_FakeAsyncRedis(),
+            ):
+                await ts._broadcast_signal(sig)
                 # Telegram + push are no-ops without configured tokens.
 
             assert "payload" in captured, "broadcast didn't reach Redis"

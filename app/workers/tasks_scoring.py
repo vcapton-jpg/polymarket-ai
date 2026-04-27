@@ -837,7 +837,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             # expire_on_commit=False so commit alone doesn't reload).
             # Without this refresh, every WS subscriber gets created_at=null.
             await session.refresh(best_signal, ["created_at"])
-            _broadcast_signal(best_signal)
+            await _broadcast_signal(best_signal)
             signals_created = 1
 
             logger.info(
@@ -1022,8 +1022,12 @@ def _schedule_price_captures(signal_id: int, market_id: str):
         )
 
 
-def _broadcast_signal(signal):
-    """Push signal to Redis pub/sub (for WebSocket clients) + Telegram."""
+async def _broadcast_signal(signal):
+    """Push signal to Redis pub/sub (for WebSocket clients) + Telegram + push.
+
+    Async so the network round-trips don't block the worker's persistent
+    event loop (P0-5 audit fix, 2026-04-27).
+    """
     import json
 
     payload = {
@@ -1047,24 +1051,38 @@ def _broadcast_signal(signal):
         "created_at": signal.created_at.isoformat() if signal.created_at else None,
     }
 
+    # Audit P0-5 (2026-04-27): Redis publish + Telegram + push were
+    # synchronous calls inside this async coroutine, blocking the
+    # worker's persistent event loop for the duration of each network
+    # round-trip (DNS+TLS handshakes, in particular for cold-start
+    # Telegram). On a slow upstream a single high-conviction signal
+    # could stall the scoring loop for seconds. All three side-effects
+    # now run async or are offloaded to a thread so the loop stays
+    # responsive.
     try:
-        import redis as _redis
+        from redis.asyncio import from_url as _async_redis_from_url
 
         from app.core.config import get_settings
         _settings = get_settings()
-        r = _redis.from_url(_settings.redis_url)
-        r.publish("signal:new", json.dumps(payload))
-        r.close()
+        r = _async_redis_from_url(_settings.redis_url)
+        try:
+            await r.publish("signal:new", json.dumps(payload))
+        finally:
+            await r.aclose()
         logger.info("Broadcast signal id=%d to Redis pub/sub", signal.id)
     except Exception:
         logger.warning("Redis broadcast failed for signal id=%d", signal.id, exc_info=True)
 
-    _send_telegram_alert(signal)
-    _send_push_notification(signal)
+    await _send_telegram_alert(signal)
+    await _send_push_notification(signal)
 
 
-def _send_telegram_alert(signal):
-    """Send a Telegram message for high-conviction signals."""
+async def _send_telegram_alert(signal):
+    """Send a Telegram message for high-conviction signals.
+
+    Uses `httpx.AsyncClient` so it doesn't block the worker's event
+    loop even when Telegram's API is slow.
+    """
     from app.core.config import get_settings
 
     settings = get_settings()
@@ -1104,11 +1122,11 @@ def _send_telegram_alert(signal):
 
     try:
         import httpx
-        resp = httpx.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
-            timeout=10,
-        )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+            )
         if resp.status_code == 200:
             logger.info("Telegram alert sent for signal id=%d", signal.id)
         else:
@@ -1117,15 +1135,23 @@ def _send_telegram_alert(signal):
         logger.warning("Telegram alert failed for signal id=%d", signal.id, exc_info=True)
 
 
-def _send_push_notification(signal):
-    """Send PWA push notification for high-conviction signals."""
+async def _send_push_notification(signal):
+    """Send PWA push notification for high-conviction signals.
+
+    `send_push_to_all` is sync (uses sync `redis.smembers` + `pywebpush`).
+    Offload via `asyncio.to_thread` so the I/O fan-out runs on a worker
+    thread rather than blocking the scoring event loop.
+    """
+    import asyncio
+
     score = float(signal.signal_score)
     if score < 60:
         return
     try:
         from app.api.push import send_push_to_all
         direction = signal.direction or "NEUTRAL"
-        send_push_to_all(
+        await asyncio.to_thread(
+            send_push_to_all,
             title=f"Signal #{signal.id} — {score:.0f}/100",
             body=f"{direction} | Market price {float(signal.market_price_at_signal) * 100:.0f}% YES" if signal.market_price_at_signal else f"{direction}",
             url=f"/opportunity/{signal.id}",

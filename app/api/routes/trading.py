@@ -1,7 +1,6 @@
 """Trading API routes — order placement, portfolio, positions."""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
@@ -22,15 +21,15 @@ class TradeRequest(BaseModel):
     market_id: str
     direction: str  # BUY_YES or BUY_NO
     amount: float
-    price: Optional[float] = None  # None = market order
-    signal_id: Optional[int] = None
+    price: float | None = None  # None = market order
+    signal_id: int | None = None
 
 
 class TradeResponse(BaseModel):
     success: bool
-    order_id: Optional[int] = None
-    polymarket_order_id: Optional[str] = None
-    error: Optional[str] = None
+    order_id: int | None = None
+    polymarket_order_id: str | None = None
+    error: str | None = None
 
 
 class PositionOut(BaseModel):
@@ -40,10 +39,10 @@ class PositionOut(BaseModel):
     side: str
     size: float
     entry_price: float
-    current_price: Optional[float] = None
-    pnl_pct: Optional[float] = None
+    current_price: float | None = None
+    pnl_pct: float | None = None
     status: str
-    market_question: Optional[str] = None
+    market_question: str | None = None
 
 
 class OrderOut(BaseModel):
@@ -55,10 +54,10 @@ class OrderOut(BaseModel):
     size: float
     order_type: str
     status: str
-    polymarket_order_id: Optional[str] = None
-    error_msg: Optional[str] = None
+    polymarket_order_id: str | None = None
+    error_msg: str | None = None
     created_at: str
-    filled_at: Optional[str] = None
+    filled_at: str | None = None
 
 
 class PortfolioOut(BaseModel):
@@ -71,18 +70,31 @@ class PortfolioOut(BaseModel):
     open_orders_count: int
 
 
-async def _get_or_create_portfolio(db: AsyncSession) -> Portfolio:
-    """Get the default portfolio, creating user + portfolio if needed."""
-    result = await db.execute(select(Portfolio).limit(1))
+async def _get_or_create_portfolio(
+    db: AsyncSession, user: UserProfile,
+) -> Portfolio:
+    """Get the calling user's portfolio, creating it lazily if absent.
+
+    Pre-fix (P0-2 audit, 2026-04-27) this function ran an unfiltered
+    `select(Portfolio).limit(1)` which returned the FIRST portfolio in
+    the table — meaning every authenticated user read whoever's
+    portfolio happened to come first. The companion routes
+    (`get_portfolio`, `get_orders`) used the same pattern and exposed
+    cross-user positions and order history. The function also created
+    a ghost `UserProfile(plan="free")` row with no FK to the
+    authenticated caller; that orphan now lives in the DB but is
+    harmless once the auth filter is applied.
+    """
+    result = await db.execute(
+        select(Portfolio).where(Portfolio.user_id == user.id).limit(1)
+    )
     portfolio = result.scalar_one_or_none()
     if portfolio:
         return portfolio
 
-    user = UserProfile(plan="free")
-    db.add(user)
-    await db.flush()
-
-    portfolio = Portfolio(user_id=user.id, name="Main", total_value=0, cash_balance=0)
+    portfolio = Portfolio(
+        user_id=user.id, name="Main", total_value=0, cash_balance=0,
+    )
     db.add(portfolio)
     await db.flush()
     return portfolio
@@ -106,7 +118,7 @@ async def place_trade(
     if not user.polymarket_safe_address:
         return TradeResponse(success=False, error="wallet_not_connected")
 
-    portfolio = await _get_or_create_portfolio(db)
+    portfolio = await _get_or_create_portfolio(db, user)
 
     market_result = await db.execute(select(Market).where(Market.market_id == req.market_id))
     market = market_result.scalar_one_or_none()
@@ -190,10 +202,14 @@ async def place_trade(
 
 
 @router.get("/portfolio", response_model=PortfolioOut)
-async def get_portfolio(db: AsyncSession = Depends(get_db_session)):
-    """Get the current portfolio with positions."""
+async def get_portfolio(
+    db: AsyncSession = Depends(get_db_session),
+    user: UserProfile = Depends(get_current_user),
+):
+    """Get the calling user's portfolio with their positions."""
     result = await db.execute(
         select(Portfolio)
+        .where(Portfolio.user_id == user.id)
         .options(selectinload(Portfolio.positions).selectinload(Position.market))
         .limit(1)
     )
@@ -233,12 +249,15 @@ async def get_portfolio(db: AsyncSession = Depends(get_db_session)):
 
 @router.get("/orders")
 async def get_orders(
-    status: Optional[str] = Query(None),
+    status: str | None = Query(None),
     limit: int = Query(50, le=200),
     db: AsyncSession = Depends(get_db_session),
+    user: UserProfile = Depends(get_current_user),
 ):
-    """Get order history."""
-    result = await db.execute(select(Portfolio).limit(1))
+    """Get the calling user's order history."""
+    result = await db.execute(
+        select(Portfolio).where(Portfolio.user_id == user.id).limit(1)
+    )
     portfolio = result.scalar_one_or_none()
     if not portfolio:
         return {"orders": [], "total": 0}
