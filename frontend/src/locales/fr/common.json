@@ -147,13 +147,7 @@
   },
   "onboarding": {
     "tutorialTitle": "Tutoriel — 5 scénarios",
-    "quizTitle": "Quiz risque",
-    "budgetTitle": "Définis tes limites"
-  },
-  "limits": {
-    "weeklyBudget": "Budget hebdo",
-    "maxStake": "Mise max",
-    "cooloffActive": "Pause active"
+    "quizTitle": "Quiz risque"
   },
   "time": {
     "now": "à l'instant",

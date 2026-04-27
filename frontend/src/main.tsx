@@ -22,8 +22,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary"
  *   need it (live signals, balances) opt back in per-query. Avoids
  *   gratuitous spinners when alt-tabbing.
  *
- * Per-query overrides remain available — `useUserLimits` and
- * `usePaperPortfolio` already declare their own staleTime; those win.
+ * Per-query overrides remain available — `usePaperPortfolio` and similar
+ * hooks already declare their own staleTime; those win.
  */
 const queryClient = new QueryClient({
   defaultOptions: {
