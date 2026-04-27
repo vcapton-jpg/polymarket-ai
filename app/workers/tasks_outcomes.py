@@ -83,7 +83,7 @@ def capture_price(self, signal_id: int, market_id: str, field: str):
         return _run_async(_capture_price_async(signal_id, market_id, field))
     except Exception as exc:
         logger.exception("capture_price failed: signal=%s field=%s", signal_id, field)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _capture_price_async(signal_id: int, market_id: str, field: str) -> dict:
@@ -160,7 +160,7 @@ def catchup_outcomes(self):
         return _run_async(_catchup_outcomes_async())
     except Exception as exc:
         logger.exception("catchup_outcomes failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _catchup_outcomes_async() -> dict:
@@ -228,7 +228,7 @@ def check_resolved_markets(self):
         return _run_async(_check_resolved_async())
     except Exception as exc:
         logger.exception("check_resolved_markets failed")
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc, throw=False) from exc
 
 
 async def _check_resolved_async() -> dict:

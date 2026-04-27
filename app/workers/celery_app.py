@@ -110,12 +110,6 @@ _beat_schedule = {
         "schedule": 600,
         "options": {"queue": "scoring"},
     },
-    # ── Recovery — drain signals_pending_reasoning (LLM backfill) ──
-    "backfill-reasoning-every-10min": {
-        "task": "app.workers.tasks_scoring.backfill_reasoning",
-        "schedule": 600.0,
-        "options": {"queue": "scoring"},
-    },
     # ── Ingestion — GDELT 2.0 ────────────────────────────────────────────────
     "fetch-gdelt-every-5min": {
         "task": "app.workers.tasks_ingestion.fetch_gdelt",
