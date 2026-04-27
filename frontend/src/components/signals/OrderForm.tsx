@@ -26,6 +26,7 @@ import {
   STORAGE_KEYS,
 } from "@/lib/storageKeys"
 import { placeTrade } from "@/lib/api/trading"
+import { ApiError } from "@/lib/api/client"
 import { useIsFreePlan } from "@/hooks/useAuth"
 import { hasToken } from "@/lib/api/auth"
 import { useWalletSetup } from "@/hooks/useWalletSetup"
@@ -268,6 +269,28 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       // quota / disabled storage — continue with toast+nav anyway
     }
 
+    /** Roll back the optimistic side-effects when the backend hard-rejects
+     *  the trade (HTTP 403 from `can_trade_real`: cooloff, age unconfirmed,
+     *  etc.). Without this, a rejected user is silently navigated to a
+     *  phantom position with a green success toast — exactly what the
+     *  rejection is meant to prevent. */
+    const rollbackOptimistic = () => {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEYS.positions)
+        const arr: Position[] = raw ? JSON.parse(raw) : []
+        const next = arr.filter((p) => p.id !== positionId)
+        window.localStorage.setItem(STORAGE_KEYS.positions, JSON.stringify(next))
+        window.dispatchEvent(new Event(POSITIONS_CHANGED_EVENT))
+      } catch {
+        // ignore storage failures — still cancel nav + reset submitted
+      }
+      if (navTimeoutRef.current !== null) {
+        window.clearTimeout(navTimeoutRef.current)
+        navTimeoutRef.current = null
+      }
+      setSubmitted(false)
+    }
+
     const marketId = extractMarketId(signal.polymarketUrl)
     const signalIdNum = /^\d+$/.test(signal.id) ? Number(signal.id) : undefined
     if (hasToken() && marketId) {
@@ -308,7 +331,34 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
             })
           }
         })
-        .catch(() => {
+        .catch((err: unknown) => {
+          // Hard rejection by the backend (cooloff, age unconfirmed, etc.) —
+          // roll back the optimistic UI and surface the real reason.
+          if (err instanceof ApiError && err.status === 403) {
+            rollbackOptimistic()
+            const reason =
+              (err.body as { detail?: { reason?: string } } | undefined)?.detail
+                ?.reason
+            const rejectionMessages: Record<string, { title: string; description: string }> = {
+              in_cooloff: {
+                title: "Tu es en pause (cooloff)",
+                description:
+                  "3 pertes consécutives — le serveur bloque les nouveaux trades pendant 24h.",
+              },
+              age_not_confirmed: {
+                title: "Confirmation 18+ requise",
+                description: "Vérifie ton profil avant de prendre position.",
+              },
+            }
+            const msg = (reason && rejectionMessages[reason]) || {
+              title: "Trade refusé par le serveur",
+              description: reason ?? "Réessaie plus tard.",
+            }
+            addToast({ type: "info", ...msg, duration: 6000 })
+            return
+          }
+          // Other errors (network, 5xx, CLOB) — keep the optimistic local
+          // entry; the position-sync sweep on /api/portfolio will reconcile.
           addToast({
             type: "info",
             title: "Ordre en local uniquement",
