@@ -231,6 +231,22 @@
       "resetCta": "Reset filters"
     }
   },
+  "settings": {
+    "breadcrumb": "Settings",
+    "savedToast": "Saved",
+    "toc": {
+      "identity": "Identity",
+      "tradingProfile": "Trading profile",
+      "notifications": "Notifications",
+      "defaultFilters": "Default filters",
+      "planBilling": "Plan & billing",
+      "dangerZone": "Danger zone",
+      "ariaLabel": "Settings table of contents"
+    },
+    "plan": {
+      "currentBadge": "Current"
+    }
+  },
   "signalDetail": {
     "back": "Back",
     "bookmark": {

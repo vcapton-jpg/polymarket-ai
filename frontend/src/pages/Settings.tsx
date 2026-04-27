@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { motion } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS } from "@/lib/motion"
 import {
@@ -68,22 +69,23 @@ const DIRECTIONS = [
   { value: "NO", label: "▼ NO" },
 ]
 
-const TOC_SECTIONS: Array<{ id: string; label: string }> = [
-  { id: "section-identite", label: "Identité" },
-  { id: "section-profil", label: "Profil de trading" },
-  { id: "section-notifications", label: "Notifications" },
-  { id: "section-filtres", label: "Filtres par défaut" },
-  { id: "section-plan", label: "Plan & facturation" },
-  { id: "section-danger", label: "Zone danger" },
+const TOC_SECTIONS: Array<{ id: string; labelKey: string }> = [
+  { id: "section-identite", labelKey: "settings.toc.identity" },
+  { id: "section-profil", labelKey: "settings.toc.tradingProfile" },
+  { id: "section-notifications", labelKey: "settings.toc.notifications" },
+  { id: "section-filtres", labelKey: "settings.toc.defaultFilters" },
+  { id: "section-plan", labelKey: "settings.toc.planBilling" },
+  { id: "section-danger", labelKey: "settings.toc.dangerZone" },
 ]
 
 const PLAN_COPY = {
-  free: { name: "Free", price: "0\u00A0€", limit: "5 signaux / jour", badge: "Actuel" },
-  pro: { name: "Pro", price: "29\u00A0€ / mois", limit: "Illimité", badge: "Actuel" },
-  api: { name: "API", price: "99\u00A0€ / mois", limit: "Illimité + API", badge: "Actuel" },
+  free: { name: "Free", price: "0\u00A0€", limit: "5 signaux / jour" },
+  pro: { name: "Pro", price: "29\u00A0€ / mois", limit: "Illimité" },
+  api: { name: "API", price: "99\u00A0€ / mois", limit: "Illimité + API" },
 }
 
 export default function Settings() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { addToast } = useToasts()
 
@@ -175,7 +177,7 @@ export default function Settings() {
       )
       setSaved(true)
       setTimeout(() => setSaved(false), 1800)
-      addToast({ type: "success", title: "Enregistré" })
+      addToast({ type: "success", title: t("settings.savedToast") })
     } catch {
       addToast({
         type: "info",
@@ -283,7 +285,7 @@ export default function Settings() {
   const trialEnd = trialEndDate(trialAuth)
 
   return (
-    <AppShell breadcrumb={[{ label: "Réglages" }]} showLive={true}>
+    <AppShell breadcrumb={[{ label: t("settings.breadcrumb") }]} showLive={true}>
       <div className="mx-auto grid max-w-[1080px] gap-8 px-4 py-8 md:px-6 md:py-12 lg:grid-cols-[minmax(0,720px)_220px]">
         <div>
         <motion.header
@@ -625,7 +627,7 @@ export default function Settings() {
                       {planInfo.name}
                     </span>
                     <span className="rounded-full border border-brand-500/30 bg-brand-500/[0.08] px-2 py-0.5 text-label-xs font-mono uppercase tracking-[0.12em] text-brand-300">
-                      {planInfo.badge}
+                      {t("settings.plan.currentBadge")}
                     </span>
                   </div>
                   <p className="num mt-1 text-body-sm text-ink-muted">{planInfo.price}</p>
@@ -749,9 +751,10 @@ export default function Settings() {
 }
 
 function TOC({ activeId }: { activeId: string | null }) {
+  const { t } = useTranslation()
   return (
     <aside
-      aria-label="Sommaire des réglages"
+      aria-label={t("settings.toc.ariaLabel")}
       className="hidden lg:block"
     >
       <nav className="sticky top-24">
@@ -775,7 +778,7 @@ function TOC({ activeId }: { activeId: string | null }) {
                   <span className="num font-mono text-label-xs text-ink-dim">
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span>{s.label}</span>
+                  <span>{t(s.labelKey)}</span>
                 </a>
               </li>
             )

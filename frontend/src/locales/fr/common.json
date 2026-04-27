@@ -231,6 +231,22 @@
       "resetCta": "Réinitialiser les filtres"
     }
   },
+  "settings": {
+    "breadcrumb": "Réglages",
+    "savedToast": "Enregistré",
+    "toc": {
+      "identity": "Identité",
+      "tradingProfile": "Profil de trading",
+      "notifications": "Notifications",
+      "defaultFilters": "Filtres par défaut",
+      "planBilling": "Plan & facturation",
+      "dangerZone": "Zone danger",
+      "ariaLabel": "Sommaire des réglages"
+    },
+    "plan": {
+      "currentBadge": "Actuel"
+    }
+  },
   "signalDetail": {
     "back": "Retour",
     "bookmark": {
