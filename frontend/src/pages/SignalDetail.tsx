@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS } from "@/lib/motion"
 import {
@@ -51,6 +52,7 @@ import {
 } from "@/lib/utils"
 
 export default function SignalDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [signal, setSignal] = useState<Signal | undefined>(undefined)
@@ -203,7 +205,7 @@ export default function SignalDetail() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setBookmarked((b) => !b)}
-            aria-label={bookmarked ? "Retirer des favoris" : "Ajouter aux favoris"}
+            aria-label={bookmarked ? t("signalDetail.bookmark.removeAria") : t("signalDetail.bookmark.addAria")}
             className={cn(
               "inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 sm:px-3 text-[0.8125rem] transition-premium cursor-pointer",
               bookmarked
@@ -213,7 +215,7 @@ export default function SignalDetail() {
           >
             <Bookmark className={cn("h-3.5 w-3.5", bookmarked && "fill-current")} />
             <span className="hidden sm:inline">
-              {bookmarked ? "Enregistré" : "Enregistrer"}
+              {bookmarked ? t("signalDetail.bookmark.labelRemove") : t("signalDetail.bookmark.labelAdd")}
             </span>
           </button>
           <AnimatePresence>
@@ -227,7 +229,7 @@ export default function SignalDetail() {
                 transition={{ duration: DURATIONS.quick, ease: EASE_PREMIUM }}
               >
                 <Button variant="primary" size="md">
-                  <span>Parier sur ce marché</span>
+                  <span>{t("signalDetail.stickyCta")}</span>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </motion.a>
@@ -240,7 +242,7 @@ export default function SignalDetail() {
       <div
         className="h-0.5 bg-gradient-to-r from-brand-500 via-brand-400 to-brand-300"
         style={{ width: `${signal.lifePercent}%` }}
-        aria-label={`Opportunité active à ${signal.lifePercent}\u00A0%`}
+        aria-label={t("signalDetail.lifeAria", { percent: signal.lifePercent })}
       />
 
       {/* Authenticated app page — fills the full available width inside the
@@ -254,7 +256,7 @@ export default function SignalDetail() {
             className="inline-flex items-center gap-1.5 text-[0.8125rem] text-ink-muted hover:text-ink transition-premium cursor-pointer"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Retour
+            {t("signalDetail.back")}
           </button>
           <PoweredByPolymarket size="sm" />
         </div>
@@ -292,13 +294,13 @@ export default function SignalDetail() {
               {timeSinceISO(signal.createdAt)}
             </span>
             <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-line-strong bg-obsidian-800/60 px-2.5 py-0.5 text-[0.6875rem] font-mono tracking-wider text-ink-muted">
-              Opportunité active&nbsp;: <span className="num text-brand-300">{signal.lifePercent}&nbsp;%</span>
+              {t("signalDetail.opportunityActive")}&nbsp;: <span className="num text-brand-300">{signal.lifePercent}&nbsp;%</span>
             </span>
           </div>
 
           <p className="mb-2 inline-flex items-center gap-2 text-label-sm text-ink-readable">
             <span className="h-1.5 w-1.5 rounded-full bg-[#1652F0]" aria-hidden />
-            Marché Polymarket · Résolution {formattedResolutionDate}
+            {t("signalDetail.marketResolution", { date: formattedResolutionDate })}
           </p>
           <h1 className="mb-5 font-display text-[1.5rem] font-semibold leading-tight tracking-tight text-ink text-balance md:text-[2rem]">
             {signal.question}
@@ -307,9 +309,9 @@ export default function SignalDetail() {
           {/* Pills row */}
           <div className="flex flex-wrap items-center gap-2">
             <DirectionBadge direction={signal.direction} size="lg" />
-            <PillStat label="Marché" value={`${Math.round(signal.marketProbability * 100)}\u00A0%`} />
-            <PillStat label="Agir avant" value={formatOpportunityWindow(signal.windowHours)} icon={<Timer className="h-3 w-3" />} />
-            <PillStat label="Détecté" value={"moins de 90\u00A0s"} />
+            <PillStat label={t("signalDetail.pillStat.market")} value={`${Math.round(signal.marketProbability * 100)}\u00A0%`} />
+            <PillStat label={t("signalDetail.pillStat.actBefore")} value={formatOpportunityWindow(signal.windowHours)} icon={<Timer className="h-3 w-3" />} />
+            <PillStat label={t("signalDetail.pillStat.detected")} value={t("signalDetail.pillStat.detectedValue")} />
           </div>
 
           {/* Score tile — score on left, score-meta column in the middle,
@@ -329,20 +331,14 @@ export default function SignalDetail() {
                 {signal.score}
               </motion.span>
               <span className="font-mono text-[0.75rem] uppercase tracking-[0.14em] text-ink-dim">
-                / 100
+                {t("signalDetail.scoreOutOf")}
               </span>
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <ScoreBadge score={signal.score} label={scoreL} size="md" />
                 <span className="text-[0.75rem] text-ink-muted">
-                  {scoreT === "exceptional"
-                    ? "Très rare — priorité maximale sur ta watchlist."
-                    : scoreT === "strong"
-                      ? "Alignement sources + catalyseurs · entre dans la fenêtre active."
-                      : scoreT === "actionable"
-                        ? "Actionnable · à valider avec tes propres analyses."
-                        : "À surveiller uniquement · n’entre pas en position."}
+                  {t(`signalDetail.scoreDescription.${scoreT}`)}
                 </span>
               </div>
               <div className="relative h-1.5 overflow-hidden rounded-full bg-line/60">
@@ -372,9 +368,9 @@ export default function SignalDetail() {
 
           {/* Sub-metrics */}
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
-            <MetricCard label="Confiance" value={signal.confidence} tone={toneForLevel(signal.confidence)} />
-            <MetricCard label="Urgence" value={signal.urgency} tone={toneForLevel(signal.urgency)} />
-            <MetricCard label="Tradabilité" value={signal.tradability} tone={toneForLevel(signal.tradability)} />
+            <MetricCard label={t("signalDetail.metric.confidence")} value={signal.confidence} tone={toneForLevel(signal.confidence)} />
+            <MetricCard label={t("signalDetail.metric.urgency")} value={signal.urgency} tone={toneForLevel(signal.urgency)} />
+            <MetricCard label={t("signalDetail.metric.tradability")} value={signal.tradability} tone={toneForLevel(signal.tradability)} />
           </div>
 
           {/* Primary action — native execution UI (Builder Program).

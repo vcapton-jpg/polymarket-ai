@@ -231,6 +231,37 @@
       "resetCta": "Réinitialiser les filtres"
     }
   },
+  "signalDetail": {
+    "back": "Retour",
+    "bookmark": {
+      "addAria": "Ajouter aux favoris",
+      "removeAria": "Retirer des favoris",
+      "labelAdd": "Enregistrer",
+      "labelRemove": "Enregistré"
+    },
+    "stickyCta": "Parier sur ce marché",
+    "lifeAria": "Opportunité active à {{percent}} %",
+    "opportunityActive": "Opportunité active",
+    "marketResolution": "Marché Polymarket · Résolution {{date}}",
+    "pillStat": {
+      "market": "Marché",
+      "actBefore": "Agir avant",
+      "detected": "Détecté",
+      "detectedValue": "moins de 90 s"
+    },
+    "scoreOutOf": "/ 100",
+    "scoreDescription": {
+      "exceptional": "Très rare — priorité maximale sur ta watchlist.",
+      "strong": "Alignement sources + catalyseurs · entre dans la fenêtre active.",
+      "actionable": "Actionnable · à valider avec tes propres analyses.",
+      "watch": "À surveiller uniquement · n'entre pas en position."
+    },
+    "metric": {
+      "confidence": "Confiance",
+      "urgency": "Urgence",
+      "tradability": "Tradabilité"
+    }
+  },
   "signalOutcome": {
     "unresolved": {
       "body": "Ce signal n'est pas encore résolu. Reviens quand le marché aura tranché — on te montrera ce qui s'est passé et pourquoi.",
