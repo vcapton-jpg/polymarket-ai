@@ -231,6 +231,37 @@
       "resetCta": "Reset filters"
     }
   },
+  "signalDetail": {
+    "back": "Back",
+    "bookmark": {
+      "addAria": "Add to favorites",
+      "removeAria": "Remove from favorites",
+      "labelAdd": "Save",
+      "labelRemove": "Saved"
+    },
+    "stickyCta": "Bet on this market",
+    "lifeAria": "Opportunity active at {{percent}} %",
+    "opportunityActive": "Opportunity active",
+    "marketResolution": "Polymarket market · Resolution {{date}}",
+    "pillStat": {
+      "market": "Market",
+      "actBefore": "Act before",
+      "detected": "Detected",
+      "detectedValue": "less than 90 s"
+    },
+    "scoreOutOf": "/ 100",
+    "scoreDescription": {
+      "exceptional": "Very rare — top priority on your watchlist.",
+      "strong": "Sources + catalysts aligned · within the active window.",
+      "actionable": "Actionable · cross-check with your own analysis.",
+      "watch": "Watch only · do not enter a position."
+    },
+    "metric": {
+      "confidence": "Confidence",
+      "urgency": "Urgency",
+      "tradability": "Tradability"
+    }
+  },
   "signalOutcome": {
     "unresolved": {
       "body": "This signal hasn't resolved yet. Come back once the market settles — we'll show you what happened and why.",
