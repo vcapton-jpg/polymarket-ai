@@ -104,14 +104,19 @@ class Settings(BaseSettings):
     market_percentile_interval_seconds: int = Field(default=86400)
 
     # ── Signal thresholds ─────────────────────────────────────────────────
-    # Raised from 55 → 75 (winrate optimization Phase A, 2026-04-27).
-    # Performance audit on 130 signals over 3 days showed the 60-74 score
-    # band had a -14.5 % mean signed move at T+1h vs +19.5 % for the 75-89
-    # band. Below-threshold signals are still PERSISTED (logged with
+    # Raised from 55 → 65 (winrate optimization Phase A, 2026-04-27).
+    # Performance audit on 130 signals over 3 days showed the 75+ band
+    # had +19.5 % mean signed move at T+1h while the 60-74 band had
+    # -14.5 %. Initial pin at 75 was too restrictive in practice — kills
+    # too much volume and the 65-74 sub-band still has option value once
+    # the upcoming freshness gate filters out stale-news signals (which
+    # are likely the bulk of 65-74 misfires). Promote to 75 only after
+    # the freshness fix has shipped and the 65-74 winrate is re-measured.
+    # Below-threshold signals are still PERSISTED (logged with
     # `_below_threshold=True`) so the measurement layer keeps collecting
     # data — only user-facing emission and "best signal of event" selection
     # are gated by this value.
-    signal_score_threshold: int = Field(default=75)
+    signal_score_threshold: int = Field(default=65)
     hard_exclusion_spread: float = Field(default=0.15)
     hard_exclusion_ambiguity: float = Field(default=0.80)
     hard_exclusion_min_specificity: float = Field(default=0.4)
