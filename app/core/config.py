@@ -1,7 +1,6 @@
 """Core configuration — all settings from Blueprint V4."""
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,40 +25,40 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://redis:6379/0")
 
     # ── OpenAI ────────────────────────────────────────────────────────────
-    openai_api_key: Optional[str] = Field(default=None)
+    openai_api_key: str | None = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_llm_model: str = Field(default="gpt-4o-mini")
     openai_impact_model: str = Field(default="gpt-4o")
 
     # ── World News API ────────────────────────────────────────────────────
-    worldnews_api_key: Optional[str] = Field(default=None)
+    worldnews_api_key: str | None = Field(default=None)
     worldnews_poll_interval_seconds: int = Field(default=120)
 
     # ── Telegram (kept for optional alerts) ───────────────────────────────
-    telegram_bot_token: Optional[str] = Field(default=None)
-    telegram_chat_id: Optional[str] = Field(default=None)
+    telegram_bot_token: str | None = Field(default=None)
+    telegram_chat_id: str | None = Field(default=None)
 
     # ── Auth / Security ──────────────────────────────────────────────────
     jwt_secret_key: str = Field(default="change-me-in-production")
     jwt_algorithm: str = Field(default="HS256")
     jwt_expire_days: int = Field(default=7)
     # Google Sign-In (OAuth 2.0 Web client ID — same value as VITE_GOOGLE_CLIENT_ID on frontend)
-    google_client_id: Optional[str] = Field(default=None)
-    signal_api_key: Optional[str] = Field(default=None)
+    google_client_id: str | None = Field(default=None)
+    signal_api_key: str | None = Field(default=None)
     # Comma-separated list of emails allowed to hit /api/admin/* endpoints.
     # Not a role column — temporary until we need >1 permission tier.
     admin_emails: str = Field(default="")
 
     # ── Push Notifications (VAPID) ────────────────────────────────────
-    vapid_private_key: Optional[str] = Field(default=None)
-    vapid_public_key: Optional[str] = Field(default=None)
+    vapid_private_key: str | None = Field(default=None)
+    vapid_public_key: str | None = Field(default=None)
     vapid_email: str = Field(default="hello@getforesight.io")
 
     # ── Polymarket Builder ─────────────────────────────────────────────
-    builder_api_key: Optional[str] = Field(default=None)
-    builder_api_secret: Optional[str] = Field(default=None)
-    builder_api_passphrase: Optional[str] = Field(default=None)
-    builder_private_key: Optional[str] = Field(default=None)
+    builder_api_key: str | None = Field(default=None)
+    builder_api_secret: str | None = Field(default=None)
+    builder_api_passphrase: str | None = Field(default=None)
+    builder_private_key: str | None = Field(default=None)
     polygon_chain_id: int = Field(default=137)
 
     # Polymarket Builder attribution code (bytes32 hex from polymarket.com/settings?tab=builder)
@@ -85,10 +84,10 @@ class Settings(BaseSettings):
     )
 
     # ── Stripe ─────────────────────────────────────────────────────────
-    stripe_secret_key: Optional[str] = Field(default=None)
-    stripe_webhook_secret: Optional[str] = Field(default=None)
-    stripe_price_pro: Optional[str] = Field(default=None)
-    stripe_price_trader: Optional[str] = Field(default=None)
+    stripe_secret_key: str | None = Field(default=None)
+    stripe_webhook_secret: str | None = Field(default=None)
+    stripe_price_pro: str | None = Field(default=None)
+    stripe_price_trader: str | None = Field(default=None)
 
     # ── Environment ───────────────────────────────────────────────────────
     env: str = Field(default="development")
@@ -105,7 +104,14 @@ class Settings(BaseSettings):
     market_percentile_interval_seconds: int = Field(default=86400)
 
     # ── Signal thresholds ─────────────────────────────────────────────────
-    signal_score_threshold: int = Field(default=55)
+    # Raised from 55 → 75 (winrate optimization Phase A, 2026-04-27).
+    # Performance audit on 130 signals over 3 days showed the 60-74 score
+    # band had a -14.5 % mean signed move at T+1h vs +19.5 % for the 75-89
+    # band. Below-threshold signals are still PERSISTED (logged with
+    # `_below_threshold=True`) so the measurement layer keeps collecting
+    # data — only user-facing emission and "best signal of event" selection
+    # are gated by this value.
+    signal_score_threshold: int = Field(default=75)
     hard_exclusion_spread: float = Field(default=0.15)
     hard_exclusion_ambiguity: float = Field(default=0.80)
     hard_exclusion_min_specificity: float = Field(default=0.4)
