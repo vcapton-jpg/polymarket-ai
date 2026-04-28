@@ -55,13 +55,26 @@ describe("Signup — age gate + CGU", () => {
     expect(submit).toBeDisabled()
   })
 
-  it("enables submit when email, password, risk, age_18, and CGU are all set", async () => {
+  it("disables submit when country of residence is unset (Legal-PR-1 B3)", async () => {
     renderSignup()
     await userEvent.type(screen.getByLabelText(/email/i), "a@b.com")
     await userEvent.type(screen.getByLabelText(/^mot de passe$/i), "password123")
     await userEvent.click(screen.getByLabelText(/outil d.analyse/i))
     await userEvent.click(screen.getByLabelText(/j.ai 18 ans/i))
     await userEvent.click(screen.getByLabelText(/j.accepte les cgu/i))
+    // Country still empty → submit disabled.
+    const submit = screen.getByRole("button", { name: /créer mon compte/i })
+    expect(submit).toBeDisabled()
+  })
+
+  it("enables submit when email, password, risk, age_18, CGU, and country are all set", async () => {
+    renderSignup()
+    await userEvent.type(screen.getByLabelText(/email/i), "a@b.com")
+    await userEvent.type(screen.getByLabelText(/^mot de passe$/i), "password123")
+    await userEvent.click(screen.getByLabelText(/outil d.analyse/i))
+    await userEvent.click(screen.getByLabelText(/j.ai 18 ans/i))
+    await userEvent.click(screen.getByLabelText(/j.accepte les cgu/i))
+    await userEvent.selectOptions(screen.getByLabelText(/pays de résidence/i), "FR")
     const submit = screen.getByRole("button", { name: /créer mon compte/i })
     expect(submit).not.toBeDisabled()
   })

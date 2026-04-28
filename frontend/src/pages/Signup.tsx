@@ -53,6 +53,11 @@ export default function Signup() {
   const [accept, setAccept] = useState(false)
   const [age18, setAge18] = useState(false)
   const [cguAccepted, setCguAccepted] = useState(false)
+  // Legal-PR-1 B3 — declared country at signup. Default empty so the
+  // user must explicitly pick (we don't want to default-trust "FR" for a
+  // US user landing on the page). Server cross-checks this against
+  // `cf-ipcountry` and refuses blocked jurisdictions with HTTP 451.
+  const [country, setCountry] = useState<string>("")
   const [showRiskDetails, setShowRiskDetails] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -93,14 +98,17 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password || !accept || !age18 || !cguAccepted) return
+    if (!email || !password || !accept || !age18 || !cguAccepted || !country) return
     setError(null)
     setLoading(true)
     // Normalise to the two plan states the backend understands.
     // "api" signups fall through as "pro" (same gated features + card later).
     const planForAuth: AuthState["plan"] = plan === "free" ? "free" : "pro"
     try {
-      const { token, user } = await registerApi(email, password, planForAuth)
+      const { token, user } = await registerApi(email, password, planForAuth, {
+        age_confirmed_18: true,
+        country_residence: country,
+      })
       setToken(token)
       // Seed AuthState from the registration response (has plan +
       // trial_ends_at already), then hydrate in background to pick up any
@@ -362,6 +370,55 @@ export default function Signup() {
           </AnimatePresence>
         </div>
 
+        {/* Legal-PR-1 B3 — declared country of residence. Server enforces
+            blocked jurisdictions (US/UK/sanctions) with HTTP 451 and
+            cross-checks against `cf-ipcountry` if Cloudflare is in front. */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="signup-country" className="text-body-sm text-ink-muted">
+            {"Pays de résidence"}
+          </label>
+          <select
+            id="signup-country"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            required
+            className={cn(
+              "h-11 rounded-md border border-line-strong bg-obsidian-800 px-3 text-body-md text-ink",
+              "focus:outline-none focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20",
+              "cursor-pointer",
+            )}
+          >
+            <option value="" disabled>
+              {"Choisis ton pays de résidence"}
+            </option>
+            <option value="FR">France</option>
+            <option value="BE">Belgique</option>
+            <option value="CH">Suisse</option>
+            <option value="LU">Luxembourg</option>
+            <option value="MC">Monaco</option>
+            <option value="DE">Allemagne</option>
+            <option value="ES">Espagne</option>
+            <option value="IT">Italie</option>
+            <option value="NL">Pays-Bas</option>
+            <option value="PT">Portugal</option>
+            <option value="IE">Irlande</option>
+            <option value="AT">Autriche</option>
+            <option value="DK">Danemark</option>
+            <option value="SE">Suède</option>
+            <option value="FI">Finlande</option>
+            <option value="NO">Norvège</option>
+            <option value="PL">Pologne</option>
+            <option value="CZ">Tchéquie</option>
+            <option value="GR">Grèce</option>
+            <option value="HU">Hongrie</option>
+            <option value="RO">Roumanie</option>
+            <option value="OTHER">{"Autre / non listé"}</option>
+          </select>
+          <p className="text-label-sm text-ink-dim">
+            {"L’accès est interdit depuis certaines juridictions (États-Unis, Royaume-Uni, pays sous sanctions)."}
+          </p>
+        </div>
+
         <label className="flex items-start gap-2.5 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -409,7 +466,7 @@ export default function Signup() {
           variant="primary"
           size="lg"
           className="w-full mt-2"
-          disabled={loading || !email || !password || !accept || !age18 || !cguAccepted}
+          disabled={loading || !email || !password || !accept || !age18 || !cguAccepted || !country}
         >
           {loading ? (
             <>

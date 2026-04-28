@@ -34,7 +34,8 @@ import {
   trialEndDate,
   type AuthState as TrialAuthState,
 } from "@/lib/trial"
-import { logoutApi } from "@/lib/api/auth"
+import { deleteAccountApi, logoutApi } from "@/lib/api/auth"
+import { openStripePortal } from "@/lib/api/subscriptions"
 import { STORAGE_KEYS, AUTH_CHANGED_EVENT } from "@/lib/storageKeys"
 import ConfirmDeleteAccountModal from "@/components/modals/ConfirmDeleteAccountModal"
 import type { UserProfile } from "@/types/signal"
@@ -639,7 +640,28 @@ export default function Settings() {
                   </Button>
                 )}
                 {auth.plan !== "free" && (
-                  <Button variant="outline" size="md" className="shrink-0">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    className="shrink-0"
+                    onClick={async () => {
+                      // Legal-PR-1 M1 — DSA art. 25: subscribe-then-cancel
+                      // friction must be symmetric. The Stripe customer
+                      // portal is the user's one-click path to cancel,
+                      // download invoices, update payment method.
+                      try {
+                        const url = await openStripePortal()
+                        window.location.assign(url)
+                      } catch {
+                        addToast({
+                          type: "info",
+                          title: "Portail indisponible",
+                          description:
+                            "Réessaie dans un instant ou contacte le support.",
+                        })
+                      }
+                    }}
+                  >
                     Gérer mon abonnement
                   </Button>
                 )}
@@ -735,7 +757,26 @@ export default function Settings() {
       <ConfirmDeleteAccountModal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
+          // Legal-PR-1 B7 — RGPD Art. 17 (right to erasure). Pre-fix this
+          // handler ONLY cleared localStorage; the user's row stayed in
+          // Postgres and the "delete" was a polite lie. Now: server
+          // delete first, local clear second, redirect last.
+          try {
+            await deleteAccountApi()
+          } catch (e) {
+            addToast({
+              type: "info",
+              title: "Suppression impossible",
+              description:
+                "Le serveur n’a pas pu confirmer la suppression. Réessaie ou contacte le support.",
+            })
+            // Don't clear local state — that would lock the user out of
+            // their still-active account.
+            // eslint-disable-next-line no-console
+            console.warn("deleteAccountApi failed", e)
+            return
+          }
           try {
             localStorage.clear()
             window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT))

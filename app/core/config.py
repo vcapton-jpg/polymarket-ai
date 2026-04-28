@@ -139,6 +139,18 @@ class Settings(BaseSettings):
     # ── LLM cost guardrails ───────────────────────────────────────────────
     llm_cost_alert_usd: float = Field(default=30.0)
 
+    # ── Signup geo-restriction (Legal-PR-1 B3) ────────────────────────────
+    # ISO 3166-1 alpha-2 country codes blocked at signup time. US is the
+    # primary target (CFTC + Polymarket geofence); UK because the FCA has
+    # signalled a hostile stance on prediction markets. Sanctions-list
+    # countries (KP, IR, SY, CU, RU/BY post-2022 EU sanctions) round it
+    # out. Operators can override via the `SIGNUP_BLOCKED_COUNTRIES` env
+    # var (comma-separated). Empty string disables the gate entirely
+    # (only intended for ops debugging).
+    signup_blocked_countries: str = Field(
+        default="US,UK,GB,KP,IR,SY,CU,RU,BY"
+    )
+
     # Filter A — minimum hours of remaining life before market end_date.
     # The 7 worst losses on 2026-04-27 were all on news-binary markets within
     # 0–3 days of resolution where the breaking news flipped the price to 1.0
