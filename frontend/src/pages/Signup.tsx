@@ -58,7 +58,6 @@ export default function Signup() {
   // US user landing on the page). Server cross-checks this against
   // `cf-ipcountry` and refuses blocked jurisdictions with HTTP 451.
   const [country, setCountry] = useState<string>("")
-  const [showRiskDetails, setShowRiskDetails] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const motionConfig = useMotionConfig("quick")
@@ -336,38 +335,17 @@ export default function Signup() {
               {"J\u2019ai compris que Foresight est un outil d\u2019analyse — je reste libre de mes décisions."}
             </span>
           </label>
-          <button
-            type="button"
-            onClick={() => setShowRiskDetails((v) => !v)}
-            aria-expanded={showRiskDetails}
-            aria-controls="risk-disclosure"
-            className="ml-[1.625rem] mt-1 inline-flex items-center gap-1 text-label-sm text-brand-400 hover:text-brand-300 transition-premium cursor-pointer"
+          {/* Legal-PR-3 (H5): le disclaimer total-loss était caché derrière
+              un toggle "En savoir plus" — l'AMF exige une prominence
+              équivalente à celle des claims gain. Maintenant visible
+              direct, sans interaction requise. */}
+          <p
+            id="risk-disclosure"
+            className="ml-[1.625rem] mt-2 rounded-lg border border-signal-amber/30 bg-signal-amber/[0.06] px-3.5 py-3 text-label-sm leading-relaxed text-ink-muted"
           >
-            <span>En savoir plus</span>
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 transition-premium",
-                showRiskDetails && "rotate-180",
-              )}
-            />
-          </button>
-          <AnimatePresence initial={false}>
-            {showRiskDetails && (
-              <motion.div
-                key="risk-details"
-                id="risk-disclosure"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={motionConfig}
-                className="ml-[1.625rem] overflow-hidden"
-              >
-                <p className="mt-2 rounded-lg border border-line bg-obsidian-850/60 px-3.5 py-3 text-label-sm leading-relaxed text-ink-dim">
-                  {"Foresight fournit des signaux informatifs issus d\u2019une analyse de sources ouvertes. Nous n\u2019exécutons pas d\u2019ordre en ton nom ni ne te conseillons de parier sur ce marché spécifique. Les marchés de prédiction comportent un risque de perte partielle ou totale. Tu prends chaque décision, en connaissance de cause."}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <strong className="text-signal-amber">{"Risque de perte totale."}</strong>{" "}
+            {"Foresight fournit des signaux informatifs issus d\u2019une analyse de sources ouvertes. Nous n\u2019exécutons pas d\u2019ordre en ton nom ni ne te conseillons de parier sur ce marché spécifique. Les marchés de prédiction comportent un risque de perte partielle ou totale. Tu prends chaque décision, en connaissance de cause."}
+          </p>
         </div>
 
         {/* Legal-PR-1 B3 — declared country of residence. Server enforces

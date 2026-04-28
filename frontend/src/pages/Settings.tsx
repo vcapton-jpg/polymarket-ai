@@ -96,7 +96,11 @@ export default function Settings() {
   const [auth, setAuth] = useState<AuthState>({ email: "—", plan: "free" })
   const [profile, setProfile] = useState<Partial<UserProfile>>({})
   const [telegramConnected, setTelegramConnected] = useState(false)
-  const [emailNotif, setEmailNotif] = useState(true)
+  // Legal-PR-3 (H6): CNIL exige opt-in pour toute notification non
+  // indispensable. Pre-fix on activait l'email par défaut sans recueil
+  // de consentement explicite. Le hook hydrate ensuite cette valeur
+  // depuis foresight.settings si l'utilisateur a déjà fait son choix.
+  const [emailNotif, setEmailNotif] = useState(false)
   const [emailThreshold, setEmailThreshold] = useState(75)
   const [pushNotif, setPushNotif] = useState(false)
   const [pushPermission, setPushPermission] = useState<NotificationPermission>(

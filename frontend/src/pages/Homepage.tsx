@@ -3,6 +3,7 @@ import { useRef, useEffect, useState } from "react"
 import { motion, useInView, AnimatePresence } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS } from "@/lib/motion"
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUpRight,
   Radio,
@@ -22,7 +23,8 @@ import { AnimatedSignalDemo } from "@/components/homepage/AnimatedSignalDemo"
 import { MOCK_SIGNALS } from "@/data/signals"
 import { useCountUp } from "@/hooks/useCountUp"
 import { cn } from "@/lib/utils"
-import { PUBLIC_STATS } from "@/lib/stats"
+import { usePublicStats } from "@/hooks/usePublicStats"
+import { EMPTY_STAT_PLACEHOLDER } from "@/lib/stats"
 
 export default function Homepage() {
   return (
@@ -128,6 +130,10 @@ function Hero() {
 /* ─────────────────────────────────────────────────────────── */
 
 function Kpis() {
+  // Legal-PR-3 (B8 + H1): every KPI below comes from the live backend
+  // — empty / null values render as a placeholder rather than a
+  // fabricated marketing number.
+  const { data } = usePublicStats()
   return (
     <section className="relative border-y border-line/60 bg-obsidian-850/50 py-24 md:py-32">
       <div className="container-page">
@@ -152,14 +158,18 @@ function Kpis() {
           />
           <KpiCell
             index={1}
-            value={PUBLIC_STATS.backtestWinRatePct}
+            value={data?.win_rate_1h_pct ?? null}
             suffix="%"
-            label="taux de réussite sur backtests"
+            label={
+              data && data.win_rate_sample_size > 0
+                ? `taux de réussite directionnel à 1 h · n=${data.win_rate_sample_size}, ${data.win_rate_window_days} j glissants`
+                : "taux de réussite directionnel à 1 h"
+            }
             accent
           />
           <KpiCell
             index={2}
-            value={PUBLIC_STATS.marketsMonitored}
+            value={data?.markets_monitored ?? null}
             label="marchés surveillés en temps réel"
           />
         </div>
@@ -167,7 +177,7 @@ function Kpis() {
         <div className="mt-12 grid grid-cols-1 gap-8 border-t border-line/40 pt-12 md:grid-cols-3 md:gap-12">
           <KpiCell
             index={3}
-            value={PUBLIC_STATS.signalsGeneratedTotal}
+            value={data?.signals_total ?? null}
             label="signaux générés depuis le lancement"
           />
           <KpiCell
@@ -177,10 +187,15 @@ function Kpis() {
           />
           <KpiCell
             index={5}
-            value={PUBLIC_STATS.activeTradersWeek}
+            value={data?.active_traders_week ?? null}
             label="traders actifs cette semaine"
           />
         </div>
+
+        <p className="mt-10 text-center text-label-sm text-ink-dim">
+          Chiffres calculés en direct depuis notre base. Les performances
+          passées ne préjugent pas des performances futures.
+        </p>
       </div>
     </section>
   )
@@ -195,7 +210,9 @@ function KpiCell({
   accent,
   index,
 }: {
-  value?: number
+  // `null` is a meaningful state — backend reports no data yet for
+  // this slot. We render `EMPTY_STAT_PLACEHOLDER` instead of zero.
+  value?: number | null
   literal?: string
   label: string
   prefix?: string
@@ -203,8 +220,13 @@ function KpiCell({
   accent?: boolean
   index: number
 }) {
+  // Drive the count-up off `value ?? 0` so the animation still fires
+  // when data lands; render path below short-circuits to "—" when
+  // value is null.
   const { ref, display } = useCountUp(value ?? 0, { duration: 1800 })
-  const rendered = literal ?? display
+  const rendered =
+    literal ?? (value === null || value === undefined ? EMPTY_STAT_PLACEHOLDER : display)
+  const showSuffix = !!suffix && value !== null && value !== undefined
 
   return (
     <motion.div
@@ -224,7 +246,7 @@ function KpiCell({
           )}
         >
           {rendered}
-          {suffix && (
+          {showSuffix && (
             <span
               className={cn(
                 "num font-semibold",
@@ -312,14 +334,32 @@ function MarketExample() {
         <MarketRow side="NO" price={0.85} />
       </div>
 
-      <div className="mt-5 rounded-lg border border-brand-500/30 bg-brand-500/5 p-4">
+      {/* Legal-PR-3 (H11): AMF balanced-presentation rule. Pre-fix le
+          "× 6,6 si tu gagnes" était en couleur de marque verte;
+          "Sinon, tu perds ta mise" en gris muted. Maintenant: même fond
+          neutre, même corps de texte, gain et perte également
+          mis en avant. */}
+      <div className="mt-5 grid gap-2 rounded-lg border border-line-strong bg-obsidian-850/60 p-4 text-body-sm leading-relaxed text-ink-muted">
         <div className="flex items-start gap-3">
-          <Zap className="h-4 w-4 shrink-0 text-brand-400 mt-0.5" />
-          <div className="text-body-sm leading-relaxed text-ink-muted">
-            <span className="text-brand-300">Mise × 6,6 si tu gagnes.</span> Tu poses{" "}
-            <span className="num text-ink">{"15\u00A0€"}</span> sur YES à{" "}
-            <span className="num text-ink">{"0,15\u00A0€"}</span>. Si la France gagne, tu retires{" "}
-            <span className="num text-ink">{"100\u00A0€"}</span>. Sinon, tu perds ta mise.
+          <Zap className="h-4 w-4 shrink-0 text-ink-muted mt-0.5" aria-hidden />
+          <div>
+            <span className="font-semibold text-ink">Mise × 6,6 si la France gagne.</span>{" "}
+            Tu poses <span className="num text-ink">{"15\u00A0€"}</span> sur YES à{" "}
+            <span className="num text-ink">{"0,15\u00A0€"}</span> et tu retires{" "}
+            <span className="num text-ink">{"100\u00A0€"}</span>.
+          </div>
+        </div>
+        <div className="flex items-start gap-3 border-t border-line/40 pt-2">
+          <AlertTriangle
+            className="h-4 w-4 shrink-0 text-signal-amber mt-0.5"
+            aria-hidden
+          />
+          <div>
+            <span className="font-semibold text-ink">
+              Si la France perd, tu perds ta mise.
+            </span>{" "}
+            Le risque est de 100 % du capital engagé. Les performances
+            passées ne préjugent pas des performances futures.
           </div>
         </div>
       </div>
@@ -450,7 +490,12 @@ function HowItWorks() {
 
 function LiveFeed() {
   const teaserSignals = MOCK_SIGNALS.slice(0, 3)
-  const { ref: countRef, display: countDisplay } = useCountUp(PUBLIC_STATS.signalsToday, { duration: 1200 })
+  const { data } = usePublicStats()
+  const signalsToday = data?.signals_today ?? null
+  const { ref: countRef, display: countDisplay } = useCountUp(
+    signalsToday ?? 0,
+    { duration: 1200 },
+  )
   return (
     <section className="relative py-24 md:py-32">
       <div className="container-page">
@@ -489,7 +534,12 @@ function LiveFeed() {
         </div>
 
         <p className="mt-8 text-center text-[0.9375rem] text-ink-muted">
-          <span ref={countRef} className="num text-ink">+ {countDisplay}</span> autres signaux générés aujourd’hui
+          <span ref={countRef} className="num text-ink">
+            {signalsToday === null
+              ? EMPTY_STAT_PLACEHOLDER
+              : `+ ${countDisplay}`}
+          </span>{" "}
+          autres signaux générés aujourd’hui
         </p>
       </div>
     </section>

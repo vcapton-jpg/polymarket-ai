@@ -2,7 +2,7 @@ import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { EASE_PREMIUM, DURATIONS } from "@/lib/motion"
 import { useEffect, useState } from "react"
-import { ArrowRight, Check, Shield, Sparkles, Zap } from "lucide-react"
+import { ArrowRight, Check, Clock, Sparkles, Zap } from "lucide-react"
 import { PublicNav } from "@/components/layout/PublicNav"
 import { Footer } from "@/components/layout/Footer"
 import { Button } from "@/components/ui/Button"
@@ -40,7 +40,10 @@ const PLANS: Plan[] = [
     tagline: "Pour apprendre, sans risque.",
     features: [
       "Paper trading illimité",
-      "Feed signaux (10/jour)",
+      // Legal-PR-3 (H3): aligné avec dailyLimit.ts (FREE_DAILY_LIMIT=5)
+      // et la FAQ. Pre-fix on annonçait 10/jour, le code n'en livrait
+      // que 5 — pratique commerciale trompeuse au sens L121-1.
+      "Feed signaux (5/jour)",
       "Outcome explainer après résolution",
     ],
     cta: { label: "Commencer gratuit", to: "/signup?plan=free", variant: "outline" },
@@ -369,9 +372,12 @@ function PricingCard({
 
       {plan.highlighted && (
         <p className="mt-5 flex items-start gap-2 text-body-sm text-ink-muted">
-          <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400" aria-hidden />
+          {/* Legal-PR-3 (H4): "Garantie" est un mot réservé aux produits
+              financiers garantis (AMF). On garde la promesse de
+              remboursement, on retire le mot et l'icône bouclier. */}
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400" aria-hidden />
           <span>
-            Garantie 14{"\u00A0"}jours · Remboursé intégralement si tu n{"\u2019"}es pas convaincu.
+            Remboursement intégral sous 14{"\u00A0"}jours si tu n{"\u2019"}es pas convaincu.
           </span>
         </p>
       )}

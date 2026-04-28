@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { MOCK_SIGNALS } from "@/data/signals"
 import { cn } from "@/lib/utils"
-import { PUBLIC_STATS, formatStat } from "@/lib/stats"
+import { usePublicStats } from "@/hooks/usePublicStats"
+import { EMPTY_STAT_PLACEHOLDER, formatStat } from "@/lib/stats"
 import { readAuth, writeAuth } from "@/lib/trial"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 import { loginApi, setToken, fetchMe } from "@/lib/api/auth"
@@ -17,6 +18,9 @@ import { ApiError } from "@/lib/api/client"
 export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  // Legal-PR-3 (B8): live counter from /api/stats/public so we never
+  // brag about a market count that doesn't match the database.
+  const { data: publicStats } = usePublicStats()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPw, setShowPw] = useState(false)
@@ -80,8 +84,13 @@ export default function Login() {
           </div>
           <SignalCard signal={MOCK_SIGNALS[0]} variant="compact" className="shadow-elevated" />
           <p className="pl-1 text-body-sm leading-relaxed text-ink-muted">
-            Pendant que tu lis ça, le pipeline surveille <span className="num font-medium text-ink">{formatStat(PUBLIC_STATS.marketsMonitored)}</span> marchés
-            Polymarket. Dès qu’un signal est détecté, il atterrit ici.
+            Pendant que tu lis ça, le pipeline surveille{" "}
+            <span className="num font-medium text-ink">
+              {publicStats
+                ? formatStat(publicStats.markets_monitored)
+                : EMPTY_STAT_PLACEHOLDER}
+            </span>{" "}
+            marchés Polymarket. Dès qu’un signal est détecté, il atterrit ici.
           </p>
         </div>
       }
