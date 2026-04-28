@@ -128,11 +128,21 @@ RESOLVED_PRICE_LOW = 0.03        # market priced "almost certainly NO"
 def _market_quality_reject(market) -> str | None:
     """Return rejection reason if the market is too low-quality to signal on.
 
-    Three sub-filters, all on Polymarket-side state (not signal-side):
+    Five sub-filters, all on Polymarket-side state (not signal-side):
     1) volume_24h < $500 → market is illiquid spam, no one trades it
     2) liquidity < $2k   → spread will eat the edge before you can fill
     3) price > 0.97 or < 0.03 → market has effectively resolved, no edge left
+    4) end_date already past → market is in resolution-pending state
+       (catches the 2026-04-27 #1664 / #1709 case: signal fired on a
+       Lebanon-offensive market whose deadline was 10 days earlier)
+    5) end_date within `market_min_remaining_hours` (default 48h) →
+       news-binary trap. Within 2 days of resolution, breaking news
+       can flip the price to 0/1 inside our 1h decision window — see
+       the 7 Israel/Hezbollah catastrophes of 2026-04-27 (P1-3 audit
+       follow-up). Setting `MARKET_MIN_REMAINING_HOURS=0` disables.
     """
+    from app.core.config import get_settings as _gs
+
     vol_24h = float(market.volume_24h) if market.volume_24h is not None else 0.0
     if vol_24h < MIN_VOLUME_24H_USD:
         return f"volume_24h ${vol_24h:.0f} < ${MIN_VOLUME_24H_USD:.0f}"
@@ -144,6 +154,23 @@ def _market_quality_reject(market) -> str | None:
     price = float(market.last_trade_price) if market.last_trade_price is not None else None
     if price is not None and (price >= RESOLVED_PRICE_HIGH or price <= RESOLVED_PRICE_LOW):
         return f"price {price:.3f} outside ({RESOLVED_PRICE_LOW},{RESOLVED_PRICE_HIGH})"
+
+    end_date = getattr(market, "end_date", None)
+    if end_date is not None:
+        now = datetime.now(timezone.utc)
+        # Normalise naive datetimes to UTC so the comparison never raises.
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
+        if end_date <= now:
+            return f"end_date {end_date.isoformat()} already past (now={now.isoformat()})"
+        min_remaining_hours = _gs().market_min_remaining_hours
+        if min_remaining_hours > 0:
+            remaining_hours = (end_date - now).total_seconds() / 3600.0
+            if remaining_hours < min_remaining_hours:
+                return (
+                    f"end_date too soon: {remaining_hours:.1f}h remaining "
+                    f"< min {min_remaining_hours}h (news-binary trap)"
+                )
 
     return None
 

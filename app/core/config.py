@@ -139,6 +139,14 @@ class Settings(BaseSettings):
     # ── LLM cost guardrails ───────────────────────────────────────────────
     llm_cost_alert_usd: float = Field(default=30.0)
 
+    # Filter A — minimum hours of remaining life before market end_date.
+    # The 7 worst losses on 2026-04-27 were all on news-binary markets within
+    # 0–3 days of resolution where the breaking news flipped the price to 1.0
+    # within the hour. 48h is a defensive default that kills the worst pattern
+    # without hurting slow-moving political/economic markets. Set to 0 to
+    # disable the gate.
+    market_min_remaining_hours: int = Field(default=48)
+
     # ── Ingestion health ──────────────────────────────────────────────────
     tier1_lag_alert_seconds: int = Field(default=180)
 
