@@ -183,6 +183,17 @@ _beat_schedule["clustering-diversity-hourly"] = {
     "options": {"queue": "default"},
 }
 
+# ── Observability — daily bucket × direction × outcome roll-up ──
+# Audit follow-up 2026-04-28: 27-04 retro surfaced that geopolitics×BUY_NO
+# was the dominant loss vector. Hourly is overkill (at most a few tens of
+# signals/hour) but daily is enough cadence to spot a regime change in
+# bucket performance without spamming the logs.
+_beat_schedule["signals-outcome-daily"] = {
+    "task": "app.workers.tasks_diagnostics.emit_signals_outcome_distribution",
+    "schedule": 86400.0,
+    "options": {"queue": "default"},
+}
+
 celery_app.conf.beat_schedule = _beat_schedule
 
 celery_app.autodiscover_tasks([
