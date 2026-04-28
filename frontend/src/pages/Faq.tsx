@@ -29,7 +29,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Les signaux sont-ils garantis gagnants ?",
-    a: "Non. Foresight identifie des opportunités statistiquement intéressantes, pas des certitudes. Notre backtest montre un taux de réussite directionnel d’environ 68%, mais chaque trade comporte un risque. Ne mise jamais plus que tu n’es prêt à perdre.",
+    a: "Non. Foresight identifie des opportunités statistiquement intéressantes, pas des certitudes. Le taux de réussite directionnel mesuré en direct (n=…, 30 j glissants) est affiché en page d’accueil — chaque trade comporte un risque, et les performances passées ne préjugent pas des performances futures. Ne mise jamais plus que tu n’es prêt à perdre.",
   },
   {
     q: "Comment fonctionne l’alerte Telegram ?",

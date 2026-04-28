@@ -101,6 +101,7 @@ from app.api.routes.outcome_views import router as outcome_views_router  # noqa:
 from app.api.routes.paper import router as paper_router  # noqa: E402
 from app.api.routes.performance_v2 import router as performance_v2_router  # noqa: E402
 from app.api.routes.portfolio_v2 import router as portfolio_v2_router  # noqa: E402
+from app.api.routes.public_stats import router as public_stats_router  # noqa: E402
 from app.api.routes.quota import router as quota_router  # noqa: E402
 from app.api.routes.sources import router as sources_router  # noqa: E402
 from app.api.routes.subscriptions import router as subs_router  # noqa: E402
@@ -116,6 +117,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(portfolio_v2_router, prefix="/api")
 app.include_router(performance_v2_router, prefix="/api")
 app.include_router(quota_router, prefix="/api")
+app.include_router(public_stats_router, prefix="/api")
 app.include_router(sources_router, prefix="/api")
 # `paper` keeps its bac-à-sable role inside Apprendre — no real-money
 # implications. The L&T trading-test gates (the former /api/onboarding/*

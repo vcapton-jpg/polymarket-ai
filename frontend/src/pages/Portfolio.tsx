@@ -22,7 +22,8 @@ import {
   Wallet,
   X,
 } from "lucide-react"
-import { PUBLIC_STATS, formatStat } from "@/lib/stats"
+import { usePublicStats } from "@/hooks/usePublicStats"
+import { EMPTY_STAT_PLACEHOLDER, formatStat } from "@/lib/stats"
 import { AppShell } from "@/components/layout/AppShell"
 import { KPIStat } from "@/components/portfolio/KPIStat"
 import { PositionCard } from "@/components/portfolio/PositionCard"
@@ -35,7 +36,10 @@ import {
 import { MOCK_PERFORMANCE } from "@/data/performance"
 import { useUserPreferences } from "@/lib/userPreferences"
 import { useManualPositions } from "@/lib/useManualPositions"
+import { usePerformance } from "@/hooks/usePerformance"
 import { useRemotePositions } from "@/hooks/useRemotePositions"
+import { hasToken } from "@/lib/api/auth"
+import { DemoDataBadge } from "@/components/ui/DemoDataBadge"
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio"
 import { XPBadge } from "@/components/gamification/XPBadge"
 import {
@@ -87,6 +91,10 @@ export default function Portfolio() {
   const [nativePositions, setNativePositions] = useState<Position[]>([])
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const { data: remote, loading } = useRemotePositions()
+  // Performance KPIs in this page (winRate, signalsFollowed, correct)
+  // come from the same hook as the Performance page; `isMock` lets us
+  // surface the demo banner when the API is unreachable / unauth'd.
+  const { stats: performanceStats, isMock: performanceIsMock } = usePerformance()
   const { data: paperPositions = [] } = usePaperPortfolio()
 
   // Educational gamification — rewards reading Apprendre sections + paper
@@ -196,9 +204,10 @@ export default function Portfolio() {
       ),
     [activePositions, resolvedPositions],
   )
-  const winRate = Math.round(MOCK_PERFORMANCE.userWinRate * 100)
-  const signalsFollowed = MOCK_PERFORMANCE.userSignalsFollowed
-  const correct = MOCK_PERFORMANCE.userCorrectPredictions
+  // Read from the live hook so empty/zero states are real, not faked.
+  const winRate = Math.round(performanceStats.userWinRate * 100)
+  const signalsFollowed = performanceStats.userSignalsFollowed
+  const correct = performanceStats.userCorrectPredictions
 
   const handleExportCSV = () => {
     downloadPositionsCSV([...activePositions, ...resolvedPositions])
@@ -322,6 +331,11 @@ export default function Portfolio() {
         <EmptyPortfolio />
       ) : (
         <div className="px-4 py-6 md:px-8 md:py-8 space-y-10">
+          {performanceIsMock && (
+            <DemoDataBadge
+              reason={hasToken() ? "api-error" : "no-auth"}
+            />
+          )}
           <PositionOpenedBanner
             position={bannerPosition}
             formatMoney={formatMoney}
@@ -568,7 +582,9 @@ function NoActivePositions() {
 }
 
 function EmptyPortfolio() {
-  const activeTraders = PUBLIC_STATS.activeTradersWeek ?? 842
+  // Legal-PR-3 (B8): live count, no marketing default.
+  const { data: publicStats } = usePublicStats()
+  const activeTraders = publicStats?.active_traders_week ?? null
   return (
     <div className="px-4 py-16 md:px-8">
       <div className="mx-auto max-w-3xl">
@@ -605,11 +621,18 @@ function EmptyPortfolio() {
           />
         </div>
 
-        <p className="mt-6 text-center text-body-sm text-ink-muted">
-          Tu rejoins{" "}
-          <span className="num text-ink">{formatStat(activeTraders)}</span> traders qui
-          utilisent Foresight chaque semaine.
-        </p>
+        {activeTraders !== null && activeTraders > 0 ? (
+          <p className="mt-6 text-center text-body-sm text-ink-muted">
+            Tu rejoins{" "}
+            <span className="num text-ink">{formatStat(activeTraders)}</span>{" "}
+            traders qui utilisent Foresight cette semaine.
+          </p>
+        ) : (
+          <p className="mt-6 text-center text-body-sm text-ink-muted">
+            Foresight est en bêta — sois parmi les premiers à utiliser le
+            pipeline en conditions réelles.
+          </p>
+        )}
       </div>
     </div>
   )

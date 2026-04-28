@@ -26,6 +26,8 @@ import {
 import { MOCK_RESOLVED_POSITIONS } from "@/data/positions"
 import { useUserPreferences } from "@/lib/userPreferences"
 import { usePerformance } from "@/hooks/usePerformance"
+import { hasToken } from "@/lib/api/auth"
+import { DemoDataBadge } from "@/components/ui/DemoDataBadge"
 import { cn, categoryColor, categoryWithEmoji } from "@/lib/utils"
 import type { PersonalInsight } from "@/data/performance"
 
@@ -46,7 +48,7 @@ const SCATTER_EMPTY_STATE_THRESHOLD = 30
 export default function Performance() {
   const { t } = useTranslation()
   const { formatMoney, language } = useUserPreferences()
-  const { stats: MOCK_PERFORMANCE, loading: loadingCharts } = usePerformance()
+  const { stats: MOCK_PERFORMANCE, loading: loadingCharts, isMock } = usePerformance()
 
   const dateLocale = language === "fr" ? "fr-FR" : "en-US"
   const formatAxisDate = (iso: string): string => {
@@ -113,6 +115,11 @@ export default function Performance() {
       </div>
 
       <div className="px-4 py-6 md:px-8 md:py-8 space-y-10">
+        {isMock && (
+          <DemoDataBadge
+            reason={hasToken() ? "api-error" : "no-auth"}
+          />
+        )}
         {/* Section 1 — Personal KPIs */}
         <section>
           <SectionHeader
