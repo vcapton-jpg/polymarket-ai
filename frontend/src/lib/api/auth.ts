@@ -6,7 +6,7 @@
  * `fetchMe()` which maps to GET /api/auth/me.
  */
 
-import { apiGet, apiPost, apiPut } from "@/lib/api/client"
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api/client"
 import { STORAGE_KEYS } from "@/lib/storageKeys"
 
 export type AuthUser = {
@@ -60,8 +60,28 @@ export async function registerApi(
   email: string,
   password: string,
   plan: "free" | "pro" = "free",
+  options: {
+    age_confirmed_18: boolean
+    country_residence: string
+  },
 ): Promise<AuthResponse> {
-  return apiPost<AuthResponse>("/auth/register", { email, password, plan })
+  return apiPost<AuthResponse>("/auth/register", {
+    email,
+    password,
+    plan,
+    age_confirmed_18: options.age_confirmed_18,
+    country_residence: options.country_residence,
+  })
+}
+
+/**
+ * Hard-delete the current user's account (RGPD Art. 17). Server cascades
+ * the FK fan-out (`portfolios`, `positions`, `orders`, `user_limits`, …)
+ * in one transaction. Caller is responsible for clearing local auth
+ * state immediately after a 204.
+ */
+export async function deleteAccountApi(): Promise<void> {
+  await apiDelete("/auth/me")
 }
 
 export async function loginApi(

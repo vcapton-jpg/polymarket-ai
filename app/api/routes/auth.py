@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr, Field
@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.database import get_db_session
-from app.db.models import UserProfile
+from app.db.models import UserLimits, UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,15 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     plan: Optional[Literal["free", "pro"]] = "free"
+    # Legal-PR-1 B2 — frontend collected the 18+ checkbox in Signup.tsx but
+    # never sent it. Now required; the backend mirrors it into UserLimits
+    # so the order-time `age_not_confirmed` gate at OrderForm.tsx actually
+    # has a True flag to read.
+    age_confirmed_18: bool = False
+    # Legal-PR-1 B3 — ISO 3166-1 alpha-2. Required so we can refuse signup
+    # from blocklisted jurisdictions (CFTC + sanctions). The endpoint
+    # cross-checks against `cf-ipcountry` if present.
+    country_residence: Optional[str] = Field(default=None, min_length=2, max_length=2)
 
 
 class LoginRequest(BaseModel):
@@ -125,8 +134,81 @@ async def get_current_user(
     return user
 
 
+def _normalised_blocked_countries(raw: str) -> set[str]:
+    """Split the comma-separated env value into an upper-cased set."""
+    return {c.strip().upper() for c in raw.split(",") if c.strip()}
+
+
+def _enforce_geo_restriction(
+    declared_country: Optional[str],
+    request: Request,
+) -> str:
+    """Validate the user's declared country and, if available, cross-check
+    against `cf-ipcountry`. Returns the normalised country code (uppercase
+    ISO 3166-1 alpha-2). Raises HTTPException(451) on a blocked country.
+
+    `cf-ipcountry` is set by Cloudflare's edge. If absent we trust the
+    declared value alone — that's worse but acceptable for an MVP and we
+    log loud so an operator notices when traffic isn't routed through
+    Cloudflare yet. A user who declares an allowed country while their
+    IP says otherwise is rejected — VPN evasion is a feature only the
+    user can claim, not the platform.
+    """
+    settings = get_settings()
+    blocked = _normalised_blocked_countries(settings.signup_blocked_countries)
+    if not declared_country:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="country_residence is required at signup",
+        )
+    declared = declared_country.upper()
+    if declared in blocked:
+        # 451 Unavailable For Legal Reasons is the textbook code for this.
+        raise HTTPException(
+            status_code=451,
+            detail=f"Sign-up is not available in {declared}",
+        )
+
+    cf_country = (request.headers.get("cf-ipcountry") or "").upper()
+    if cf_country and cf_country in blocked:
+        logger.warning(
+            "Geo-block: cf-ipcountry=%s declared=%s — refusing register",
+            cf_country, declared,
+        )
+        raise HTTPException(
+            status_code=451,
+            detail="Sign-up is not available from your network location",
+        )
+    if not cf_country:
+        # Operator visibility — we want to know when the edge isn't
+        # passing the country through. Not a fatal error.
+        logger.info(
+            "Geo-block: cf-ipcountry header missing; trusting declared=%s",
+            declared,
+        )
+
+    return declared
+
+
 @router.post("/register", response_model=AuthResponse)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db_session)):
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    # Legal-PR-1 B2 — refuse registrations that don't carry the 18+
+    # confirmation. Mirrors the explicit checkbox in Signup.tsx so the
+    # backend cooloff/age gate at OrderForm.tsx can rely on the
+    # UserLimits.age_confirmed_18 flag we set below.
+    if not body.age_confirmed_18:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="age_confirmed_18 must be true",
+        )
+
+    # Legal-PR-1 B3 — geo gate (declared + cf-ipcountry).
+    country = _enforce_geo_restriction(body.country_residence, request)
+
     result = await db.execute(select(UserProfile).where(UserProfile.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -149,8 +231,16 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db_sess
         plan=plan,
         trial_ends_at=trial_ends_at,
         card_attached=False,
+        country_residence=country,
     )
     db.add(user)
+    await db.flush()  # populates user.id for the FK below
+
+    # Legal-PR-1 B2 — persist age_confirmed_18 on the row that the
+    # order-time gate actually reads. Pre-fix we wrote the value nowhere;
+    # post-fix the gate has a real authoritative source and the cooloff
+    # mechanism in `register_trade_result` is meaningful.
+    db.add(UserLimits(user_id=user.id, age_confirmed_18=True))
     await db.commit()
     await db.refresh(user)
 
@@ -366,3 +456,31 @@ async def login_google(body: GoogleTokenRequest, db: AsyncSession = Depends(get_
 @router.post("/logout")
 async def logout():
     return {"ok": True}
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    user: UserProfile = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Hard-delete the calling user's account (RGPD Art. 17, Legal-PR-1 B7).
+
+    Pre-fix the frontend modal at `ConfirmDeleteAccountModal.tsx` only
+    cleared `localStorage` — the row stayed in Postgres and the user's
+    "Right to Erasure" was effectively a lie. This endpoint deletes the
+    `user_profiles` row; every related table (`portfolios`, `positions`,
+    `orders`, `user_limits`, `paper_positions`, `onboarding_progress`,
+    `quiz_attempts`, `outcome_views`, `daily_briefs`) declares
+    `ondelete=CASCADE`, so the FK fan-out is handled by Postgres in a
+    single transaction.
+
+    No "soft-delete" / 30-day grace window: a hard delete is what RGPD
+    actually demands. Stripe customers, if any, are out of scope here —
+    Stripe billing cleanup happens via the customer-portal flow before
+    the user lands on this endpoint.
+    """
+    await db.delete(user)
+    await db.commit()
+    # 204 — body intentionally empty; the client should clear its own
+    # token/auth state (logout flow) immediately after.
+    return None

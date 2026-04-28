@@ -561,6 +561,15 @@ class UserProfile(Base):
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     preferences: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # ISO 3166-1 alpha-2, captured at signup since 2026-04-28 (Alembic 027,
+    # Legal-PR-1 B3). Nullable only for pre-027 rows; the /auth/register
+    # endpoint forces a value going forward and `signup_blocked_countries`
+    # rejects the registration outright when the declared country is
+    # restricted (US, etc.). Persisted so an audit can demonstrate
+    # geo-restriction enforcement post-hoc.
+    country_residence: Mapped[Optional[str]] = mapped_column(
+        String(2), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
