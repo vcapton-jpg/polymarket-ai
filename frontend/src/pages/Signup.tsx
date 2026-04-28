@@ -449,8 +449,10 @@ export default function Signup() {
           <span className="text-body-sm leading-relaxed text-ink-muted">
             {"J\u2019accepte les "}
             <a href="/cgu" target="_blank" className="underline">CGU</a>
-            {" et la "}
+            {", la "}
             <a href="/risques" target="_blank" className="underline">politique de risque</a>
+            {" et la "}
+            <a href="/confidentialite" target="_blank" className="underline">politique de confidentialit\u00e9</a>
             {"."}
           </span>
         </label>

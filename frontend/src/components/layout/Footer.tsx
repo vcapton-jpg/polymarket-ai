@@ -12,9 +12,12 @@ export function Footer() {
           </span>
         </div>
 
-        <nav className="flex flex-wrap items-center gap-5 text-body-sm text-ink-muted">
+        <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-body-sm text-ink-muted">
           <Link to="/mentions-legales" className="hover:text-ink transition-premium">Mentions légales</Link>
           <Link to="/cgu" className="hover:text-ink transition-premium">CGU</Link>
+          <Link to="/cgv" className="hover:text-ink transition-premium">CGV</Link>
+          <Link to="/confidentialite" className="hover:text-ink transition-premium">Confidentialité</Link>
+          <Link to="/cookies" className="hover:text-ink transition-premium">Cookies</Link>
           <Link to="/risques" className="hover:text-ink transition-premium">Risques</Link>
           <a href="mailto:contact@foresight.app" className="hover:text-ink transition-premium">Contact</a>
         </nav>
