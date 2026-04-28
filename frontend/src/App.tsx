@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-ro
 import { lazy, Suspense, useEffect, type ReactNode } from "react"
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion"
 import { RequireAuth } from "./components/auth/RequireAuth"
+import { CookieBanner } from "./components/layout/CookieBanner"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 import { PageSkeleton } from "./components/ui/PageSkeleton"
 import { readAuth } from "./lib/trial"
@@ -24,6 +25,9 @@ const Login = lazy(() => import("./pages/Login"))
 const Signup = lazy(() => import("./pages/Signup"))
 const SignalVariants = lazy(() => import("./pages/SignalVariants"))
 const Cgu = lazy(() => import("./pages/Cgu"))
+const Cgv = lazy(() => import("./pages/Cgv"))
+const Confidentialite = lazy(() => import("./pages/Confidentialite"))
+const Cookies = lazy(() => import("./pages/Cookies"))
 const Risques = lazy(() => import("./pages/Risques"))
 const MentionsLegales = lazy(() => import("./pages/MentionsLegales"))
 
@@ -44,6 +48,9 @@ const ONBOARDING_EXEMPT_PATHS = new Set([
   "/pricing",
   "/signal-variants",
   "/cgu",
+  "/cgv",
+  "/confidentialite",
+  "/cookies",
   "/risques",
   "/mentions-legales",
 ])
@@ -137,6 +144,9 @@ function AnimatedRoutes() {
         <Route path="/faq" element={<RouteBoundary scope="FAQ"><RouteTransition><Faq /></RouteTransition></RouteBoundary>} />
         <Route path="/signal-variants" element={<RouteBoundary scope="Signal variants"><RouteTransition><SignalVariants /></RouteTransition></RouteBoundary>} />
         <Route path="/cgu" element={<RouteBoundary scope="CGU"><RouteTransition><Cgu /></RouteTransition></RouteBoundary>} />
+        <Route path="/cgv" element={<RouteBoundary scope="CGV"><RouteTransition><Cgv /></RouteTransition></RouteBoundary>} />
+        <Route path="/confidentialite" element={<RouteBoundary scope="Confidentialité"><RouteTransition><Confidentialite /></RouteTransition></RouteBoundary>} />
+        <Route path="/cookies" element={<RouteBoundary scope="Cookies"><RouteTransition><Cookies /></RouteTransition></RouteBoundary>} />
         <Route path="/risques" element={<RouteBoundary scope="Risques"><RouteTransition><Risques /></RouteTransition></RouteBoundary>} />
         <Route path="/mentions-legales" element={<RouteBoundary scope="Mentions légales"><RouteTransition><MentionsLegales /></RouteTransition></RouteBoundary>} />
         <Route path="/login" element={<RouteBoundary scope="Login"><RouteTransition><Login /></RouteTransition></RouteBoundary>} />
@@ -176,6 +186,10 @@ export default function App() {
             <AnimatedRoutes />
           </LayoutGroup>
         </Suspense>
+        {/* CNIL cookie banner — renders only when no consent record
+            exists (first visit or after a `revoke()`). Mounted outside
+            the route tree so it persists across navigation. */}
+        <CookieBanner />
       </div>
     </BrowserRouter>
   )

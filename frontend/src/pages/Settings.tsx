@@ -8,6 +8,7 @@ import {
   Send,
   Bell,
   SlidersHorizontal,
+  Cookie,
   Crown,
   LogOut,
   Trash2,
@@ -36,6 +37,7 @@ import {
 } from "@/lib/trial"
 import { deleteAccountApi, logoutApi } from "@/lib/api/auth"
 import { openStripePortal } from "@/lib/api/subscriptions"
+import { revoke as revokeConsent } from "@/lib/cookieConsent"
 import { STORAGE_KEYS, AUTH_CHANGED_EVENT } from "@/lib/storageKeys"
 import ConfirmDeleteAccountModal from "@/components/modals/ConfirmDeleteAccountModal"
 import type { UserProfile } from "@/types/signal"
@@ -708,6 +710,36 @@ export default function Settings() {
                     <p className="font-medium text-ink">Se déconnecter</p>
                     <p className="text-body-sm text-ink-muted">
                       Termine la session sur cet appareil.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Revoke cookie consent — required by CNIL: the user must be
+                  able to revisit their choice with the same ease as making
+                  it. Resets the consent record so the banner reappears. */}
+              <button
+                type="button"
+                onClick={() => {
+                  revokeConsent()
+                  addToast({
+                    type: "success",
+                    title: "Choix de cookies effacé",
+                    description:
+                      "Le bandeau s’affichera lors de ta prochaine action.",
+                  })
+                }}
+                className="group flex w-full items-center justify-between gap-3 rounded-lg border border-line bg-obsidian-850/60 px-4 py-3.5 text-left transition-premium hover:border-line-strong hover:bg-obsidian-800 cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-line-strong bg-obsidian-800 text-ink-muted group-hover:text-ink">
+                    <Cookie className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-ink">Revoir mes choix de cookies</p>
+                    <p className="text-body-sm text-ink-muted">
+                      Réaffiche le bandeau de consentement et permet de
+                      modifier les catégories.
                     </p>
                   </div>
                 </div>
