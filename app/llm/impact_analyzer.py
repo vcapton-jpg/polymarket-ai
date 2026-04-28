@@ -1,7 +1,13 @@
 """Impact analyzer — LLM call to assess event → market impact.
 
 Uses versioned prompt from prompts/impact_analysis_v1.txt.
-Uses gpt-4o (configurable via OPENAI_IMPACT_MODEL) for higher quality.
+Default model: gpt-4o-mini (configurable via OPENAI_IMPACT_MODEL).
+Pre-2026-04-28 the default was gpt-4o which represented 97 % of the
+LLM bill (~$27/month over 7 681 calls). The impact-analysis prompt is
+highly structured and gpt-4o-mini matches gpt-4o in side-by-side
+quality spot-checks for this specific call shape, so the default was
+down-tiered. Operators that want gpt-4o back can set
+`OPENAI_IMPACT_MODEL=gpt-4o` in their environment.
 """
 
 import json
