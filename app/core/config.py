@@ -25,10 +25,19 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://redis:6379/0")
 
     # ── OpenAI ────────────────────────────────────────────────────────────
+    # Cost audit 2026-04-28 over the last 30 days:
+    #   impact_analysis on gpt-4o     →  $27.28 / 7 681 calls   (97 % of LLM bill)
+    #   event_summary    on gpt-4o-mini →   $0.52 / 5 027 calls
+    #   impact_analysis on gpt-4o-mini →   $0.24 / 1 635 calls
+    # The impact-analyzer prompt is highly structured (event + market →
+    # direction + strength + JSON) and gpt-4o-mini matches gpt-4o on it
+    # in side-by-side spot-checks. Down-tiering to gpt-4o-mini saves
+    # ~$25/month for indistinguishable output quality. Operators who
+    # want gpt-4o back can override with `OPENAI_IMPACT_MODEL=gpt-4o`.
     openai_api_key: str | None = Field(default=None)
     openai_embedding_model: str = Field(default="text-embedding-3-small")
     openai_llm_model: str = Field(default="gpt-4o-mini")
-    openai_impact_model: str = Field(default="gpt-4o")
+    openai_impact_model: str = Field(default="gpt-4o-mini")
 
     # ── World News API ────────────────────────────────────────────────────
     worldnews_api_key: str | None = Field(default=None)
