@@ -39,8 +39,18 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=300,
-    task_soft_time_limit=240,
+    # Bumped from 300/240 to 600/540 on 2026-05-04 after a 6-day outage
+    # where all 8 workers crashed in a 5-minute restart loop. Root cause:
+    # a `process_article` task occasionally hangs >300s on a slow
+    # OpenAI embedding or RSSHub call (no per-call timeout in the
+    # caller). At 300s hard-limit Celery force-kills the worker via
+    # SIGKILL, the next task from the backlog reproduces the issue, and
+    # the loop never breaks. 600s gives enough breathing room for the
+    # tail of network-bound calls; the actual fix (per-call timeouts in
+    # the embedding service + httpx clients) lands separately so the
+    # bump remains in place as a safety margin.
+    task_time_limit=600,
+    task_soft_time_limit=540,
     worker_prefetch_multiplier=1,
     worker_concurrency=4,
 )
