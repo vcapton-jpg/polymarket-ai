@@ -1,0 +1,68 @@
+# Caddyfile — Foresight reverse proxy + automatic Let's Encrypt TLS.
+#
+# Replace `foresight.example.com` with your actual domain before
+# `systemctl restart caddy`. Caddy will request the cert on the first
+# HTTPS request — make sure the A record is already pointing at this
+# host's public IP, otherwise the ACME challenge fails.
+#
+# WebSocket upgrade is handled implicitly by `reverse_proxy` (Caddy
+# preserves the `Upgrade` and `Connection` headers).
+
+foresight.example.com {
+
+    # Frontend (Vite-built static bundle served by nginx in the
+    # `frontend` container, which docker-compose maps to host port
+    # 3000 — but here we connect over the docker bridge by container
+    # name, which is more robust to host port renumbering).
+    handle /api/* {
+        reverse_proxy foresight-app:8000
+    }
+
+    # WebSocket signal stream (PR #49 hardened the listener)
+    handle /ws/* {
+        reverse_proxy foresight-app:8000
+    }
+
+    # Healthcheck — exposed for UptimeRobot
+    handle /api/health {
+        reverse_proxy foresight-app:8000
+    }
+
+    # Everything else → frontend SPA (handles its own routing).
+    handle {
+        reverse_proxy foresight-frontend:80
+    }
+
+    # Security headers. HSTS only after you're sure TLS is stable —
+    # browsers cache it for 6 months and you can't undo it without
+    # the cert remaining valid.
+    header {
+        # Tell browsers + crawlers we're TLS-only
+        Strict-Transport-Security "max-age=15552000; includeSubDomains"
+        # Modest XSS protections that don't break legit JS
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Hide the server identity from probes
+        -Server
+    }
+
+    # Compression for static assets
+    encode zstd gzip
+
+    # Access log to /var/log/caddy/foresight.log — useful for
+    # auditing 401s on /api/telegram/webhook (PR #45 spoofs).
+    log {
+        output file /var/log/caddy/foresight.log {
+            roll_size 100MiB
+            roll_keep 7
+        }
+    }
+}
+
+# Optional: redirect www and bare-IP attempts to the canonical host.
+# Uncomment if you also own www.foresight.example.com.
+#
+# www.foresight.example.com {
+#     redir https://foresight.example.com{uri} permanent
+# }
