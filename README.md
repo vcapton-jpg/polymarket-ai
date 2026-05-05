@@ -2,13 +2,31 @@
 
 > Know before the market does — Foresight surfaces the news that just made a Polymarket prediction-market contract wrong, and lets you act on it in one click.
 
-[![Status](https://img.shields.io/badge/status-production-green)](https://getforesight.io) · Live at **[getforesight.io](https://getforesight.io)** · French first, English-ready · USD primary, EUR secondary
+![Status](https://img.shields.io/badge/status-production--ready-blue) · French first, English-ready · USD primary, EUR secondary
 
 ## Status
 
-- **V2** shipped (production) — full pipeline live: ingestion → clustering → LLM impact → heuristic score → signal → broadcast → Polymarket Builder order
-- **Chantiers #1-#6** + post-audit fixes shipped on `main` (measurement layer, sourcing audit, embeddings v2, ranking tuning, heuristic validation, clustering hardening, scoring/CORS/lifespan hardening)
-- **V3** documentation pass in progress (this README + `docs/`)
+The pipeline is **production-ready**: full chain live in dev (ingestion →
+clustering → LLM impact → heuristic score → two-layer dedupe → signal
+broadcast → Polymarket Builder order), runbook + preflight check shipped
+for the VPS cutover ([`scripts/deploy/`](./scripts/deploy/)). No public
+URL pinned yet — the domain is still being chosen.
+
+Recent work (since the May 2026 audit cycle):
+
+- **8 PRs closed a 6-day OOM outage** (#37–#44) — asyncpg cross-loop
+  bug, OpenAI timeouts, `NullPool`, worker recycling, SQLAlchemy echo
+  trigger, NER singleton.
+- **9 PRs hardened security + perf** (#45–#56) — Pydantic trade
+  validation, Telegram webhook auth, JWT secret gate, ghost HNSW
+  index drop, missing FK indexes, N+1 storms killed, LLM wrapper
+  singletons, shared httpx client.
+- **5 PRs cleaned architecture + tests** (#57–#62) — layering, hooks,
+  dead code drop, Celery `send_task`, OpenAPI codegen, migration
+  safety runbook.
+- **4 PRs fixed live bugs + shipped deploy infra** (#63–#66) —
+  thematic dedup (closed live duplicate observed in prod-like dev),
+  production deploy runbook + preflight, README + `.env.example` sync.
 
 ## Quick start
 
@@ -34,8 +52,8 @@ API at `http://localhost:8001/api`, frontend at `http://localhost:5173`. The API
 polymarket-ai/
 ├── frontend/             React 18 + TS + Vite + Tailwind 3 SPA
 ├── app/                  Python backend (FastAPI + Celery + scoring/measurement)
-├── alembic/              25 DB migrations (Postgres + pgvector)
-├── tests/                pytest (~376 unit + integration)
+├── alembic/              30 DB migrations (Postgres + pgvector) + MIGRATION_SAFETY.md runbook
+├── tests/                104 test files (pytest, unit + integration)
 ├── prompts/              Versioned LLM prompts (impact, reasoning, summary)
 ├── scripts/              One-shot ops (backfills, eval, tuning)
 ├── docs/                 Documentation (this is where you go next)
@@ -50,7 +68,7 @@ polymarket-ai/
 │   └── audit/                Historical audit reports
 ├── data/                 Runtime inboxes (X scraper)
 ├── static/               Apple Pay domain verification
-├── docker-compose.yml    12 services (db, redis, app, beat, 6 workers, frontend, rsshub)
+├── docker-compose.yml    13 services (db, redis, app, beat, 7 workers, frontend, rsshub)
 ├── Dockerfile            Backend image
 ├── Makefile              Dev helpers (install/dev/test/lint/migrate/seed)
 ├── pyproject.toml        Python deps (uv)
@@ -66,7 +84,7 @@ polymarket-ai/
 
 **Backend:** Python 3.11, FastAPI, SQLAlchemy 2.0 (async), Alembic, Celery, Postgres 16 + pgvector, Redis, OpenAI gpt-4o-mini + text-embedding-3-small · `uv` for dep management
 
-**Infra:** Docker Compose (12 services), GitLab CI, Cloudflare tunnel for mobile dev
+**Infra:** Docker Compose (13 services), Cloudflare tunnel for mobile dev. Repo on GitHub; `.gitlab-ci.yml` is legacy and not currently exercised — CI re-wiring (GitHub Actions) is a follow-up.
 
 ## Documentation
 
