@@ -76,4 +76,20 @@ class ImpactAnalyzer:
 
 
 def create_impact_analyzer() -> ImpactAnalyzer:
-    return ImpactAnalyzer()
+    """Backward-compat alias. New call sites should use `get_impact_analyzer()`."""
+    return get_impact_analyzer()
+
+
+# Module-level singleton — see `app.llm.event_summarizer.get_event_summarizer`
+# for the rationale (H9 audit follow-up 2026-05-05). Same shape: wrapper
+# allocated once, prompt file read once, underlying OpenAIClient already
+# singleton.
+_impact_analyzer_singleton: Optional["ImpactAnalyzer"] = None
+
+
+def get_impact_analyzer() -> "ImpactAnalyzer":
+    """Return the process-wide `ImpactAnalyzer` singleton."""
+    global _impact_analyzer_singleton
+    if _impact_analyzer_singleton is None:
+        _impact_analyzer_singleton = ImpactAnalyzer()
+    return _impact_analyzer_singleton
