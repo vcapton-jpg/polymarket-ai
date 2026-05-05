@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
+import { Fragment, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,13 +11,13 @@ import { SignalCardSkeleton } from "@/components/signals/SignalCardSkeleton"
 import { CoachMark } from "@/components/ui/CoachMark"
 import { PaywallChip } from "@/components/ui/PaywallChip"
 import { PaywallOverlay } from "@/components/ui/PaywallOverlay"
+import { useSignalsList } from "@/hooks/useSignalsList"
+// Static demo dataset — used as the on-screen fallback when the API
+// errors out so the page never goes blank. The hook above does NOT
+// substitute mocks on error (it surfaces `error` for the banner and
+// returns []); the component decides per-section whether to splice in
+// the demo bundle for visual continuity.
 import { MOCK_SIGNALS } from "@/data/signals"
-import { fetchSignalsFromApi } from "@/lib/apiSignals"
-
-/** Dev-only: `VITE_USE_MOCKS=1` forces the mock dataset so the page renders
- *  even when the API is offline. Default is API-first with an error banner
- *  if /api/signals fails. */
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "1"
 import {
   cleanupOldDailyKeys,
   DAILY_SIGNAL_VIEWED_EVENT,
@@ -137,43 +137,26 @@ export default function Signals() {
   const [query, setQuery] = useState("")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [apiSignals, setApiSignals] = useState<Signal[]>([])
-  const [apiTotal, setApiTotal] = useState(0)
-  const [apiLoading, setApiLoading] = useState(true)
-  const [apiError, setApiError] = useState<string | null>(null)
 
-  const loadSignals = useCallback(async () => {
-    if (USE_MOCKS) {
-      setApiSignals(MOCK_SIGNALS)
-      setApiTotal(MOCK_SIGNALS.length)
-      setApiLoading(false)
-      setApiError(null)
-      return
-    }
-    setApiLoading(true)
-    setApiError(null)
-    try {
-      // Backend accepts "YES"/"NO" natively (it normalises legacy BUY_* too).
-      const dirParam = direction === "all" ? undefined : direction
-      const { signals, total } = await fetchSignalsFromApi({
-        limit: 100,
-        min_score: minScore > 0 ? minScore : undefined,
-        direction: dirParam,
-      })
-      setApiSignals(signals)
-      setApiTotal(total)
-    } catch (e) {
-      setApiSignals([])
-      setApiTotal(0)
-      setApiError(e instanceof Error ? e.message : "Impossible de charger les signaux")
-    } finally {
-      setApiLoading(false)
-    }
-  }, [minScore, direction])
-
-  useEffect(() => {
-    void loadSignals()
-  }, [loadSignals])
+  // TanStack Query — replaces the previous useState/useEffect/useCallback
+  // dance. The hook handles the cache, dedup, and (eventually) refetch
+  // policy via the global QueryClient defaults configured in main.tsx.
+  // `staleTime: 60s` means navigating away and back doesn't refetch
+  // unless 60s have elapsed; rapid filter toggles within that window
+  // are instant.
+  const dirFilter: "YES" | "NO" | undefined =
+    direction === "all" ? undefined : direction
+  const {
+    signals: apiSignals,
+    total: apiTotal,
+    loading: apiLoading,
+    error: apiError,
+    refresh: refreshSignals,
+  } = useSignalsList({
+    direction: dirFilter,
+    minScore,
+    limit: 100,
+  })
 
   // Close mobile filters drawer on Escape.
   useEffect(() => {
@@ -308,7 +291,9 @@ export default function Signals() {
 
   const handleRefresh = () => {
     setRefreshing(true)
-    void loadSignals().finally(() => {
+    void refreshSignals().finally(() => {
+      // Brief min-spin so the user perceives the action even when
+      // TanStack returns instantly from cache.
       setTimeout(() => setRefreshing(false), 300)
     })
   }
