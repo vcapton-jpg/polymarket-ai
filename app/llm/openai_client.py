@@ -232,8 +232,3 @@ def get_openai_client() -> OpenAIClient:
     if _openai_client is None:
         _openai_client = OpenAIClient()
     return _openai_client
-
-
-def create_openai_client() -> OpenAIClient:
-    """Alias for backward compat."""
-    return get_openai_client()

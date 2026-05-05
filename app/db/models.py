@@ -748,30 +748,12 @@ Index("ix_signals_score", Signal.signal_score.desc())
 
 
 # ---------------------------------------------------------------------------
-# gdelt_events_raw  (GDELT 2.0 DOC API staging)
-# ---------------------------------------------------------------------------
-class GdeltEventRaw(Base):
-    __tablename__ = "gdelt_events_raw"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    gdelt_event_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    published_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    actor1: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    actor2: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    event_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    tone: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    ingested_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-
-# ---------------------------------------------------------------------------
 # signals_pending_reasoning  (LLM 429 circuit-breaker staging)
 # ---------------------------------------------------------------------------
+# Note: `GdeltEventRaw` was defined here historically (migration 017) as
+# a staging table for raw GDELT 2.0 records, but `tasks_ingestion.fetch_gdelt`
+# always inserted directly into `news` instead — the staging design was
+# never wired. Migration 030 dropped the table and removed the model.
 class SignalPendingReasoning(Base):
     __tablename__ = "signals_pending_reasoning"
 
@@ -784,9 +766,6 @@ class SignalPendingReasoning(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
-
-
-Index("ix_gdelt_events_raw_published_at", GdeltEventRaw.published_at.desc())
 
 
 # ---------------------------------------------------------------------------
