@@ -21,6 +21,109 @@ def _signal_dedupe_key(market_id: str, event_title: str, bucket: str | None) -> 
     return hashlib.sha256(norm.encode()).hexdigest()[:48]
 
 
+async def _check_signal_duplicate(
+    session,
+    *,
+    market,
+    event_title: str,
+    bucket: str | None,
+    direction: str,
+    settings,
+) -> str | None:
+    """Return a reason string if the candidate signal duplicates a recent one.
+
+    Two layers, each cheap:
+
+      1. **Exact dedupe** — `dedupe_key` matches a signal emitted within
+         `signal_dedupe_window_hours`. Catches re-runs of the same scoring
+         pipeline on the same `(market_id, event_title, bucket)` triple.
+         Indexed via `ix_signals_dedupe_key_created` so the lookup is a
+         BTree probe.
+
+      2. **Thematic dedupe** — same `direction`, market with vector-cosine
+         similarity ≥ `thematic_dedup_cosine_threshold` to the candidate's
+         market embedding, within `thematic_dedup_window_hours`. Catches
+         the audit-2026-05-05 case where two distinct events
+         (event_id 6814 vs 6853) fired BUY_NO on near-twin Polymarket
+         markets ("Strait of Hormuz blockade lifted by May 31?" vs same
+         question with June 30 deadline) — both within 33 minutes,
+         exact dedupe didn't fire because event_title differed. Uses
+         the HNSW index on `markets.embedding` (PR #46) so the nearest-
+         neighbor probe is O(log n) not O(n).
+
+    Returns:
+      * `None` — no duplicate; emit the signal
+      * `"exact_duplicate"` — exact-key match found
+      * `"thematic_duplicate sim=0.93"` — cosine match above threshold
+
+    Pre-PR, neither layer existed: the `dedupe_key` field was computed
+    and stored but never queried for filtering. The thematic case had no
+    coverage at all.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.db.models import Market, Signal
+
+    now = datetime.now(timezone.utc)
+
+    # Layer 1: exact dedupe.
+    exact_cutoff = now - timedelta(hours=settings.signal_dedupe_window_hours)
+    candidate_key = _signal_dedupe_key(market.market_id, event_title, bucket)
+    exact_hit = (
+        await session.execute(
+            select(Signal.id)
+            .where(
+                Signal.dedupe_key == candidate_key,
+                Signal.created_at >= exact_cutoff,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if exact_hit is not None:
+        return "exact_duplicate"
+
+    # Layer 2: thematic dedupe — only if the candidate market has an
+    # embedding to compare against. Skip silently otherwise (a market
+    # without an embedding is a backfill blind spot, not a reason to
+    # block the signal).
+    if market.embedding is None:
+        return None
+
+    thematic_cutoff = now - timedelta(hours=settings.thematic_dedup_window_hours)
+    thematic_distance_max = 1.0 - float(settings.thematic_dedup_cosine_threshold)
+    distance_expr = Market.embedding.op("<=>")(market.embedding)
+
+    nearest = (
+        await session.execute(
+            select(
+                Signal.id,
+                Market.market_id,
+                distance_expr.label("dist"),
+            )
+            .join(Market, Market.market_id == Signal.market_id)
+            .where(
+                Signal.direction == direction,
+                Signal.created_at >= thematic_cutoff,
+                # Same-market hits are layer 1's job (well, would be once
+                # event_title+bucket also match). Exclude here so we're
+                # only looking for cross-market thematic siblings.
+                Signal.market_id != market.market_id,
+                Market.embedding.is_not(None),
+            )
+            .order_by(distance_expr)
+            .limit(1)
+        )
+    ).first()
+
+    if nearest is not None and nearest.dist is not None and nearest.dist <= thematic_distance_max:
+        sim = 1.0 - float(nearest.dist)
+        return f"thematic_duplicate sim={sim:.3f} sibling_signal_id={nearest.id}"
+
+    return None
+
+
 # ── Quality filters (Filter A: market state, Filter D: catalyst sanity) ──
 #
 # These filters reject obvious garbage signals BEFORE they reach the scorer.
@@ -961,14 +1064,38 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 best_market = market
 
         if best_signal is not None:
-            await _persist_best_signal(
+            # Final dedupe check — runs AFTER scoring (so the candidate has
+            # passed every filter and would otherwise commit) and BEFORE
+            # `_persist_best_signal` writes to the DB. Two-layer: exact-key
+            # then thematic-cosine on `markets.embedding`. See the helper
+            # docstring for the audit-2026-05-05 case it closes (the
+            # Hormuz May-31 vs June-30 twin-market emission). Reuses the
+            # `settings` already bound at the top of this function.
+            dup_reason = await _check_signal_duplicate(
                 session,
-                event=event,
-                best_signal=best_signal,
-                best_signal_mid=best_signal_mid,
-                best_market=best_market,
+                market=best_market,
+                event_title=event.event_title,
+                bucket=event.bucket,
+                direction=best_signal.direction,
+                settings=settings,
             )
-            signals_created = 1
+            if dup_reason is not None:
+                logger.info(
+                    "Signal suppressed (duplicate): event=%d market=%s dir=%s reason=%s",
+                    event.id, best_signal_mid, best_signal.direction, dup_reason,
+                )
+                # Treat as "scored but not emitted" — keep
+                # `event.processing_status = scoring_done` below so we
+                # don't reprocess on the next sweep.
+            else:
+                await _persist_best_signal(
+                    session,
+                    event=event,
+                    best_signal=best_signal,
+                    best_signal_mid=best_signal_mid,
+                    best_market=best_market,
+                )
+                signals_created = 1
 
         event.processing_status = "scoring_done"
         await session.commit()
