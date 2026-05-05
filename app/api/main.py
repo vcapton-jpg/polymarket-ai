@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import get_settings
+from app.core.config import get_settings, log_active_config
 from app.db.database import engine
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,10 @@ async def lifespan(app: FastAPI):
     # in-lifespan auto-table-init raced concurrent boots and silently
     # masked drift between SQLAlchemy models and migration state.
     _assert_jwt_secret_safe_for_env()
+    # Surface every silent-effect flag at boot — see the docstring of
+    # `log_active_config` for the rationale (the 2026-05-05 OOM that
+    # `echo=settings.is_development` silently caused).
+    log_active_config(logger)
     logger.info("Foresight API started")
     yield
     await engine.dispose()

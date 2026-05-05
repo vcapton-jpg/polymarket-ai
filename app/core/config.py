@@ -333,3 +333,101 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def log_active_config(logger) -> None:
+    """Dump the runtime values of every config flag with a *silent* effect.
+
+    "Silent" = a flag whose default changes pipeline behavior in a way that
+    is not obvious from logs unless this function is called. The 2026-05-05
+    audit surfaced an OOM-class bug whose root cause was `echo=True` —
+    SQLAlchemy was echoing every INSERT (including the 30 KB embedding
+    bind parameter) twice into the log buffer, blowing through the 3 GB
+    cgroup limit in 7 minutes. The flag was tied to `is_development`,
+    which evaluated to `True` in the worker container because no
+    `ENVIRONMENT` env var was ever set there. *We had no way to see this
+    from logs* — the worker booted, ingested a few articles, and OOM'd.
+
+    Several other flags share the same risk profile:
+      * `event_llm_summarize` gates ALL event-summary LLM calls.
+      * `signal_event_max_age_hours` silently rejects events at scoring.
+      * `rss_max_article_age_hours` silently drops articles at ingestion.
+      * The *_shadow_enabled flags re-run heavy code paths without effect
+        on outcome — easy to leave enabled by accident in dev.
+      * The *_variant flags switch v1/v2 backfill behavior at runtime.
+      * `llm_cost_alert_usd` trips the LLM circuit breaker at this $/24h.
+      * `signal_score_threshold` is the gate between scored events and
+        emitted signals — quietly losing signals if mis-tuned.
+
+    Call this from FastAPI startup AND from the Celery worker boot path so
+    every long-lived process surfaces the active config to its logger
+    on boot. Pass *the caller's* logger (FastAPI vs Celery vs CLI) so the
+    output lands where an operator will actually look.
+    """
+    s = get_settings()
+    import os
+
+    db_echo = os.environ.get("DB_ECHO", "").lower() in ("1", "true", "yes")
+    worker_max_tasks = os.environ.get("CELERY_WORKER_MAX_TASKS", "100")
+    jwt_secret_state = (
+        "DEFAULT (insecure, dev only)"
+        if s.jwt_secret_key in (
+            "change-me-in-production",
+            "foresight-dev-secret-key-change-in-prod-2026",
+        )
+        else "set"
+    )
+    telegram_secret_state = "set" if s.telegram_webhook_secret else "DISABLED"
+
+    logger.info(
+        "===== Foresight active config =====\n"
+        "  env=%s  is_production=%s  is_development=%s\n"
+        "  db_echo=%s  (env DB_ECHO)\n"
+        "  worker_max_tasks_per_recycle=%s  (env CELERY_WORKER_MAX_TASKS)\n"
+        "  --- Pipeline freshness gates ---\n"
+        "  rss_max_article_age_hours=%s\n"
+        "  signal_event_max_age_hours=%s\n"
+        "  article_freshness_hours=%s\n"
+        "  --- LLM ---\n"
+        "  event_llm_summarize=%s\n"
+        "  llm_cost_alert_usd=%s\n"
+        "  openai_llm_model=%s\n"
+        "  openai_embedding_model=%s\n"
+        "  --- Scoring gates ---\n"
+        "  signal_score_threshold=%s\n"
+        "  signal_dedupe_window_hours=%s\n"
+        "  --- Shadow modes (heavy compute, no outcome effect) ---\n"
+        "  sourcing_shadow_enabled=%s\n"
+        "  ranking_shadow_enabled=%s\n"
+        "  heuristic_shadow_enabled=%s\n"
+        "  --- Embedding & ranking variant selectors ---\n"
+        "  embeddings_variant_news=%s\n"
+        "  embeddings_variant_market=%s\n"
+        "  embeddings_variant_event=%s\n"
+        "  ranking_variant_event_to_market=%s\n"
+        "  --- Auth secrets ---\n"
+        "  jwt_secret_key=%s\n"
+        "  telegram_webhook_secret=%s\n"
+        "===================================",
+        s.env, s.is_production, s.is_development,
+        db_echo,
+        worker_max_tasks,
+        s.rss_max_article_age_hours,
+        s.signal_event_max_age_hours,
+        s.article_freshness_hours,
+        s.event_llm_summarize,
+        s.llm_cost_alert_usd,
+        s.openai_llm_model,
+        s.openai_embedding_model,
+        s.signal_score_threshold,
+        s.signal_dedupe_window_hours,
+        getattr(s, "sourcing_shadow_enabled", "?"),
+        getattr(s, "ranking_shadow_enabled", "?"),
+        s.heuristic_shadow_enabled,
+        getattr(s, "embeddings_variant_news", "?"),
+        getattr(s, "embeddings_variant_market", "?"),
+        getattr(s, "embeddings_variant_event", "?"),
+        getattr(s, "ranking_variant_event_to_market", "?"),
+        jwt_secret_state,
+        telegram_secret_state,
+    )

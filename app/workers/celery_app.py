@@ -24,9 +24,9 @@ import logging
 import os
 
 from celery import Celery
-from celery.signals import task_postrun
+from celery.signals import task_postrun, worker_ready
 
-from app.core.config import get_settings
+from app.core.config import get_settings, log_active_config
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -50,6 +50,18 @@ settings = get_settings()
 # `CELERY_WORKER_MAX_TASKS` env var; set to 0 to disable.
 _TASK_COUNTER: dict[str, int] = {"completed": 0}
 _WORKER_MAX_TASKS = int(os.environ.get("CELERY_WORKER_MAX_TASKS", "100"))
+
+
+@worker_ready.connect
+def _log_active_config_on_worker_ready(sender=None, **kwargs):
+    """Dump the silent-effect config flags once the worker is up.
+
+    Mirrors what FastAPI does in `lifespan`. Each long-lived process
+    surfaces its active config to its own logger so an operator can see
+    e.g. `db_echo=True` *before* the worker starts processing tasks and
+    OOMs from log buffer pressure (the 2026-05-05 incident).
+    """
+    log_active_config(logger)
 
 
 @task_postrun.connect
