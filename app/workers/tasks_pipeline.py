@@ -93,7 +93,17 @@ async def _process_article_async(news_id: int) -> dict:
             return {"status": "rejected_duplicate", "news_id": news_id}
 
         text_for_classify = f"{raw_title} {clean_text[:500]}"
-        bucket = classifier.predict(text_for_classify)
+        # Coerce sklearn's `np.str_` output to a native Python str. asyncpg's
+        # parameter binding choked on numpy scalar types as a class of edge
+        # cases (live cutover bug 2026-05-05: `NumericValueOutOfRangeError`
+        # surfaced on every `news_clean` INSERT, blocking the whole pipeline
+        # at the first step). The classifier returns whatever sklearn's
+        # `LogisticRegression.predict()[0]` returns, which on recent
+        # numpy versions is `np.str_` — looks like str but breaks
+        # downstream wire codecs. Same pattern as the spaCy/Doc story —
+        # treat third-party "almost-native" types as a foreign language at
+        # the persistence boundary.
+        bucket = str(classifier.predict(text_for_classify))
 
         text_for_ner = f"{raw_title}. {clean_text[:2000]}"
         entities = ner.extract_entities(text_for_ner)
@@ -608,6 +618,27 @@ async def _build_events_async() -> dict:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _compute_simhash(text: str) -> int | None:
+    """Return a signed-int64 SimHash of `text`, or None for too-short input.
+
+    The `simhash` library returns an unsigned 64-bit integer value (range
+    0..2^64-1). PostgreSQL's `BIGINT` is signed (range -2^63..2^63-1), so
+    values >= 2^63 must be wrapped to their two's-complement signed
+    equivalent before the INSERT — otherwise asyncpg refuses the bind
+    with `NumericValueOutOfRangeError: integer out of range`.
+
+    The signed-conversion was already in place. Audit follow-up
+    2026-05-05 (live cutover): on the fresh prod deploy every
+    `process_article` task crashed at the `news_clean` INSERT with
+    that exact error. Eyeballing the SQL dump showed `simhash` was
+    inside int64 range, and the actual culprit was the sibling column
+    `bucket` arriving as `np.str_(...)` from sklearn, which asyncpg's
+    error path coerced into the same OutOfRange branch. The bucket fix
+    lives at the call site (force `str(...)` on the classifier output);
+    here we additionally coerce the simhash to a native Python int as
+    defense in depth — `Simhash(text).value` returns a plain int today
+    but a future upgrade of the library could return `np.uint64`, and
+    we'd be back here.
+    """
     if not text or len(text) < 20:
         return None
     try:
@@ -615,7 +646,7 @@ def _compute_simhash(text: str) -> int | None:
         val = Simhash(text).value
         if val >= (1 << 63):
             val -= (1 << 64)
-        return val
+        return int(val)
     except Exception:
         return None
 
