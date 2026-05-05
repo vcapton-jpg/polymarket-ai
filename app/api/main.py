@@ -6,8 +6,28 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import get_settings, log_active_config
-from app.db.database import engine
+# Ensure app-level INFO logs reach stdout. uvicorn's `--log-level info`
+# only configures its own loggers (`uvicorn`, `uvicorn.access`,
+# `uvicorn.error`); app loggers (`app.api.*`, `app.workers.*`, etc.)
+# inherit from root, which without `basicConfig` defaults to WARNING
+# and silently drops everything below.
+#
+# Caught when PR #47's `log_active_config(logger)` in `lifespan()`
+# failed to surface anything in the API container logs despite firing
+# correctly in the Celery workers (which configure logging themselves
+# via `--loglevel=info`). The whole point of PR #47 was making silent
+# config flags visible at boot — so this gap had to be closed.
+#
+# `basicConfig` is idempotent: if root already has a handler (e.g.
+# uvicorn injected one through a `--log-config` file in some env), it
+# returns immediately and our call is a no-op.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+)
+
+from app.core.config import get_settings, log_active_config  # noqa: E402
+from app.db.database import engine  # noqa: E402
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
