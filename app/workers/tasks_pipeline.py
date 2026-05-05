@@ -350,16 +350,17 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         # LLM summarize if enabled
         if settings.event_llm_summarize and len(cluster_ids) >= settings.min_articles_per_event:
             try:
-                from app.llm.event_summarizer import create_event_summarizer
+                from app.llm.event_summarizer import get_event_summarizer
                 cluster_data = []
                 for ca in cluster_articles:
-                    n = (await session.execute(select(News).where(News.id == ca.news_id))).scalar_one_or_none()
+                    # `ca.news` is pre-hydrated by the selectinload above (PR #50).
+                    n = ca.news
                     cluster_data.append({
                         "title": n.title if n else "",
                         "clean_text": ca.clean_text,
                         "source_name": n.source_name if n else "",
                     })
-                summarizer = create_event_summarizer()
+                summarizer = get_event_summarizer()
                 llm_result = await summarizer.summarize(cluster_data)
                 if llm_result:
                     if llm_result.get("event_title"):
@@ -558,8 +559,8 @@ async def _build_events_async() -> dict:
 
             if settings.event_llm_summarize:
                 try:
-                    from app.llm.event_summarizer import create_event_summarizer
-                    summarizer = create_event_summarizer()
+                    from app.llm.event_summarizer import get_event_summarizer
+                    summarizer = get_event_summarizer()
                     llm_result = await summarizer.summarize(cluster)
                     if llm_result:
                         if llm_result.get("event_title"):

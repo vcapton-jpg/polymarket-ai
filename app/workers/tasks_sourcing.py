@@ -11,7 +11,7 @@ from app.db.database import get_session_factory
 from app.db.models import (
     Market, Signal, SignalArticle, SignalPrediction,
 )
-from app.llm.reasoning_analyzer import create_reasoning_analyzer
+from app.llm.reasoning_analyzer import get_reasoning_analyzer
 from app.sourcing.article_ranker import ArticleRanker
 from app.sourcing.pool_builder import fetch_candidate_articles
 from app.workers._async_helpers import run_async as _run_async
@@ -113,7 +113,7 @@ async def _run_shadow(signal_id: int) -> None:
                 "clean_text": p["clean_text"],
             })
 
-        analyzer = create_reasoning_analyzer()
+        analyzer = get_reasoning_analyzer()
         # Event/market dicts the analyzer expects:
         event = {"title": "", "summary": ""}
         try:

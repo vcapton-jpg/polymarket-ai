@@ -142,4 +142,20 @@ class ReasoningAnalyzer:
 
 
 def create_reasoning_analyzer() -> ReasoningAnalyzer:
-    return ReasoningAnalyzer()
+    """Backward-compat alias. New call sites should use `get_reasoning_analyzer()`."""
+    return get_reasoning_analyzer()
+
+
+# Module-level singleton — see `app.llm.event_summarizer.get_event_summarizer`
+# for the rationale (H9 audit follow-up 2026-05-05). Same shape: wrapper
+# allocated once, prompt file read once, underlying OpenAIClient already
+# singleton.
+_reasoning_analyzer_singleton: Optional["ReasoningAnalyzer"] = None
+
+
+def get_reasoning_analyzer() -> "ReasoningAnalyzer":
+    """Return the process-wide `ReasoningAnalyzer` singleton."""
+    global _reasoning_analyzer_singleton
+    if _reasoning_analyzer_singleton is None:
+        _reasoning_analyzer_singleton = ReasoningAnalyzer()
+    return _reasoning_analyzer_singleton

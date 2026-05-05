@@ -565,7 +565,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
     # `_persist_best_signal` invokes record_baselines_for_signal below.
     import app.measurement  # noqa: F401
     from app.db.models import Event, EventMarketAnalysis, Market, Signal
-    from app.llm.impact_analyzer import create_impact_analyzer
+    from app.llm.impact_analyzer import get_impact_analyzer
     from app.processing.freshness import signal_event_still_fresh
     from app.retrieval import hybrid_search_markets  # dispatcher (v1 by default)
     from app.signal.signal_builder import create_signal_builder
@@ -664,7 +664,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
 
         if not skip_llm:
             event_full_text = f"{event.event_title}. {event.event_summary or ''}"
-            analyzer = create_impact_analyzer()
+            analyzer = get_impact_analyzer()
 
             async def _analyze_one(cand_dict: dict) -> dict | None:
                 mid = cand_dict["market_id"]
@@ -1320,10 +1320,10 @@ async def _backfill_reasoning_async(limit: int = 50, *, analyzer=None) -> int:
 
     from app.db.database import get_session_factory
     from app.db.models import SignalPendingReasoning
-    from app.llm.reasoning_analyzer import create_reasoning_analyzer
+    from app.llm.reasoning_analyzer import get_reasoning_analyzer
     from app.signal.signal_builder import build_signal
 
-    analyzer = analyzer or create_reasoning_analyzer()
+    analyzer = analyzer or get_reasoning_analyzer()
 
     session_factory = get_session_factory()
     done = 0
