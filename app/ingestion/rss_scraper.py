@@ -72,57 +72,111 @@ async def fetch_feed(
     return articles
 
 
+# Cap on the number of in-flight RSS fetches per task. 50 sources at
+# once is fine on a fat broadband link; below that the bottleneck stops
+# being TCP and starts being the upstream feeds. Tune via
+# `RSS_FETCH_CONCURRENCY` env var if needed (e.g. on a constrained VPS).
+import os
+
+_FETCH_CONCURRENCY = int(os.environ.get("RSS_FETCH_CONCURRENCY", "20"))
+
+
+async def _fetch_one_source(
+    src: dict,
+    *,
+    client: httpx.AsyncClient,
+    now: datetime,
+    semaphore: "asyncio.Semaphore",
+) -> list[dict]:
+    """Fetch + enrich one source. Acquires the shared semaphore so the
+    total in-flight count stays bounded even when the source list is
+    large. Errors are logged and swallowed — one bad feed must not abort
+    the batch."""
+    async with semaphore:
+        try:
+            raw = await fetch_feed(src["url"], client=client)
+        except Exception as e:
+            logger.error("Error fetching %s: %s", src["source_name"], e)
+            return []
+
+    enriched: list[dict] = []
+    for article in raw:
+        lag = None
+        if article["publish_date"]:
+            lag = int((now - article["publish_date"]).total_seconds())
+            if lag < 0:
+                lag = 0
+        enriched.append({
+            "url": article["url"],
+            "title": article["title"],
+            "text": article["text"],
+            "source_name": src["source_name"],
+            "source_id": src.get("id"),
+            "source_tier": src["tier"],
+            "source_weight": src["weight"],
+            "publish_date": article["publish_date"],
+            "ingestion_lag_seconds": lag,
+        })
+
+    logger.info(
+        "Fetched %d articles from %s (%s)",
+        len(raw), src["source_name"], src["source_type"],
+    )
+    return enriched
+
+
 async def fetch_sources(sources: list[dict]) -> list[dict]:
     """Fetch articles from multiple source dicts (from sources_registry).
 
     Each source dict has: source_name, source_type, url, tier, weight.
     Returns enriched article dicts ready for DB insertion.
 
-    Performance contract — single shared `httpx.AsyncClient` across the
-    whole batch (audit M10, 2026-05-05). Pre-PR, every `fetch_feed`
-    call opened its own client; with `fetch_rss_tier1` running every
-    15 s over ~50 feeds that meant ~50 TLS handshakes per task. The
-    shared client keeps connection pooling across same-host fetches
-    (RSSHub serves Twitter mirrors from one origin) and amortises the
-    handshake. On distinct origins the cost is identical to before, so
-    there is no regression.
+    Performance contract — concurrent fetches via `asyncio.gather` with
+    a bounded semaphore (`RSS_FETCH_CONCURRENCY`, default 20). Audit
+    follow-up 2026-05-05:
+
+      Pre-PR the loop was sequential (`for src in sources: await
+      fetch_feed(...)`) which meant ~64 s per `fetch_rss_tier1` task on
+      50 sources at ~1.3 s each. Beat enqueues `fetch_rss_tier1` every
+      15 s, so even with 4 replicas the queue grew without bound
+      (observed: 2025 → 2964 → 2966 → 2971 in 90 s).
+
+      With concurrency 20, the same 50-source batch finishes in
+      ~ceil(50 / 20) × p95_per_fetch ≈ 6-8 s. That's an 8-10× speedup
+      on the wall clock for one task — combined with the 4 replicas,
+      the throughput ceiling jumps from ~1 to ~30+ tasks/min, well
+      above beat's enqueue rate.
+
+      Errors stay isolated: each source is fetched in its own coroutine
+      with its own try/except, so one bad RSS feed timing out does not
+      block the other 49.
+
+      Connection pooling preserved — the shared `httpx.AsyncClient` is
+      handed to every coroutine, and httpx's internal connection pool
+      keeps keep-alive across same-host fetches (most RSSHub mirrors
+      hit the same origin).
     """
+    import asyncio
+
     now = datetime.now(timezone.utc)
-    all_articles: list[dict] = []
+    semaphore = asyncio.Semaphore(_FETCH_CONCURRENCY)
 
     async with httpx.AsyncClient(
         timeout=FETCH_TIMEOUT, follow_redirects=True,
     ) as client:
-        for src in sources:
-            try:
-                raw = await fetch_feed(src["url"], client=client)
-                for article in raw:
-                    lag = None
-                    if article["publish_date"]:
-                        lag = int((now - article["publish_date"]).total_seconds())
-                        if lag < 0:
-                            lag = 0
+        results = await asyncio.gather(
+            *(
+                _fetch_one_source(src, client=client, now=now, semaphore=semaphore)
+                for src in sources
+            ),
+            return_exceptions=False,  # _fetch_one_source already swallows
+        )
 
-                    all_articles.append({
-                        "url": article["url"],
-                        "title": article["title"],
-                        "text": article["text"],
-                        "source_name": src["source_name"],
-                        "source_id": src.get("id"),
-                        "source_tier": src["tier"],
-                        "source_weight": src["weight"],
-                        "publish_date": article["publish_date"],
-                        "ingestion_lag_seconds": lag,
-                    })
-
-                logger.info(
-                    "Fetched %d articles from %s (%s)",
-                    len(raw), src["source_name"], src["source_type"],
-                )
-            except Exception as e:
-                logger.error("Error fetching %s: %s", src["source_name"], e)
-
-    logger.info("Total articles fetched from %d sources: %d", len(sources), len(all_articles))
+    all_articles: list[dict] = [a for batch in results for a in batch]
+    logger.info(
+        "Total articles fetched from %d sources: %d (concurrency=%d)",
+        len(sources), len(all_articles), _FETCH_CONCURRENCY,
+    )
     return all_articles
 
 
