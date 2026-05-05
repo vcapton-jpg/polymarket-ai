@@ -63,7 +63,7 @@ def compose_news_v2(title: str, clean_text: str) -> ComposedText:
 
 def compose_market_v1(mkt: dict) -> ComposedText:
     """Bit-exact re-implementation of tasks_ingestion._build_retrieval_text."""
-    from app.workers.tasks_ingestion import _BOILERPLATE_RE
+    from app.processing.market_text_normalize import BOILERPLATE_RE as _BOILERPLATE_RE
 
     question = mkt.get("question") or ""
     desc_raw = mkt.get("description") or ""
@@ -81,7 +81,7 @@ def compose_market_v1(mkt: dict) -> ComposedText:
 
 def compose_market_v2(mkt: dict) -> ComposedText:
     """A3 — v1 plus an explicit [category: X] marker between description and tags."""
-    from app.workers.tasks_ingestion import _BOILERPLATE_RE
+    from app.processing.market_text_normalize import BOILERPLATE_RE as _BOILERPLATE_RE
 
     question = (mkt.get("question") or "").strip()
     desc_raw = mkt.get("description") or ""
