@@ -1,8 +1,17 @@
-# Environment
+# Environment — never commit any .env variant or backup
 .env
 .env.local
 .env.production
 .env.*.local
+.env.backup*
+.env.bak*
+.env.*.backup
+
+# Generic dated/local backup files — past leaks were dated copies of
+# .env / docker-compose.yml left in repo root. Block by pattern.
+*.backup-*
+*.bak
+*.bak.*
 
 # Python
 __pycache__/
