@@ -217,7 +217,21 @@ class Settings(BaseSettings):
     # LLM call. Caveat for the retry/backfill paths: stuck events older
     # than 2h are now considered abandoned, not retried.
     signal_event_max_age_hours: float = Field(default=2.0)
+    # Window for the EXACT-key dedupe (same `bucket | market_id | event_title`
+    # hash within N hours). Pre-2026-05-05, the `dedupe_key` field was
+    # computed and stored but never queried — the field was a placebo. PR
+    # adding the actual reject path uses this window.
     signal_dedupe_window_hours: float = Field(default=72.0)
+    # Window + cosine threshold for the THEMATIC dedupe (same direction on
+    # a market with vector-cosine similarity ≥ threshold to a recently-
+    # signaled market). Catches the "May 31 vs June 30 twin-market" class
+    # of duplicate where two distinct events fire on near-identical market
+    # questions and exact-key dedupe doesn't trigger because event_title
+    # differs. 0.85 is conservative — measured empirically on the Hormuz
+    # blockade case (sim ≈ 0.93). Tune down if too aggressive, but not
+    # below ~0.75 (false positives across loosely-related markets).
+    thematic_dedup_window_hours: float = Field(default=12.0)
+    thematic_dedup_cosine_threshold: float = Field(default=0.85)
 
     # ── Event LLM (cluster ≥ min_articles) ───────────────────────────────
     event_llm_summarize: bool = Field(default=True)
@@ -396,6 +410,7 @@ def log_active_config(logger) -> None:
         "  --- Scoring gates ---\n"
         "  signal_score_threshold=%s\n"
         "  signal_dedupe_window_hours=%s\n"
+        "  thematic_dedup_window_hours=%s  cosine_threshold=%s\n"
         "  --- Shadow modes (heavy compute, no outcome effect) ---\n"
         "  sourcing_shadow_enabled=%s\n"
         "  ranking_shadow_enabled=%s\n"
@@ -421,6 +436,8 @@ def log_active_config(logger) -> None:
         s.openai_embedding_model,
         s.signal_score_threshold,
         s.signal_dedupe_window_hours,
+        s.thematic_dedup_window_hours,
+        s.thematic_dedup_cosine_threshold,
         getattr(s, "sourcing_shadow_enabled", "?"),
         getattr(s, "ranking_shadow_enabled", "?"),
         s.heuristic_shadow_enabled,
