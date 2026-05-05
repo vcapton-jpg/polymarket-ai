@@ -121,8 +121,25 @@ say "Rendering /etc/caddy/Caddyfile for domain '$DOMAIN'…"
 sed "s/foresight\.example\.com/$DOMAIN/g" \
     "$INSTALL_DIR/scripts/deploy/Caddyfile.template" \
     > /etc/caddy/Caddyfile
+
+# Prepare the access-log directory. The Caddyfile points its access
+# log at /var/log/caddy/foresight.log; if the `caddy` system user
+# can't write there, `systemctl start caddy` exits 1 with
+# "permission denied" before any TLS / cert dance even runs.
+# Live cutover bug 2026-05-05: the pre-fix version ran
+# `chown ... 2>/dev/null || true` which silenced the failure. The
+# `getent passwd caddy` guard checks the user actually exists (apt's
+# caddy package creates it, but a future package layout shift would
+# fail loud here instead of shipping a broken bootstrap).
 mkdir -p /var/log/caddy
-chown -R caddy:caddy /var/log/caddy 2>/dev/null || true
+chmod 755 /var/log/caddy
+if getent passwd caddy >/dev/null; then
+    chown -R caddy:caddy /var/log/caddy
+    ok "Caddy log dir owned by caddy:caddy"
+else
+    die "Expected 'caddy' system user is missing — apt may have installed Caddy in a non-standard layout. Aborting."
+fi
+
 caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 \
     || die "Generated Caddyfile is invalid — check $INSTALL_DIR/scripts/deploy/Caddyfile.template"
 ok "Caddyfile written + validated"
