@@ -15,14 +15,32 @@ Why both:
     stays bound to the very first loop a worker ever saw, and any
     subsequent task hits a
         `RuntimeError: got Future <Future …> attached to a different loop`
-    on its first DB call. Diagnosed 2026-05-04 after a 6-day outage where
-    worker-pipeline crashed silently every ~5 min via `task_time_limit`.
+    on its first DB call. Diagnosed 2026-05-04 after a 6-day outage.
 
-Pre-2026-05-04 the check was PID-only, which masked the problem until
-Celery fired enough tasks per worker boot for cross-loop reuse to
-surface. The combination of the bigger backlog post-Filter-A change and
-the gpt-4o → gpt-4o-mini deploy increased task throughput per boot,
-which exposed the bug constantly instead of intermittently.
+Why NullPool everywhere:
+  Celery `--pool=solo` runs each task in its own `asyncio.run(...)`,
+  which closes the loop on exit. The asyncpg connections held by the
+  previous engine cannot be closed cleanly afterwards (their `await
+  conn.close()` would re-enter the dead loop and raise). So every loop
+  switch leaks the entire pool — 10 base + 20 overflow = 30 zombie
+  connections × ~30 KB each = ~1 MB per task. After 1500 tasks the
+  worker reaches the 1.5 GB Docker memory limit and the kernel SIGKILLs
+  it (exit 137). That's the OOM crash loop diagnosed 2026-05-05 — Docker
+  events report `oom` even though `docker inspect` says `OOMKilled:false`
+  (a known Docker-Desktop-on-macOS attribution bug).
+
+  NullPool eliminates pooling entirely: each session opens its own
+  asyncpg connection and closes it on `__aexit__`. Trade-off:
+    + No persistent state across loops → no leak, no OOM
+    + Simple, no special cleanup logic
+    - +2-3 ms per session for the TCP handshake (negligible at our
+      throughput; pipeline tasks dominate at >100 ms each)
+
+  For uvicorn + FastAPI the trade-off is identical because we run a
+  single uvicorn worker per app container and FastAPI requests are
+  short-lived. If we ever scale to many concurrent uvicorn workers we
+  can switch FastAPI back to a pooled engine; Celery will keep
+  NullPool.
 """
 
 import asyncio
@@ -31,6 +49,7 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -60,17 +79,15 @@ def _get_engine() -> AsyncEngine:
         or _owner_pid != pid
         or (loop_id is not None and _owner_loop_id != loop_id)
     ):
-        # We do NOT call `_engine.dispose()` on the stale engine: the
-        # asyncpg connections it owns are bound to a loop that's already
-        # closed, so the dispose call would itself raise the cross-loop
-        # error. We let the GC reclaim it; SQLAlchemy + asyncpg handle
-        # zombie pools without leaking sockets in our footprint.
+        # NullPool: open + close a fresh asyncpg connection per session.
+        # See module docstring for the OOM-cause analysis. We still
+        # leak the previous `_engine` Python object on a loop switch,
+        # but that's just SQLAlchemy bookkeeping (~30 KB) — no native
+        # sockets attached to it because NullPool never opened any.
         _engine = create_async_engine(
             settings.database_url,
             echo=settings.is_development,
-            pool_size=10,
-            max_overflow=20,
-            pool_pre_ping=True,
+            poolclass=NullPool,
         )
         _owner_pid = pid
         _owner_loop_id = loop_id

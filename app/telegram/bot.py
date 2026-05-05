@@ -17,12 +17,18 @@ API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}" if BOT_TOKEN else None
 async def send_message(chat_id: str, text: str, parse_mode: str = "Markdown") -> bool:
     if not API_URL:
         return False
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(f"{API_URL}/sendMessage", json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": parse_mode,
-        })
+    # 10 s timeout — Telegram is normally fast (<500 ms) but a hung
+    # request is the worst-case path because it sits on a Celery worker
+    # thread blocking the next signal broadcast. Bounded explicitly.
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.post(f"{API_URL}/sendMessage", json={
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": parse_mode,
+            })
+        except httpx.TimeoutException:
+            return False
         return resp.status_code == 200
 
 
