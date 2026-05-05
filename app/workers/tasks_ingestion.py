@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 import re
 
-_BOILERPLATE_RE = re.compile(
-    r"(?i)("
-    r"this market will resolve\b.*?(?:\.\s*|\n|$)"
-    r"|if the results? (?:is|are) not known\b.*?(?:\.\s*|\n|$)"
-    r"|if there is ambiguity\b.*?(?:\.\s*|\n|$)"
-    r"|this market (?:pertains to|includes|covers)\b.*?(?:\.\s*|\n|$)"
-    r")"
-)
+# Backward-compat alias for any external script that imported the
+# private symbol. Canonical home is `app.processing.market_text_normalize`.
+# Audit follow-up 2026-05-05 (M1) — the regex used to be defined here even
+# though only `app.processing.text_composers` consumed it; that forced
+# the `processing` layer to import upward into `workers`, an inverted
+# dependency. Move the constant to the lower layer; keep the alias so a
+# rename on either side is a no-op.
+from app.processing.market_text_normalize import BOILERPLATE_RE as _BOILERPLATE_RE  # noqa: F401
 
 
 def _build_retrieval_text(mkt: dict) -> str:
