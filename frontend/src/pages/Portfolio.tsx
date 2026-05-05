@@ -55,24 +55,8 @@ const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "1"
 import { downloadPositionsCSV } from "@/lib/positionsExport"
 import { cn } from "@/lib/utils"
 import type { Position, UserProfile } from "@/types/signal"
-import { POSITIONS_CHANGED_EVENT, STORAGE_KEYS } from "@/lib/storageKeys"
-
-/**
- * Narrow shape guard for persisted positions. The localStorage payload
- * can drift (legacy builds, manual tampering) so reject anything that
- * doesn't look like a Position rather than blow up the page with
- * downstream TypeErrors.
- */
-function isPositionLike(x: unknown): x is Position {
-  if (!x || typeof x !== "object") return false
-  const o = x as Record<string, unknown>
-  return (
-    typeof o.id === "string" &&
-    typeof o.signalId === "string" &&
-    typeof o.stake === "number" &&
-    typeof o.entryPrice === "number"
-  )
-}
+import { STORAGE_KEYS } from "@/lib/storageKeys"
+import { useNativePositions } from "@/hooks/useNativePositions"
 
 type HistoryFilter = "all" | "correct" | "incorrect" | "pending"
 
@@ -88,7 +72,9 @@ export default function Portfolio() {
   const [filter, setFilter] = useState<HistoryFilter>("all")
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [hideStake, setHideStake] = useState(false)
-  const [nativePositions, setNativePositions] = useState<Position[]>([])
+  // Native (localStorage-backed) positions — consolidated from the
+  // 28-line inline subscription that used to live here (audit M8).
+  const nativePositions = useNativePositions()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const { data: remote, loading } = useRemotePositions()
   // Performance KPIs in this page (winRate, signalsFollowed, correct)
@@ -133,36 +119,6 @@ export default function Portfolio() {
       if (raw) setProfile(JSON.parse(raw))
     } catch {
       // ignore
-    }
-  }, [])
-
-  // Subscribe to the `foresight.positions` store written by OrderForm.
-  useEffect(() => {
-    const read = () => {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEYS.positions)
-        if (!raw) {
-          setNativePositions([])
-          return
-        }
-        const parsed = JSON.parse(raw)
-        // Shape-guard each entry: legacy/corrupted payloads are dropped
-        // silently rather than propagating `undefined.stake` crashes into
-        // the KPI reducers below.
-        setNativePositions(Array.isArray(parsed) ? parsed.filter(isPositionLike) : [])
-      } catch {
-        setNativePositions([])
-      }
-    }
-    read()
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.positions) read()
-    }
-    window.addEventListener("storage", onStorage)
-    window.addEventListener(POSITIONS_CHANGED_EVENT, read)
-    return () => {
-      window.removeEventListener("storage", onStorage)
-      window.removeEventListener(POSITIONS_CHANGED_EVENT, read)
     }
   }, [])
 
