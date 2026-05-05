@@ -55,6 +55,32 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
+# Echo opt-in via env var, default OFF — never tied to `is_development`.
+#
+# Why: `echo=True` makes SQLAlchemy log every statement *and its bind
+# parameters*. For our `news_clean` INSERT that includes the 1536-dim
+# embedding rendered as a JSON string, the bound row is ~30 KB *per
+# article* and the log line is emitted twice (the engine logger plus
+# Celery's MainProcess re-emit). At our ingestion rate (~50 articles
+# per pipeline-task burst) that's ~3 MB of log buffer churn per task.
+# Python's logging handlers + asyncio's task bookkeeping buffer those
+# strings before they hit the docker JSON-file driver, the GC can't
+# free them fast enough, and the worker's RSS climbs from 100 MB to
+# 2.7 GB in ~7 minutes — straight into the 3 GB ceiling and OOM-kill.
+#
+# Diagnosed 2026-05-05 from worker-pipeline-2 logs: a single
+# `process_article` task printed an INSERT statement whose `$7` bind
+# parameter was a vector(1536) text rendering of 29,088 chars, twice.
+# `VmPeak` had hit 3.92 GB on a 3 GB-limited container — definitive
+# OOM-kill, not Docker-Desktop attribution noise.
+#
+# Disabling echo by default kills that buffer pressure outright. The
+# `DB_ECHO=1` env var is the dev-time escape hatch when someone really
+# does want SQL trace; nobody should be running it on a worker in
+# steady state.
+_DB_ECHO = os.environ.get("DB_ECHO", "").lower() in ("1", "true", "yes")
+
 _engine: AsyncEngine | None = None
 _session_factory = None
 _owner_pid: int | None = None
@@ -86,7 +112,7 @@ def _get_engine() -> AsyncEngine:
         # sockets attached to it because NullPool never opened any.
         _engine = create_async_engine(
             settings.database_url,
-            echo=settings.is_development,
+            echo=_DB_ECHO,
             poolclass=NullPool,
         )
         _owner_pid = pid
