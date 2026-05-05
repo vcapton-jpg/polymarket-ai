@@ -106,10 +106,15 @@ services:
     build: .
     container_name: foresight-worker-ingestion
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q ingestion -n ingestion@%h
+    # Memory: 3 GB (was 1.5 GB). Live RSS at 99.6 % of the previous
+    # 1.5 GB ceiling triggered intermittent OOM-SIGKILLs on Docker
+    # Desktop macOS even with NullPool. The Python+spaCy en_core_web_lg
+    # baseline alone is ~1.3 GB RSS at boot; 1.5 GB left no headroom
+    # for normal task allocations. 3 GB gives a 1.7 GB working margin.
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 3G
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
@@ -132,11 +137,17 @@ services:
   worker-pipeline:
     build: .
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q pipeline -n pipeline@%h
+    # Memory: 3 GB (was 1.5 GB). Same rationale as worker-ingestion —
+    # spaCy en_core_web_lg + SQLAlchemy + asyncpg + Python embedded
+    # baseline at ~1.3-1.4 GB RSS at boot. The previous 1.5 GB ceiling
+    # left ~100 MB headroom; any per-task allocation pushed it over and
+    # the host kernel SIGKILLed the container (exit 137). Diagnosed
+    # 2026-05-05 from `docker events` showing `oom`.
     deploy:
       replicas: 2
       resources:
         limits:
-          memory: 1536M
+          memory: 3G
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
