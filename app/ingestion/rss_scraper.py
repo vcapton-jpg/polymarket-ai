@@ -16,17 +16,34 @@ from dateutil import parser as date_parser
 logger = logging.getLogger(__name__)
 
 FETCH_TIMEOUT = 20.0
+_USER_AGENT = "PolymarketSignalBot/1.0"
 
 
-async def fetch_feed(url: str) -> list[dict]:
+async def fetch_feed(
+    url: str,
+    *,
+    client: Optional[httpx.AsyncClient] = None,
+) -> list[dict]:
     """Fetch and parse a single RSS feed URL.
+
+    `client` is optional — if provided, the caller owns its lifecycle
+    (use this when fetching many feeds in a row to avoid re-doing TLS
+    handshake on every URL). When `None` we open a one-shot client for
+    backward compat with single-call sites.
 
     Returns a list of raw article dicts with keys:
         url, title, text, publish_date
     """
     try:
-        async with httpx.AsyncClient(timeout=FETCH_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(url, headers={"User-Agent": "PolymarketSignalBot/1.0"})
+        if client is None:
+            async with httpx.AsyncClient(
+                timeout=FETCH_TIMEOUT, follow_redirects=True,
+            ) as own_client:
+                resp = await own_client.get(url, headers={"User-Agent": _USER_AGENT})
+                resp.raise_for_status()
+                raw_xml = resp.text
+        else:
+            resp = await client.get(url, headers={"User-Agent": _USER_AGENT})
             resp.raise_for_status()
             raw_xml = resp.text
     except Exception as e:
@@ -60,38 +77,50 @@ async def fetch_sources(sources: list[dict]) -> list[dict]:
 
     Each source dict has: source_name, source_type, url, tier, weight.
     Returns enriched article dicts ready for DB insertion.
+
+    Performance contract — single shared `httpx.AsyncClient` across the
+    whole batch (audit M10, 2026-05-05). Pre-PR, every `fetch_feed`
+    call opened its own client; with `fetch_rss_tier1` running every
+    15 s over ~50 feeds that meant ~50 TLS handshakes per task. The
+    shared client keeps connection pooling across same-host fetches
+    (RSSHub serves Twitter mirrors from one origin) and amortises the
+    handshake. On distinct origins the cost is identical to before, so
+    there is no regression.
     """
     now = datetime.now(timezone.utc)
     all_articles: list[dict] = []
 
-    for src in sources:
-        try:
-            raw = await fetch_feed(src["url"])
-            for article in raw:
-                lag = None
-                if article["publish_date"]:
-                    lag = int((now - article["publish_date"]).total_seconds())
-                    if lag < 0:
-                        lag = 0
+    async with httpx.AsyncClient(
+        timeout=FETCH_TIMEOUT, follow_redirects=True,
+    ) as client:
+        for src in sources:
+            try:
+                raw = await fetch_feed(src["url"], client=client)
+                for article in raw:
+                    lag = None
+                    if article["publish_date"]:
+                        lag = int((now - article["publish_date"]).total_seconds())
+                        if lag < 0:
+                            lag = 0
 
-                all_articles.append({
-                    "url": article["url"],
-                    "title": article["title"],
-                    "text": article["text"],
-                    "source_name": src["source_name"],
-                    "source_id": src.get("id"),
-                    "source_tier": src["tier"],
-                    "source_weight": src["weight"],
-                    "publish_date": article["publish_date"],
-                    "ingestion_lag_seconds": lag,
-                })
+                    all_articles.append({
+                        "url": article["url"],
+                        "title": article["title"],
+                        "text": article["text"],
+                        "source_name": src["source_name"],
+                        "source_id": src.get("id"),
+                        "source_tier": src["tier"],
+                        "source_weight": src["weight"],
+                        "publish_date": article["publish_date"],
+                        "ingestion_lag_seconds": lag,
+                    })
 
-            logger.info(
-                "Fetched %d articles from %s (%s)",
-                len(raw), src["source_name"], src["source_type"],
-            )
-        except Exception as e:
-            logger.error("Error fetching %s: %s", src["source_name"], e)
+                logger.info(
+                    "Fetched %d articles from %s (%s)",
+                    len(raw), src["source_name"], src["source_type"],
+                )
+            except Exception as e:
+                logger.error("Error fetching %s: %s", src["source_name"], e)
 
     logger.info("Total articles fetched from %d sources: %d", len(sources), len(all_articles))
     return all_articles
