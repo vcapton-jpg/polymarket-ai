@@ -20,11 +20,57 @@ consumes `scoring` — see docker-compose.yml `worker-scoring-batch` for
 the dedicated worker that drains the four batch queues.
 """
 
+import logging
+import os
+
 from celery import Celery
+from celery.signals import task_postrun
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+# ── Worker recycling (memory leak mitigation) ──────────────────────────
+# Celery `--pool=solo` does not support `worker_max_tasks_per_child`
+# (that flag is prefork-only). We get the same effect by hand: count
+# completed tasks per worker and `os._exit(0)` when the threshold is
+# reached. Docker `restart: unless-stopped` brings the worker back in
+# ~5 s, and the new process starts with a clean RSS.
+#
+# Why this is needed even with NullPool (PR #40) + 3 GB ceiling (PR #41):
+# Python+spaCy+SQLAlchemy in a long-running asyncio process slowly
+# accumulates objects (Doc cache, ORM identity map, asyncio task
+# bookkeeping). NullPool stopped the asyncpg leak; the residual creep
+# was measured at ~+60 MB / 10 min on worker-pipeline-1, which is fine
+# at 3 GB ceiling for ~5 hours but not "indefinitely fine". 100 tasks
+# = ~30-50 min between recycles in our throughput band, comfortably
+# below where the residual growth becomes a problem. Configurable via
+# `CELERY_WORKER_MAX_TASKS` env var; set to 0 to disable.
+_TASK_COUNTER: dict[str, int] = {"completed": 0}
+_WORKER_MAX_TASKS = int(os.environ.get("CELERY_WORKER_MAX_TASKS", "100"))
+
+
+@task_postrun.connect
+def _recycle_worker_after_n_tasks(sender=None, task_id=None, **kwargs):
+    """Exit cleanly after N tasks so Docker can revive a fresh worker.
+
+    Fires after the task's result is acked to Celery, so we never
+    interrupt mid-task. `os._exit(0)` is intentional: a graceful Celery
+    shutdown via `sys.exit` would stall waiting for in-flight workers
+    that don't exist (we're solo) and add latency. Hard exit + Docker
+    restart is the most direct path back to a clean RSS.
+    """
+    if _WORKER_MAX_TASKS <= 0:
+        return  # disabled
+    _TASK_COUNTER["completed"] += 1
+    if _TASK_COUNTER["completed"] >= _WORKER_MAX_TASKS:
+        logger.info(
+            "Worker recycle threshold reached (%d tasks). Exiting for fresh restart.",
+            _WORKER_MAX_TASKS,
+        )
+        os._exit(0)
 
 celery_app = Celery(
     "signal",
