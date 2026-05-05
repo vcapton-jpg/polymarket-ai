@@ -39,23 +39,45 @@ _INSECURE_JWT_SECRET_DEFAULTS = {
     "",
 }
 
+# Envs where a known-default JWT secret is tolerated. Anything NOT in
+# this set must override `JWT_SECRET_KEY` — even staging / preview /
+# qa, because any of those can end up reachable from the public
+# internet (Vercel preview URLs, ngrok tunnels, dev VPNs that aren't
+# locked down). Audit follow-up 2026-05-05 (M5) — pre-PR, the gate
+# only fired on `env=production`, so a `staging` instance with the
+# default secret was a forge-able JWT factory for `sub: 1`.
+_JWT_DEV_SAFE_ENVS = {"development", "dev", "test", "testing", "local", ""}
+
 
 def _assert_jwt_secret_safe_for_env() -> None:
-    """Refuse to boot in production when JWT_SECRET_KEY is a known
-    default. Pre-fix (P0-4 audit, 2026-04-27), the source-code default
+    """Refuse to boot anywhere except known-local envs when the
+    JWT_SECRET_KEY is a public default.
+
+    Pre-fix (P0-4 audit, 2026-04-27), the source-code default
     `change-me-in-production` was silently used if the env var was
     absent — meaning any token signed with that public string was
-    valid against any deployment that forgot to override it.
-    Dev/test envs continue to allow defaults so local stacks boot
-    without ceremony.
+    valid against any deployment that forgot to override it. The fix
+    blocked production boots only.
+
+    Audit M5 (2026-05-05) widened the gate: every env that isn't
+    explicitly local/test must override the secret. The risk for
+    staging / preview / qa is identical to production once the URL
+    is reachable — and they often are (Vercel preview, ngrok, dev
+    VPN). Dev / test loops boot without ceremony as before.
+
+    The error message points at the runbook: `openssl rand -hex 32`
+    is a one-liner, no excuse for a default.
     """
-    if settings.env != "production":
+    env = settings.env.lower()
+    if env in _JWT_DEV_SAFE_ENVS:
         return
     if settings.jwt_secret_key in _INSECURE_JWT_SECRET_DEFAULTS:
         raise RuntimeError(
-            "JWT_SECRET_KEY is set to a known default in production. "
-            "Set a strong, unique value via the JWT_SECRET_KEY env var "
-            "before booting (e.g. `openssl rand -hex 32`)."
+            f"JWT_SECRET_KEY is set to a known default in env={env!r}. "
+            f"Only {sorted(_JWT_DEV_SAFE_ENVS)} are allowed to use the "
+            "default; every other env must set a strong, unique value "
+            "via the JWT_SECRET_KEY env var before booting "
+            "(e.g. `openssl rand -hex 32`)."
         )
 
 
