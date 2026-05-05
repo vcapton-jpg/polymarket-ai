@@ -173,14 +173,25 @@ async def record_baselines_for_signal(
 def schedule_shadow_variants(signal_id: int) -> None:
     """Fire-and-forget shadow variant dispatch.
 
-    Chantier #2: enqueues `sourcing_shadow_rerun` on the 'scoring' queue. The
-    import is local so module load doesn't pull in Celery at API startup, and
-    wrapped in a try/except so a broken broker never prevents a signal from
-    committing.
+    Chantier #2: enqueues `sourcing_shadow_rerun` on its dedicated queue.
+    Wrapped in try/except so a broken broker never prevents a signal
+    from committing.
+
+    Audit follow-up 2026-05-05 (M2). Pre-PR this function imported the
+    Celery task object directly (`from app.workers.tasks_sourcing import
+    sourcing_shadow_rerun`) — a layer-inverted dependency
+    (`measurement → workers`). Now we use Celery's `send_task` by string
+    name, which only requires the `Celery` app instance and not the
+    task module. Measurement no longer depends on `app.workers.*` at
+    all; the dispatch is a stable string contract.
     """
     try:
-        from app.workers.tasks_sourcing import sourcing_shadow_rerun
-        sourcing_shadow_rerun.delay(signal_id)
+        from app.workers.celery_app import celery_app
+
+        celery_app.send_task(
+            "app.workers.tasks_sourcing.sourcing_shadow_rerun",
+            args=[signal_id],
+        )
     except Exception:
         logger.exception(
             "schedule_shadow_variants: failed to enqueue signal_id=%s — continuing",
