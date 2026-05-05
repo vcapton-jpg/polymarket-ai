@@ -6,8 +6,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: signal
+    # Bound to 127.0.0.1 only — accessible from this host (psql / TablePlus
+    # debug) but never from the network. Postgres uses a default password
+    # in this stack, exposing 0.0.0.0:5435 was a wide-open relay.
     ports:
-      - "5435:5432"
+      - "127.0.0.1:5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     command: ["postgres", "-c", "max_connections=200"]
@@ -20,8 +23,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: foresight-redis
+    # Bound to 127.0.0.1 only — accessible from this host (redis-cli debug)
+    # but not from the network. Redis here runs without auth; exposing
+    # 0.0.0.0:6379 to the world was a textbook RCE/data-exfil vector.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -52,8 +58,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    ports:
-      - "1200:1200"
+    # No host port mapping — RSSHub is consumed only by `worker-ingestion`
+    # over the Docker bridge network at `http://rsshub:1200`. Exposing it
+    # to the host serves no use case and gives a free OSINT scraping
+    # service to anyone on the LAN.
 
   app:
     build: .
