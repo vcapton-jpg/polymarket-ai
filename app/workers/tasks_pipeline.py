@@ -179,20 +179,40 @@ def try_instant_event(self, clean_id: int):
 
 
 async def _try_instant_event_async(clean_id: int) -> dict:
+    """Find similar recent articles and consolidate them into one Event.
+
+    Performance contract — three N+1 query storms eliminated 2026-05-05:
+      Pre-fix the function fired up to ~600 round-trips per article
+      processed (200 candidate-freshness lookups + 50 cluster-news lookups
+      + 50 cluster-entity lookups). At ~50 articles/min through the
+      fast-path that meant ~30k DB round-trips per minute spent purely on
+      hydration.
+      Now a single `selectinload(NewsClean.news, NewsClean.entities)` on
+      the candidate query batch-loads everything in 3 statements total
+      (the candidates, their `News` rows, their `ArticleEntity` rows).
+      The cluster-construction loop and the entity-collection loop both
+      access the pre-hydrated relationship attributes — zero extra
+      round-trips.
+    """
     import numpy as np
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
 
     from app.core.config import get_settings
     from app.db.database import get_session_factory
     async_session_factory = get_session_factory()
-    from app.db.models import Event, EventNewsLink, News, NewsClean
+    from app.db.models import ArticleEntity, Event, EventNewsLink, News, NewsClean
     from app.processing.freshness import is_fresh_enough
 
     settings = get_settings()
 
     async with async_session_factory() as session:
         anchor = (
-            await session.execute(select(NewsClean).where(NewsClean.id == clean_id))
+            await session.execute(
+                select(NewsClean)
+                .options(selectinload(NewsClean.news), selectinload(NewsClean.entities))
+                .where(NewsClean.id == clean_id)
+            )
         ).scalar_one_or_none()
         if not anchor or anchor.embedding is None:
             return {"status": "no_anchor", "clean_id": clean_id}
@@ -211,8 +231,13 @@ async def _try_instant_event_async(clean_id: int) -> dict:
             minutes=settings.clustering_time_window_minutes
         )
 
+        # Eager-load `news` and `entities` on every candidate up front.
+        # `selectinload` issues one extra query per relationship after
+        # the main result is materialized — bounded total of 3 round-trips
+        # regardless of how many candidates come back.
         q = (
             select(NewsClean)
+            .options(selectinload(NewsClean.news), selectinload(NewsClean.entities))
             .outerjoin(EventNewsLink)
             .where(
                 EventNewsLink.id.is_(None),
@@ -233,9 +258,8 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         cluster_articles = [anchor]
 
         for cand in candidates:
-            cand_news = (
-                await session.execute(select(News).where(News.id == cand.news_id))
-            ).scalar_one_or_none()
+            # `cand.news` is pre-hydrated by selectinload — no DB roundtrip.
+            cand_news = cand.news
             if cand_news and not is_fresh_enough(
                 cand_news.publish_date, cand_news.ingestion_date,
                 max_age_hours=float(settings.article_freshness_hours),
@@ -259,16 +283,15 @@ async def _try_instant_event_async(clean_id: int) -> dict:
                 "needed": settings.min_articles_per_event,
             }
 
-        # Build consolidated event
-        anchor_news = (
-            await session.execute(select(News).where(News.id == anchor.news_id))
-        ).scalar_one_or_none()
+        # Build consolidated event — `anchor.news` and every
+        # `cluster_articles[i].news` are already loaded.
+        anchor_news = anchor.news
 
         sources = set()
         titles = []
         cluster_article_dates: list[tuple] = []
         for ca in cluster_articles:
-            n = (await session.execute(select(News).where(News.id == ca.news_id))).scalar_one_or_none()
+            n = ca.news  # pre-hydrated
             if n:
                 sources.add(n.source_name)
                 titles.append(n.title)
@@ -276,13 +299,11 @@ async def _try_instant_event_async(clean_id: int) -> dict:
 
         event_title = titles[0] if titles else "Untitled event"
         event_summary = " | ".join(t[:200] for t in titles[:5])
-        key_ents = []
-        from app.db.models import ArticleEntity
-        for cid in cluster_ids:
-            ents = (await session.execute(
-                select(ArticleEntity).where(ArticleEntity.clean_id == cid)
-            )).scalars().all()
-            for e in ents:
+        # Entities also pre-hydrated via selectinload — flat-map across the
+        # cluster, keep insertion-order uniqueness, cap at 20.
+        key_ents: list[str] = []
+        for ca in cluster_articles:
+            for e in ca.entities:
                 key_ents.append(e.entity_value)
         key_ents = list(dict.fromkeys(key_ents))[:20]
 
