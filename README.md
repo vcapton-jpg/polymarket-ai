@@ -102,11 +102,38 @@ make seed              # populate sources table
 npm run dev            # vite dev server (port 5173)
 npm run build          # production build
 npm run lint           # eslint + tsc --noEmit
+npm run gen:api        # regenerate src/types/api.generated.ts from /openapi.json
 npx vitest             # tests (no `npm test` script defined yet)
 
 # Cleanup
 make clean             # docker compose down -v + clear __pycache__
 ```
+
+## Production deploy
+
+Full runbook in [`scripts/deploy/README.md`](scripts/deploy/README.md): VPS
+provisioning (Hetzner CPX31 ~€14/mo), Caddy reverse proxy + automatic
+Let's Encrypt TLS, daily Postgres backups, systemd auto-start, and a
+pre-flight check that refuses to boot with default secrets.
+
+```bash
+# Before pointing a domain at the VPS — validate the .env
+bash scripts/deploy/preflight-check.sh
+```
+
+The pre-flight catches the failure modes the audit cycle closed (default
+JWT secret, weak DB password, empty Telegram webhook secret,
+`DB_ECHO=true`, wildcard CORS in production, leaked OpenAI key, stale
+`.env.backup*` files in repo root). Output is safe to share — no secret
+values are printed.
+
+## Database migrations
+
+Schema is owned by Alembic; `alembic upgrade head` runs in the API
+container's entrypoint before uvicorn boots. New migration writers
+should follow [`alembic/MIGRATION_SAFETY.md`](alembic/MIGRATION_SAFETY.md)
+(copy-paste templates for index/NOT-NULL/FK/drop, the
+`CHECK NOT VALID + VALIDATE` pattern, and the past patterns to avoid).
 
 ## Team
 
@@ -115,14 +142,17 @@ make clean             # docker compose down -v + clear __pycache__
 
 ## Branch & release strategy
 
-- `main` — production. Always deployable.
-- `pivot/learn-and-trade` — current working branch (kept in sync with main during the V3 cleanup).
-- `archive/*` — frozen branches preserved as tags. Recover with `git checkout archive/<name>-2026-04-25`.
+- `main` — production. Always deployable. All PRs are squash-merged so
+  the history stays linear; feature branches are deleted from the remote
+  after merge.
+- `archive/*` — frozen branches preserved as recoverable points. Recover
+  with `git checkout archive/<name>-YYYY-MM-DD`.
 
-Branches retired in the 2026-04-25 V3 cleanup (recoverable from tags `archive/dev-2026-04-25`, `archive/feat-v2-frontend-2026-04-25`, `archive/main-pre-v3-2026-04-25`):
-- `dev` (12 commits, all in main)
-- `feat/v2-frontend` (73 commits, all in main)
-- `a`, `claude/jovial-benz-dc3565` (no unique work)
+Workflow:
+1. Branch off `origin/main` (`git checkout -b feat/<short-name> origin/main`)
+2. Open a PR; squash-merge into `main`
+3. Local + remote feature branches are pruned afterward — `git fetch
+   --prune origin` keeps the local view tidy.
 
 ## License
 
