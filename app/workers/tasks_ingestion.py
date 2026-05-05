@@ -699,30 +699,56 @@ async def _resolve_or_create_source(
     tier: int = 3,
     weight: float = 0.4,
 ) -> int:
-    from sqlalchemy import select
+    """Return the SourceRegistry.id for `source_name`, creating it if absent.
+
+    Race-safe via Postgres UPSERT (`INSERT … ON CONFLICT … DO UPDATE …
+    RETURNING`). The previous SELECT-then-INSERT had a real race window:
+    `fetch_rss_tier1` (every 15 s) and `fetch_gdelt` (every 300 s) can
+    both hit a brand-new source in overlapping tasks. Both saw "no row"
+    and both INSERT'd, causing a `UniqueViolation` on
+    `source_name`'s unique constraint — the second task would crash and
+    enter the Celery retry loop, with the article it was processing
+    silently dropped.
+
+    `ON CONFLICT (source_name) DO UPDATE SET source_name = EXCLUDED.source_name`
+    is the canonical idiom for "UPSERT and always return the id." The
+    SET is a no-op (writes the same value back) but it's required —
+    `DO NOTHING` does not return the existing row, only the new one,
+    so on conflict you'd get an empty result set. Fast-path inserts and
+    losing-race resolutions both come out the same way: the id of the
+    one row that actually exists in the table.
+    """
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     from app.db.models import SourceRegistry
 
-    row = (await session.execute(
-        select(SourceRegistry).where(SourceRegistry.source_name == source_name)
-    )).scalar_one_or_none()
-    if row:
-        return row.id
-    row = SourceRegistry(
-        source_name=source_name,
-        tier=tier,
-        weight=weight,
-        active=True,
-        source_type=source_type,
-        url=f"https://{source_name}",
+    stmt = (
+        pg_insert(SourceRegistry)
+        .values(
+            source_name=source_name,
+            tier=tier,
+            weight=weight,
+            active=True,
+            source_type=source_type,
+            url=f"https://{source_name}",
+        )
+        .on_conflict_do_update(
+            index_elements=["source_name"],
+            set_={"source_name": SourceRegistry.source_name},
+        )
+        .returning(SourceRegistry.id)
     )
-    session.add(row)
-    await session.flush()
-    logger.info(
-        "sources_registry: auto-created source '%s' (type=%s)",
-        source_name, source_type,
+    result = await session.execute(stmt)
+    source_id = result.scalar_one()
+    # We don't know from the RETURNING clause whether this was an insert
+    # or a no-op upsert, so the "auto-created" log line is now a debug
+    # hint — over-logging benign upserts on every concurrent fetch would
+    # be noisy. Keep it visible in dev/troubleshoot mode.
+    logger.debug(
+        "sources_registry: resolved source '%s' (type=%s) id=%d",
+        source_name, source_type, source_id,
     )
-    return row.id
+    return source_id
 
 
 async def _fetch_gdelt_async(queries: list[str] | None = None) -> int:
