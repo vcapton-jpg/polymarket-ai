@@ -39,7 +39,20 @@ class SignalConnectionManager:
                 self.connections.remove(ws)
 
     async def _redis_listener(self):
-        """Subscribe to Redis channel and broadcast new signals to all WS clients."""
+        """Subscribe to Redis channel and broadcast new signals to all WS clients.
+
+        Cleanup contract: every code path that opens a Redis connection
+        unsubscribes and closes it. Audit follow-up 2026-05-05 — the
+        previous version had no `finally` block, so any exception out of
+        `pubsub.listen()` (Redis hiccup, asyncio CancelledError on app
+        reload, malformed message that escaped the inner try) abandoned
+        the connection. Since `connect()` re-spawns the listener on the
+        next WS handshake when `_listener_task.done()` is True, every
+        outage of the listener leaked one Redis connection until the
+        process exhausted the connection limit or was restarted.
+        """
+        r = None
+        pubsub = None
         try:
             import redis.asyncio as aioredis
             from app.core.config import get_settings
@@ -61,6 +74,26 @@ class SignalConnectionManager:
                     logger.warning("Failed to parse/broadcast Redis message", exc_info=True)
         except Exception:
             logger.warning("Redis pub/sub listener failed — WS will fall back to polling", exc_info=True)
+        finally:
+            # Best-effort close — both `pubsub.aclose()` and `r.aclose()`
+            # can themselves raise if the underlying socket is already
+            # half-closed (Redis went away, container restart, …). Swallow
+            # those because the goal is "release the FD," and we already
+            # know we're tearing down on an error path.
+            if pubsub is not None:
+                try:
+                    await pubsub.unsubscribe()
+                except Exception:
+                    pass
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    pass
+            if r is not None:
+                try:
+                    await r.aclose()
+                except Exception:
+                    pass
 
 
 manager = SignalConnectionManager()

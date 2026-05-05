@@ -87,6 +87,28 @@ def capture_price(self, signal_id: int, market_id: str, field: str):
 
 
 async def _capture_price_async(signal_id: int, market_id: str, field: str) -> dict:
+    """Capture the YES price for `signal_id` at the offset described by `field`.
+
+    Idempotency contract — first write wins.
+      A retry of `capture_price` (Celery `max_retries=3`) MUST NOT
+      overwrite a price that was already captured on a previous run.
+      Pre-fix, a flaky DB write that succeeded on a transient client-side
+      error would be re-run by Celery; the second run would query the
+      CLOB at T+5min+retry_delay and overwrite the (correct) earlier
+      price with this later one. The derived `move_tXmin_pct` was then
+      computed against the wrong baseline. That corrupts the measurement
+      layer on every retry — a silent bug that only shows up as
+      mysterious post-hoc P&L drift.
+
+      The check is a SELECT-then-skip BEFORE the CLOB call so a no-op
+      retry costs zero: no network round-trip, no log, just an early
+      `status: already_captured`.
+
+      `catchup_outcomes` already gates dispatch on `outcome.field is None`,
+      but that check happens at the *enqueue* point. By the time the
+      task actually runs, another worker may have filled the field in.
+      Defending at the task layer too is cheap and closes the window.
+    """
     from sqlalchemy import select
 
     from app.db.database import get_session_factory
@@ -97,6 +119,24 @@ async def _capture_price_async(signal_id: int, market_id: str, field: str) -> di
     valid_fields = {"price_t5min", "price_t15min", "price_t1h", "price_t24h"}
     if field not in valid_fields:
         return {"status": "invalid_field", "field": field}
+
+    # Idempotency check — bail out before any CLOB call if the price is
+    # already in the DB.
+    async with async_session_factory() as session:
+        existing = (
+            await session.execute(
+                select(getattr(SignalOutcome, field)).where(
+                    SignalOutcome.signal_id == signal_id
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return {
+                "status": "already_captured",
+                "signal_id": signal_id,
+                "field": field,
+                "price": float(existing),
+            }
 
     clob = ClobClient()
     try:
@@ -120,6 +160,18 @@ async def _capture_price_async(signal_id: int, market_id: str, field: str) -> di
         if not outcome:
             outcome = SignalOutcome(signal_id=signal_id)
             session.add(outcome)
+
+        # Re-check inside the same transaction: a sibling task could have
+        # raced in between our pre-fetch SELECT and now. If so, drop our
+        # CLOB result on the floor — first write wins.
+        if getattr(outcome, field, None) is not None:
+            await session.commit()  # nothing changed but flush the SELECT
+            return {
+                "status": "already_captured_race",
+                "signal_id": signal_id,
+                "field": field,
+                "price": float(getattr(outcome, field)),
+            }
 
         setattr(outcome, field, price)
 
