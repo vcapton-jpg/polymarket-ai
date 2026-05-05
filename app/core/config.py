@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     # ── Telegram (kept for optional alerts) ───────────────────────────────
     telegram_bot_token: str | None = Field(default=None)
     telegram_chat_id: str | None = Field(default=None)
+    # Shared secret returned by Telegram in the `X-Telegram-Bot-Api-Secret-Token`
+    # header on every webhook delivery (set when calling `setWebhook`). The
+    # webhook handler refuses any request whose header does not match this
+    # value, so an attacker cannot spoof Telegram updates and trigger
+    # `send_message` toward arbitrary chat IDs (DoS the bot token, abuse of
+    # Telegram quota, leak of /signals output to third-party chats). Empty
+    # string disables the check — accept that only in dev. Audit follow-up
+    # 2026-05-05.
+    telegram_webhook_secret: str = Field(default="")
 
     # ── Auth / Security ──────────────────────────────────────────────────
     jwt_secret_key: str = Field(default="change-me-in-production")

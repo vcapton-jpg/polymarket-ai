@@ -3,7 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,12 +17,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trading", tags=["trading"])
 
 
+# Per-trade upper bound (USDC). Hard cap rather than a soft `can_trade_real`
+# check because Pydantic short-circuits before any business logic runs — any
+# `amount` outside this range never reaches `can_trade_real`, the CLOB
+# client, or a Safe transaction. Audit follow-up 2026-05-05.
+TRADE_AMOUNT_MAX_USDC = 10_000.0
+
+
 class TradeRequest(BaseModel):
-    market_id: str
-    direction: str  # BUY_YES or BUY_NO
-    amount: float
-    price: float | None = None  # None = market order
-    signal_id: int | None = None
+    market_id: str = Field(min_length=1, max_length=128)
+    direction: str  # BUY_YES or BUY_NO — validated in handler
+    # Strict bounds: zero/negative blocked at the schema layer before the
+    # handler runs. The previous `amount: float` accepted anything Python
+    # could parse — including `-100`, `0`, `1e9`, NaN — and depended on
+    # downstream code (`can_trade_real`, the CLOB client) to bounce it.
+    # That defense-in-depth layer is real but should never be the first
+    # validator a hostile request meets.
+    amount: float = Field(gt=0, le=TRADE_AMOUNT_MAX_USDC)
+    # Polymarket prices are probabilities ∈ (0, 1); accept the inclusive
+    # 1-cent margin Polymarket itself enforces. None still means "market
+    # order" downstream.
+    price: float | None = Field(default=None, ge=0.01, le=0.99)
+    signal_id: int | None = Field(default=None, ge=1)
 
 
 class TradeResponse(BaseModel):
