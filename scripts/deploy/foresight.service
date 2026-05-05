@@ -1,0 +1,57 @@
+; Systemd unit — auto-starts the Foresight docker-compose stack at boot.
+;
+; Install:
+;   $ cp scripts/deploy/foresight.service /etc/systemd/system/foresight.service
+;   $ systemctl daemon-reload
+;   $ systemctl enable foresight   # tells systemd to start it at boot
+;   $ systemctl start foresight    # if you want to start it now via systemd
+;                                  ; (no-op if `docker compose up -d` already
+;                                  ;  brought it up; safe to run regardless)
+;
+; Why a systemd unit when `docker compose` containers have
+; `restart: unless-stopped`? Two reasons:
+;   1. After a host reboot, Docker daemon comes up but doesn't
+;      automatically run `docker compose` from /opt/foresight. Without
+;      this unit, the host comes back online and the stack stays down
+;      until someone SSHes in.
+;   2. `unless-stopped` only resurrects containers that were running.
+;      If the stack was cleanly stopped before reboot, it stays
+;      stopped. This unit forces an `up` at boot regardless.
+
+[Unit]
+Description=Foresight — prediction market intelligence stack (docker compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/foresight
+
+; --remove-orphans cleans up containers from removed services in the
+; compose file. -d detaches so systemd doesn't sit on the foreground.
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+
+; On stop, bring the stack down cleanly. No --volumes so the Postgres
+; data volume survives a `systemctl stop foresight` (you want it to —
+; otherwise restarting the unit drops the DB).
+ExecStop=/usr/bin/docker compose down
+
+; Reload = restart all services with the latest images. Useful after
+; `git pull && docker compose build`. systemctl reload foresight.
+ExecReload=/usr/bin/docker compose up -d --build
+
+; Generous timeouts — the stack has 10 services and image pulls/builds
+; can take a few minutes on the first boot.
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+; Don't restart the unit on failure (the individual containers handle
+; their own restart via `restart: unless-stopped` in compose; if
+; `docker compose up -d` itself fails it's a config error and we want
+; the operator to see it).
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
