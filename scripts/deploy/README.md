@@ -71,7 +71,10 @@ What this does NOT do (operator must, after):
 1. Fill `/opt/foresight/.env` with rotated secrets — `nano /opt/foresight/.env`
 2. Run `bash /opt/foresight/scripts/deploy/preflight-check.sh` — must pass green
 3. `cd /opt/foresight && docker compose up -d`
-4. `systemctl restart caddy` once the stack is up
+4. **Seed the sources_registry**: `docker exec foresight-app python -m app.scripts.seed_sources`
+   (one-shot, fresh-DB only — without this, beat enqueues fetch_rss_tier1
+   forever but every task returns "Loaded 0 active sources")
+5. `systemctl restart caddy` once the stack is up
 
 ### Slow path — manual (if the script fails or you want to read each step)
 
@@ -153,6 +156,24 @@ docker compose logs -f --tail 50 app worker-pipeline-1 worker-scoring
 Look for the `===== Foresight active config =====` block in each
 container's logs (PR #47). Confirm `db_echo=False`, `env=production`,
 `jwt_secret_key=set`, `telegram_webhook_secret=set`.
+
+### 4.bis — Seed the sources_registry (fresh-DB only)
+
+```bash
+docker exec foresight-app python -m app.scripts.seed_sources
+# Expected output: "Seeded N sources into sources_registry"
+```
+
+The Alembic migrations create the `sources_registry` table but leave
+it empty. Without this step, every `fetch_rss_tier1` task logs
+`Loaded 0 active sources`, returns `status: no_sources`, and zero
+articles ever land in `news`. Caught on the live cutover 2026-05-05
+when the smoke-test queue stayed at 0 messages while DB was idle.
+
+The seed script is idempotent (UPSERT on `source_name`), so re-running
+on an already-populated DB is safe — it just no-ops. You can also
+skip this step if you're restoring from a backup that already has
+the `sources_registry` rows.
 
 ---
 

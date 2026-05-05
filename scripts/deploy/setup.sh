@@ -208,7 +208,18 @@ NEXT STEPS — do these in order:
 
        cd $INSTALL_DIR && docker compose up -d
 
-  ${BLUE}4.${NC} Restart Caddy (now that the upstream containers are reachable):
+  ${BLUE}4.${NC} Seed the sources_registry (RSS / X / news feeds):
+
+       docker exec foresight-app python -m app.scripts.seed_sources
+
+     ONE-SHOT — only needed on a fresh DB. Without this step, beat
+     enqueues fetch_rss_tier1 every 15 s but every task returns
+     ${YELLOW}"Loaded 0 active sources"${NC} and the pipeline ingests nothing.
+     Live cutover bug 2026-05-05 — caught by smoke test, fixed by
+     running the seed here. Idempotent: safe to re-run on an existing
+     DB (it's an UPSERT under the hood).
+
+  ${BLUE}5.${NC} Restart Caddy (now that the upstream containers are reachable):
 
        systemctl restart caddy
        systemctl status caddy --no-pager | head
@@ -217,7 +228,7 @@ NEXT STEPS — do these in order:
      first HTTPS request. DNS for $DOMAIN must already point to this
      server (A record).
 
-  ${BLUE}5.${NC} Smoke test from your laptop:
+  ${BLUE}6.${NC} Smoke test from your laptop:
 
        curl https://$DOMAIN/api/health
        open https://$DOMAIN
