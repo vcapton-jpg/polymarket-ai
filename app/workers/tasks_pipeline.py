@@ -36,12 +36,16 @@ async def _process_article_async(news_id: int) -> dict:
     from app.processing.bucket_classifier import get_bucket_classifier
     from app.processing.embedding_service import get_embedding
     from app.processing.freshness import is_fresh_enough
-    from app.processing.ner_extractor import NERExtractor
+    from app.processing.ner_extractor import get_ner_extractor
     from app.processing.news_cleaner import NewsCleaner
 
     settings = get_settings()
     cleaner = NewsCleaner()
-    ner = NERExtractor()
+    # Singleton — instantiating NERExtractor() per task allocated a
+    # fresh `en_core_web_lg` model (~750 MB resident) without
+    # deterministically freeing the previous one. See the module
+    # docstring on `app.processing.ner_extractor.get_ner_extractor`.
+    ner = get_ner_extractor()
     classifier = get_bucket_classifier()
 
     async with async_session_factory() as session:

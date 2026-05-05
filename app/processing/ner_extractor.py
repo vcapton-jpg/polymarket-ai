@@ -140,3 +140,43 @@ def create_ner_extractor() -> NERExtractor:
         Configured NERExtractor.
     """
     return NERExtractor()
+
+
+# Module-level singleton — see `get_ner_extractor()` for the rationale.
+_ner_singleton: Optional["NERExtractor"] = None
+
+
+def get_ner_extractor() -> "NERExtractor":
+    """Return the process-wide `NERExtractor` singleton.
+
+    Why a singleton (and why this matters for memory):
+
+    `en_core_web_lg` is ~750 MB resident once spaCy materializes the
+    word vectors and pipeline components. Instantiating a fresh
+    `NERExtractor` per `process_article` task — which the previous
+    code did — meant every task allocated a brand-new
+    `spacy.language.Language` object on first use. Python's GC does
+    not deterministically reclaim the previous one (asyncpg
+    connections, the SQLAlchemy identity map, and the spaCy `Vocab`
+    string store all hold references that survive the local
+    `ner = NERExtractor()` going out of scope), so the resident model
+    accumulated across tasks until the worker hit the 3 GB cgroup
+    limit and the kernel SIGKILLed it.
+
+    Diagnosed 2026-05-05 — the worker-pipeline-1/2 crash loop kept
+    firing OOMs at ~7-13 min uptime even after PRs #37/#40/#41/#42/#43
+    closed every other suspected leak. The pattern was a fresh worker
+    starting at ~94 MB RSS and climbing to 2.7 GB+ in a handful of
+    `process_article` calls — exactly what "load 750 MB per task and
+    fail to free it" looks like.
+
+    A single shared `NERExtractor` lazy-loads the model once and reuses
+    it for every subsequent task. The recycle from PR #42 still kicks
+    in after 100 finished tasks, which gives spaCy's `Vocab.strings`
+    cache (the residual creep) a clean restart roughly every 30-50 min
+    in our throughput band.
+    """
+    global _ner_singleton
+    if _ner_singleton is None:
+        _ner_singleton = NERExtractor()
+    return _ner_singleton
