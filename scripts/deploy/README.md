@@ -53,25 +53,35 @@ ssh root@<vps-ip>
 # Replace `root` with `ubuntu` if your provider's image uses it.
 ```
 
-Once in:
+### Fast path — `setup.sh` one-liner
+
+The bootstrap (system update, UFW, Docker, Caddy install, repo clone,
+Caddyfile rendered with your domain, systemd unit, backup cron, `.env`
+stub) is automated. From inside the VPS:
 
 ```bash
-# Bring the system up to date
+# Default domain is yourforesight.com — override with DOMAIN= if different
+curl -fsSL https://raw.githubusercontent.com/vcapton-jpg/polymarket-ai/main/scripts/deploy/setup.sh | bash
+
+# Or with a custom domain:
+DOMAIN=foresight.example.com curl -fsSL ... | DOMAIN=foresight.example.com bash
+```
+
+What this does NOT do (operator must, after):
+1. Fill `/opt/foresight/.env` with rotated secrets — `nano /opt/foresight/.env`
+2. Run `bash /opt/foresight/scripts/deploy/preflight-check.sh` — must pass green
+3. `cd /opt/foresight && docker compose up -d`
+4. `systemctl restart caddy` once the stack is up
+
+### Slow path — manual (if the script fails or you want to read each step)
+
+```bash
 apt-get update && apt-get upgrade -y
-
-# Firewall: lock everything except SSH + HTTP/HTTPS
 apt-get install -y ufw
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
 ufw --force enable
-
-# Install Docker (one-liner from the official script)
 curl -fsSL https://get.docker.com | sh
-
-# Verify
-docker --version
-docker compose version
+docker --version && docker compose version
 ```
 
 ---
