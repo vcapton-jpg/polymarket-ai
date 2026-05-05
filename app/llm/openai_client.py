@@ -141,9 +141,21 @@ def _reset_cost_state_for_tests() -> None:
     _COST_STATE["fetched_at_monotonic"] = 0.0
 
 
+CHAT_COMPLETION_TIMEOUT_SECONDS = 45.0
+
+
 class OpenAIClient:
     def __init__(self, api_key: Optional[str] = None):
-        self._client = AsyncOpenAI(api_key=api_key or settings.openai_api_key)
+        # 45 s timeout on chat completions. The SDK default is 600 s,
+        # which combined with `task_time_limit=600 s` and tenacity's
+        # 3-attempt retry creates a 30-min worst-case hang. 45 s × 3
+        # retries = 135 s worst case, comfortably under the worker
+        # time limit. Diagnosed 2026-05-04 — see EmbeddingService for
+        # the full incident write-up.
+        self._client = AsyncOpenAI(
+            api_key=api_key or settings.openai_api_key,
+            timeout=CHAT_COMPLETION_TIMEOUT_SECONDS,
+        )
 
     @retry(
         stop=stop_after_attempt(3),

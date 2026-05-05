@@ -13,9 +13,21 @@ settings = get_settings()
 DIMENSIONS = 1536
 
 
+OPENAI_TIMEOUT_SECONDS = 30.0
+
+
 class EmbeddingService:
     def __init__(self):
-        self._client = AsyncOpenAI(api_key=settings.openai_api_key)
+        # Explicit 30 s timeout on OpenAI calls. The SDK default is 600 s;
+        # without a ceiling, a hung TCP socket sits on a Celery worker
+        # thread for 10 minutes, blows past `task_time_limit=600 s`, and
+        # forces a worker SIGKILL. That's the silent crash loop diagnosed
+        # 2026-05-04. Embedding p50 ~80 ms, p99 ~3 s — 30 s covers the
+        # network tail comfortably while bounding the worst case.
+        self._client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            timeout=OPENAI_TIMEOUT_SECONDS,
+        )
         self._model = settings.openai_embedding_model
 
     async def compute_single(self, text: str) -> Optional[list[float]]:
