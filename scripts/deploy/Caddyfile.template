@@ -10,27 +10,38 @@
 
 foresight.example.com {
 
-    # Frontend (Vite-built static bundle served by nginx in the
-    # `frontend` container, which docker-compose maps to host port
-    # 3000 — but here we connect over the docker bridge by container
-    # name, which is more robust to host port renumbering).
+    # Caddy runs on the HOST (systemd unit), not inside the docker
+    # network. So we cannot resolve `foresight-app` / `foresight-frontend`
+    # by container name — Caddy gets `no such host` and bounces every
+    # request with a 502. Audit follow-up live cutover 2026-05-05:
+    # initial template used container hostnames and Cloudflare flagged
+    # the origin as down before the operator caught it. Fix: point at
+    # the host ports the docker-compose `ports:` block exposes:
+    #
+    #   app       → "8001:8000"  → reverse_proxy localhost:8001
+    #   frontend  → "3000:80"    → reverse_proxy localhost:3000
+    #
+    # If you ever rerun the stack with different host ports, edit
+    # docker-compose.yml AND the four reverse_proxy lines below
+    # together. Keeping them in sync is the trade-off we accept for
+    # not running Caddy as a docker service.
     handle /api/* {
-        reverse_proxy foresight-app:8000
+        reverse_proxy localhost:8001
     }
 
     # WebSocket signal stream (PR #49 hardened the listener)
     handle /ws/* {
-        reverse_proxy foresight-app:8000
+        reverse_proxy localhost:8001
     }
 
     # Healthcheck — exposed for UptimeRobot
     handle /api/health {
-        reverse_proxy foresight-app:8000
+        reverse_proxy localhost:8001
     }
 
     # Everything else → frontend SPA (handles its own routing).
     handle {
-        reverse_proxy foresight-frontend:80
+        reverse_proxy localhost:3000
     }
 
     # Security headers. HSTS only after you're sure TLS is stable —
