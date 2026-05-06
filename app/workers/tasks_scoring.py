@@ -222,7 +222,7 @@ def _derive_event_source_signals(
 
 
 # Filter A thresholds — markets too thin/resolved to trade meaningfully
-MIN_VOLUME_24H_USD = 500.0       # below this, market is dead inventory
+MIN_VOLUME_24H_USD = 250.0       # below this, market is dead inventory
 MIN_LIQUIDITY_USD = 2_000.0      # below this, slippage destroys edge
 RESOLVED_PRICE_HIGH = 0.97       # market priced "almost certainly YES"
 RESOLVED_PRICE_LOW = 0.03        # market priced "almost certainly NO"
@@ -232,7 +232,7 @@ def _market_quality_reject(market) -> str | None:
     """Return rejection reason if the market is too low-quality to signal on.
 
     Five sub-filters, all on Polymarket-side state (not signal-side):
-    1) volume_24h < $500 → market is illiquid spam, no one trades it
+    1) volume_24h < $250 → market is illiquid spam, no one trades it
     2) liquidity < $2k   → spread will eat the edge before you can fill
     3) price > 0.97 or < 0.03 → market has effectively resolved, no edge left
     4) end_date already past → market is in resolution-pending state

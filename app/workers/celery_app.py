@@ -182,7 +182,7 @@ _beat_schedule = {
     "build-events": {
         "task": "app.workers.tasks_pipeline.build_events",
         "schedule": settings.build_events_interval_seconds,
-        "options": {"queue": "scoring"},
+        "options": {"queue": "pipeline"},
     },
     # ── Recovery — retry stuck events (off the realtime queue, P1-9) ──
     "retry-stuck-events": {
