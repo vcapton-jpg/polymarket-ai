@@ -74,6 +74,13 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
+    # Cap memory at 1 GB with `noeviction` — losing a celery queue key
+    # is worse than failing a write. Without a cap, an unbounded queue
+    # backlog could grow until the host OOMs (audit C.3 cliff scenario).
+    # 1 GB is ~3× peak observed (27 MB) so this is generous insurance.
+    # Persistence stays at the alpine image default (RDB, save 3600 1
+    # 300 100 60 10000) — sufficient for our queue-and-cache workload.
+    command: ["redis-server", "--maxmemory", "1gb", "--maxmemory-policy", "noeviction"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
