@@ -62,7 +62,7 @@ async def _check_signal_duplicate(
     """
     from datetime import datetime, timedelta, timezone
 
-    from sqlalchemy import select
+    from sqlalchemy import Float, cast, select
 
     from app.db.models import Market, Signal
 
@@ -93,7 +93,15 @@ async def _check_signal_duplicate(
 
     thematic_cutoff = now - timedelta(hours=settings.thematic_dedup_window_hours)
     thematic_distance_max = 1.0 - float(settings.thematic_dedup_cosine_threshold)
-    distance_expr = Market.embedding.op("<=>")(market.embedding)
+    # Cast to Float so SQLAlchemy treats the result as a scalar number
+    # rather than re-using the Vector type from the LHS column. Without
+    # the cast, pgvector's Vector.from_text gets called on the cosine
+    # distance string and raises `TypeError: 'float' object is not
+    # subscriptable`. Live diag 2026-05-06 showed 100 TypeErrors/h on
+    # worker-scoring — every above-threshold signal was crashing here
+    # before persistence, which is why prod emitted zero signals ≥65 in
+    # the first 24 h after deploy.
+    distance_expr = cast(Market.embedding.op("<=>")(market.embedding), Float)
 
     nearest = (
         await session.execute(
