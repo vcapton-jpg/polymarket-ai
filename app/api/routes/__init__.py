@@ -98,7 +98,18 @@ async def list_signals(
     bucket: Optional[str] = Query(
         None, description="Legacy bucket filter (pre-V2 clients)."
     ),
-    min_score: float = Query(0, ge=0, le=100),
+    # Default to the worker's `signal_score_threshold` so the public list
+    # mirrors what the scorer considers "above-threshold". Below-threshold
+    # signals are still persisted (signal_builder.py:206 _below_threshold
+    # path) but are filtered out of the default response — clients can
+    # opt back in by passing `?min_score=0` (debug) or `?min_score=N` for
+    # any custom cutoff. Pre-fix this defaulted to 0, which leaked all
+    # ~184 sub-threshold signals (40 % of historical) to the public UI.
+    min_score: float = Query(
+        default_factory=lambda: float(settings.signal_score_threshold),
+        ge=0,
+        le=100,
+    ),
     direction: Optional[str] = Query(
         None, description="YES, NO, or legacy BUY_YES/BUY_NO."
     ),
