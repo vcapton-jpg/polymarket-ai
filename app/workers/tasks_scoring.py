@@ -1165,7 +1165,16 @@ async def _retry_stuck_events_async() -> dict:
 
     settings = get_settings()
 
-    retryable = ["candidates_found", "new", "no_candidates", "llm_done"]
+    # `no_candidates` removed from retryable list (was a redundancy source).
+    # When hybrid_search returns 0 markets above the cosine floor, rescoring
+    # the same event 5 min later just re-runs vector search against the
+    # same `event.embedding` and gets the same empty result — until it
+    # eventually goes stale at signal_event_max_age_hours. Live observation
+    # 2026-05-06: 144 of last 2h events were `no_candidates` and were being
+    # re-dispatched 12×/h each by retry_stuck_events. The right re-trigger
+    # is `try_instant_event` when a new article links to the event, which
+    # already happens; the periodic sweep is pure waste here.
+    retryable = ["candidates_found", "new", "llm_done"]
 
     async with async_session_factory() as session:
         stuck = (
@@ -1250,7 +1259,18 @@ async def _rescore_zero_signal_events_async() -> dict:
             ):
                 skipped_stale += 1
                 continue
-            event.processing_status = "candidates_found"
+            # Do NOT reset processing_status to "candidates_found" — that
+            # creates a cycle with retry_stuck_events (which used to pick
+            # up `candidates_found` events 5 min later, redispatch, then
+            # rescore would reset the status again, ad infinitum). Live
+            # observation 2026-05-06: event 9085 was scored 9× / h.
+            # Leaving status at "scoring_done" is correct: the scorer's
+            # skip_llm gate (line 768 of this file) sees "scoring_done"
+            # and reuses the cached EventMarketAnalysis rows instead of
+            # re-paying the OpenAI bill. The downstream signal builder
+            # still re-runs and emits signals if a newly-linked market
+            # (via fetch_markets in the meantime) tips the score above
+            # threshold.
             run_hybrid_search.apply_async(args=[event.id], queue="scoring")
             dispatched += 1
 
