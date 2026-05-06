@@ -13,13 +13,22 @@ SOURCES = [
     # ══════════════════════════════════════════════════════════════════
     # Tier 1 — Agency RSS feeds (< 30 s)
     # ══════════════════════════════════════════════════════════════════
-    {"source_name": "Reuters Top News", "source_type": "rss", "url": "https://feeds.reuters.com/reuters/topNews", "tier": 1, "weight": 1.0},
-    {"source_name": "Reuters Politics", "source_type": "rss", "url": "https://feeds.reuters.com/Reuters/PoliticsNews", "tier": 1, "weight": 1.0},
-    {"source_name": "Reuters World", "source_type": "rss", "url": "https://feeds.reuters.com/Reuters/worldNews", "tier": 1, "weight": 1.0},
-    {"source_name": "AP Top News", "source_type": "rss", "url": "https://feeds.apnews.com/rss/topnews", "tier": 1, "weight": 1.0},
-    {"source_name": "AP Politics", "source_type": "rss", "url": "https://feeds.apnews.com/rss/politics", "tier": 1, "weight": 1.0},
+    # NOTE on Reuters/AP feeds: feeds.reuters.com and feeds.apnews.com were
+    # retired by the publishers (Reuters in 2020, AP shortly after) — DNS
+    # no longer resolves, so we use Google News query feeds as the primary
+    # path. Tested 2026-05-06: each returns ~100 fresh items per fetch.
+    # The X (Twitter) variants below remain as redundant secondary path
+    # for when TWITTER_AUTH_TOKEN is rotated and RSSHub Twitter is healthy.
+    {"source_name": "Reuters via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Reuters+breaking", "tier": 1, "weight": 1.0},
+    {"source_name": "Reuters World via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Reuters+world", "tier": 1, "weight": 1.0},
+    {"source_name": "AP via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Associated+Press+breaking", "tier": 1, "weight": 1.0},
+    {"source_name": "Bloomberg via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Bloomberg+breaking", "tier": 1, "weight": 1.0},
+    {"source_name": "FT via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Financial+Times+breaking", "tier": 1, "weight": 0.95},
+    {"source_name": "WSJ via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Wall+Street+Journal+breaking", "tier": 1, "weight": 0.95},
+    {"source_name": "Politico via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=Politico+breaking", "tier": 1, "weight": 0.90},
     {"source_name": "BBC World", "source_type": "rss", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "tier": 1, "weight": 1.0},
     {"source_name": "AFP via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=AFP+breaking", "tier": 1, "weight": 1.0},
+    {"source_name": "CNN Politics", "source_type": "rss", "url": "http://rss.cnn.com/rss/cnn_allpolitics.rss", "tier": 1, "weight": 0.95},
     {"source_name": "Guardian World", "source_type": "rss", "url": "https://www.theguardian.com/world/rss", "tier": 1, "weight": 0.85},
     # ══════════════════════════════════════════════════════════════════
     # Tier 1 — X/Twitter accounts via RSSHub (agencies)
@@ -50,11 +59,10 @@ SOURCES = [
     # Tier 2 — World News API (< 5 min)
     # ══════════════════════════════════════════════════════════════════
     {"source_name": "World News API", "source_type": "api", "url": "https://api.worldnewsapi.com", "tier": 2, "weight": 0.70},
-    # ══════════════════════════════════════════════════════════════════
-    # Tier 3 — Specialised (optional)
-    # ══════════════════════════════════════════════════════════════════
-    {"source_name": "Metaculus RSS", "source_type": "rss", "url": "https://www.metaculus.com/rss/", "tier": 3, "weight": 0.35},
-    {"source_name": "Polymarket Blog", "source_type": "rss", "url": "https://blog.polymarket.com/rss", "tier": 3, "weight": 0.35},
+    # Tier 3 — Specialised (optional, currently empty)
+    # NOTE: Metaculus RSS (403) and blog.polymarket.com (DNS dead) were
+    # removed 2026-05-06 — both URLs no longer serve content. Kept the
+    # category for future re-population.
 ]
 
 
