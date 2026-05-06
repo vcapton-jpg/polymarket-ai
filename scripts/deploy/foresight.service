@@ -47,11 +47,17 @@ ExecReload=/usr/bin/docker compose up -d --build
 TimeoutStartSec=300
 TimeoutStopSec=120
 
-; Don't restart the unit on failure (the individual containers handle
-; their own restart via `restart: unless-stopped` in compose; if
-; `docker compose up -d` itself fails it's a config error and we want
-; the operator to see it).
-Restart=no
+; Restart on transient failures (network blip during image pull, docker
+; daemon momentarily unreachable during boot, etc.) but cap the burst so
+; a real config error doesn't loop silently forever — after 3 attempts
+; in 5 minutes systemd gives up and leaves the unit `failed` for the
+; operator to investigate. The individual containers handle their own
+; in-stack failures via `restart: unless-stopped` in compose; this is
+; only about the bootstrap `docker compose up -d` succeeding.
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=300
+StartLimitBurst=3
 
 [Install]
 WantedBy=multi-user.target
