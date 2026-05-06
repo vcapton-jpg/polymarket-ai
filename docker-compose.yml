@@ -182,11 +182,20 @@ services:
   # ── Worker: scoring (fast-path events + hybrid search + LLM + signals) ──
   # Realtime hot path only — see worker-scoring-batch for the heavy/batch
   # twin that drains the four subordinate queues (P1-9 split).
+  #
+  # Scaled to 3 replicas (was 1) on 2026-05-06 after diag showed worker
+  # idling at ~0% CPU but signal output stuck at 0/h — the bottleneck was
+  # not capacity but parallelism: each event takes 4-7s of LLM I/O,
+  # solo-pool serialises them, so a single worker caps out around 12
+  # events/min wall-clock even when DB/network can deliver more. Three
+  # replicas triple LLM-call concurrency; OpenAI rate limits (30k rpm
+  # gpt-4o-mini for paid tier) leave ~150x headroom even at 3x our peak.
+  # `container_name` removed because compose forbids it with replicas.
   worker-scoring:
     build: .
-    container_name: foresight-worker-scoring
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q scoring -n scoring@%h
     deploy:
+      replicas: 3
       resources:
         limits:
           memory: 2G
