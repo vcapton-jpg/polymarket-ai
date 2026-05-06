@@ -45,7 +45,16 @@ services:
       retries: 5
 
   rsshub:
-    image: diygod/rsshub:latest
+    # MUST use the chromium-bundled variant (not :latest). Twitter (X) is
+    # fully JS-rendered as of 2026 — the public timeline endpoints return
+    # an empty HTML shell that gets populated by client-side GraphQL XHR.
+    # The default :latest image has no browser, so the scraper hits the
+    # shell and falls back to "0 items" with `error: undefined` in logs.
+    # The :chromium-bundled variant ships a Chrome headless runtime that
+    # executes the JS payload and extracts real tweets. Verified live
+    # 2026-05-06: every X account fetches 15-20 tweets per cycle.
+    # Image is ~1.6 GB (vs 625 MB for :latest); memory at runtime ~350 MB.
+    image: diygod/rsshub:chromium-bundled
     container_name: foresight-rsshub
     restart: unless-stopped
     environment:
