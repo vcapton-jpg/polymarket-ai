@@ -1,5 +1,13 @@
 services:
   db:
+    # /dev/shm bumped from default 64M to 2G — required for pgvector HNSW
+    # index builds on the markets table (200k × 1536-dim vectors). With
+    # the default 64M, `CREATE INDEX ... USING hnsw` fails with
+    # "could not resize shared memory segment ... No space left on device"
+    # once the graph fanout exceeds shm. Discovered live during the
+    # 2026-05-06 prod cutover — without this, markets has no vector index
+    # and hybrid_search falls back to seq scan (seconds per query).
+    shm_size: 2g
     image: pgvector/pgvector:pg16
     container_name: foresight-db
     environment:
