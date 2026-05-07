@@ -42,7 +42,29 @@ class HeuristicScorer:
             signal_strength * self.weights.strength_weight
             + trade_quality * self.weights.trade_weight
         )
-        signal_score = max(0, min(100, int(raw_final)))
+
+        # Breaking-news premium: additive bonus on signals derived from
+        # very fresh articles. Polymarket prices reflect news within
+        # ~5-15 min of breaking, so a signal we generated from a
+        # < 30 min article actually has tradeable edge worth surfacing.
+        # The existing `freshness` feature contributes via the strength
+        # bloc but its 0.15 weight × 1.0 max = 15-point ceiling is
+        # spread across the whole 1h bucket; this bonus carves out a
+        # premium for the truly breaking subset.
+        # Audit 2026-05-06: avg signal_score above threshold = 66.6
+        # (everyone barely passing the 65 gate, 0 strong ≥70 in 24h).
+        # Adding ~5 pts to the freshest 5-10 % of signals nudges them
+        # into the "strong" bucket without disturbing other paths.
+        age_hours = features.get("article_age_hours", 999.0)
+        breaking_bonus = 0.0
+        if age_hours <= 0.5:
+            breaking_bonus = 5.0
+        elif age_hours <= 1.0:
+            breaking_bonus = 2.5
+        elif age_hours <= 2.0:
+            breaking_bonus = 1.0
+
+        signal_score = max(0, min(100, int(raw_final + breaking_bonus)))
 
         return {
             "signal_score": signal_score,

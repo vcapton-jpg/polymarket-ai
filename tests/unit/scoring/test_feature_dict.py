@@ -37,16 +37,20 @@ def end_date_30d() -> datetime:
     return datetime.now(timezone.utc) + timedelta(days=30)
 
 
-def test_returns_six_keys_only(fresh_ref_dt: datetime, end_date_30d: datetime) -> None:
+def test_returns_expected_keys(fresh_ref_dt: datetime, end_date_30d: datetime) -> None:
     out = build_feature_dict(
         event_data={"source_weight": 0.85, "source_tier": 1},
         market_data={"liquidity": 50_000, "spread": 0.03, "end_date": end_date_30d},
         ref_dt=fresh_ref_dt,
         source_count=2,
     )
+    # 6 weighted features (consumed by strength/trade blocs) + the
+    # `article_age_hours` metric (consumed by the additive breaking-news
+    # bonus in HeuristicScorer.compute_score).
     assert set(out.keys()) == {
         "freshness", "source_weight", "confirmation",
         "liquidity", "spread", "time_to_resolution",
+        "article_age_hours",
     }
 
 
@@ -241,6 +245,14 @@ def test_matches_signal_builder_inline_construction(
     )
 
     fb = FeatureBuilder()
+    # Expected age in hours derived from the same fresh_ref_dt fixture
+    # (30 minutes ago). Tolerate ~1s of clock drift between fixture
+    # creation and assertion using approx.
+    from datetime import timezone as _tz
+    expected_age = (
+        datetime.now(_tz.utc)
+        - (fresh_ref_dt if fresh_ref_dt.tzinfo else fresh_ref_dt.replace(tzinfo=_tz.utc))
+    ).total_seconds() / 3600
     expected = {
         "freshness": fb.build_freshness_factor(fresh_ref_dt),
         "source_weight": fb.build_source_weight(event_data.get("source_weight", 0.5)),
@@ -252,5 +264,9 @@ def test_matches_signal_builder_inline_construction(
         "time_to_resolution": fb.build_time_to_resolution_factor(
             market_data.get("end_date"),
         ),
+        "article_age_hours": pytest.approx(expected_age, abs=0.01),
     }
-    assert out == expected
+    # Compare key by key because pytest.approx in a dict requires per-key check
+    assert set(out.keys()) == set(expected.keys())
+    for k, v in expected.items():
+        assert out[k] == v, f"mismatch on {k}: {out[k]} vs {v}"
