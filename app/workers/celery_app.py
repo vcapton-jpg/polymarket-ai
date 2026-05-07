@@ -262,6 +262,17 @@ _beat_schedule["signals-outcome-daily"] = {
     "options": {"queue": "default"},
 }
 
+# ── Retention — nightly DELETE of stale rows from growing tables ──
+# Without this, llm_cost_log alone grows ~370k rows/month and the
+# event_market_candidates / ranking_shadow tables would push the DB
+# past 50 GB inside 6 months. Per-table caps keep the per-run lock
+# window short — see app/workers/tasks_retention.py for policy detail.
+_beat_schedule["retention-nightly"] = {
+    "task": "app.workers.tasks_retention.run_retention",
+    "schedule": 86400.0,
+    "options": {"queue": "default"},
+}
+
 celery_app.conf.beat_schedule = _beat_schedule
 
 celery_app.autodiscover_tasks([
@@ -276,4 +287,5 @@ celery_app.autodiscover_tasks([
     "app.workers.tasks_embeddings_backfill",
     "app.workers.tasks_ranking_shadow",
     "app.workers.tasks_diagnostics",
+    "app.workers.tasks_retention",
 ])
