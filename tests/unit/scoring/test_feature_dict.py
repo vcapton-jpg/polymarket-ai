@@ -44,13 +44,14 @@ def test_returns_expected_keys(fresh_ref_dt: datetime, end_date_30d: datetime) -
         ref_dt=fresh_ref_dt,
         source_count=2,
     )
-    # 6 weighted features (consumed by strength/trade blocs) + the
-    # `article_age_hours` metric (consumed by the additive breaking-news
-    # bonus in HeuristicScorer.compute_score).
+    # 6 weighted features (consumed by strength/trade blocs) + 2 raw
+    # metrics consumed by the post-blend additive bonuses in
+    # HeuristicScorer.compute_score (article_age_hours → breaking-news
+    # premium, source_count → multi-source confirmation premium).
     assert set(out.keys()) == {
         "freshness", "source_weight", "confirmation",
         "liquidity", "spread", "time_to_resolution",
-        "article_age_hours",
+        "article_age_hours", "source_count",
     }
 
 
@@ -265,6 +266,7 @@ def test_matches_signal_builder_inline_construction(
             market_data.get("end_date"),
         ),
         "article_age_hours": pytest.approx(expected_age, abs=0.01),
+        "source_count": source_count,
     }
     # Compare key by key because pytest.approx in a dict requires per-key check
     assert set(out.keys()) == set(expected.keys())

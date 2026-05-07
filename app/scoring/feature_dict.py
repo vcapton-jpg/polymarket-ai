@@ -55,4 +55,12 @@ def build_feature_dict(
         # separate key (not "freshness") so the existing strength formula
         # is unchanged.
         "article_age_hours": age_hours,
+        # Pure metric (not consumed by weighted blocs) — used by the
+        # scorer's "multi-source confirmation premium" additive bonus.
+        # The existing `confirmation` factor caps at 1.0 once
+        # source_count ≥ 3 — so an event covered by 5 distinct sources
+        # gets the same strength contribution as one covered by 3.
+        # Stashing the raw count lets us reward extra-confirmed events
+        # without re-balancing the strength bloc weights.
+        "source_count": int(source_count),
     }

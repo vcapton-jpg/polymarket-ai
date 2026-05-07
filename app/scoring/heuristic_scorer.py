@@ -64,7 +64,30 @@ class HeuristicScorer:
         elif age_hours <= 2.0:
             breaking_bonus = 1.0
 
-        signal_score = max(0, min(100, int(raw_final + breaking_bonus)))
+        # Multi-source confirmation premium: the `confirmation` feature
+        # caps at 1.0 when source_count ≥ 3, so an event covered by 5
+        # distinct sources contributes the same to the strength bloc as
+        # one covered by 3. In practice 5+ independent wires picking up
+        # the same news within a few minutes is a stronger correlation
+        # signal than 3 — wire convergence usually means the news has
+        # actually moved (vs a single tier-1 leak others haven't picked
+        # up yet). Reward that with a small additive bonus.
+        # Audit 2026-05-06: avg signal_score above the 65 threshold was
+        # 66.6 and 0 strong signals (≥75) in 24h — most events scored
+        # right at the gate, so a +2/+4 bonus on the multi-source subset
+        # carves them into the strong bucket without disturbing other
+        # paths.
+        source_count = int(features.get("source_count", 1))
+        confirmation_bonus = 0.0
+        if source_count >= 5:
+            confirmation_bonus = 4.0
+        elif source_count >= 3:
+            confirmation_bonus = 2.0
+
+        signal_score = max(
+            0,
+            min(100, int(raw_final + breaking_bonus + confirmation_bonus)),
+        )
 
         return {
             "signal_score": signal_score,
