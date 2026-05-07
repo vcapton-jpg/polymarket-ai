@@ -151,11 +151,13 @@ from app.api.routes.public_stats import router as public_stats_router  # noqa: E
 from app.api.routes.quota import router as quota_router  # noqa: E402
 from app.api.routes.sources import router as sources_router  # noqa: E402
 from app.api.routes.subscriptions import router as subs_router  # noqa: E402
+from app.api.routes.polymarket_signing import router as polymarket_signing_router  # noqa: E402
 from app.api.routes.trading import router as trading_router  # noqa: E402
 from app.api.routes.trading_wallet import router as trading_wallet_router  # noqa: E402
 
 app.include_router(trading_router, prefix="/api")
 app.include_router(trading_wallet_router, prefix="/api")
+app.include_router(polymarket_signing_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
 app.include_router(api_keys_router, prefix="/api")
 app.include_router(subs_router, prefix="/api")
