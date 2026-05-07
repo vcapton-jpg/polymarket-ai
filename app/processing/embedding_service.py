@@ -6,6 +6,7 @@ from typing import Optional
 from openai import AsyncOpenAI
 
 from app.core.config import get_settings
+from app.processing.embedding_cache import get_cached, set_cached
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -33,13 +34,25 @@ class EmbeddingService:
     async def compute_single(self, text: str) -> Optional[list[float]]:
         if not text or not text.strip():
             return None
+
+        # Cache lookup first — same (model, text) → same vector. With the
+        # rescore loop scoring some events 9× / h before the audit fix,
+        # even after the fix the same query embeddings get re-derived on
+        # every retry. ~60 % hit rate on prod texts is the steady-state
+        # estimate.
+        cached = await get_cached(self._model, text)
+        if cached is not None:
+            return cached
+
         try:
             resp = await self._client.embeddings.create(
                 model=self._model,
                 input=text,
                 dimensions=DIMENSIONS,
             )
-            return resp.data[0].embedding
+            embedding = resp.data[0].embedding
+            await set_cached(self._model, text, embedding)
+            return embedding
         except Exception as e:
             logger.error("Embedding error: %s", e)
             return None
@@ -51,9 +64,22 @@ class EmbeddingService:
         results: list[Optional[list[float]]] = [None] * len(texts)
         valid_indices = [i for i, t in enumerate(texts) if t and t.strip()]
 
+        # Cache lookup pass — split valid indices into HITs (filled
+        # immediately from cache) and MISSes (forwarded to OpenAI).
+        # Per-text cache instead of per-batch lets the news_clean pool
+        # share embeddings with a future scoring rerun even if the batch
+        # composition differs.
+        miss_indices: list[int] = []
+        for i in valid_indices:
+            cached = await get_cached(self._model, texts[i])
+            if cached is not None:
+                results[i] = cached
+            else:
+                miss_indices.append(i)
+
         batch_size = settings.embedding_batch_size
-        for start in range(0, len(valid_indices), batch_size):
-            chunk_indices = valid_indices[start : start + batch_size]
+        for start in range(0, len(miss_indices), batch_size):
+            chunk_indices = miss_indices[start : start + batch_size]
             chunk_texts = [texts[i] for i in chunk_indices]
 
             try:
@@ -63,7 +89,10 @@ class EmbeddingService:
                     dimensions=DIMENSIONS,
                 )
                 for j, datum in enumerate(resp.data):
-                    results[chunk_indices[j]] = datum.embedding
+                    idx = chunk_indices[j]
+                    results[idx] = datum.embedding
+                    # Best-effort write — silent on failure.
+                    await set_cached(self._model, texts[idx], datum.embedding)
             except Exception as e:
                 logger.error("Batch embedding error (chunk %d): %s", start, e)
 
