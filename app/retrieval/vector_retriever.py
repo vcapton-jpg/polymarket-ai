@@ -22,21 +22,22 @@ async def search_markets_by_embedding(
     event_bucket: Optional[str] = None,
     min_sim: Optional[float] = None,
     *,
-    # Pre-filter at the same Filter A thresholds enforced post-LLM in
-    # `app/workers/tasks_scoring.py:_market_quality_reject` so the vector
-    # probe doesn't waste work on candidates that will be rejected after
-    # we've already paid the LLM bill on them. Audit 2026-05-06: 70 % of
-    # post-vector candidates failed Filter A volume/liquidity/price; the
-    # cost was wasted vector ranking + wasted LLM analyses on rejects.
-    # Defaults MUST stay in sync with the Filter A constants (currently
-    # MIN_VOLUME_24H_USD=250, MIN_LIQUIDITY_USD=2000, RESOLVED_PRICE 0.03/0.97
-    # and settings.market_min_remaining_hours=48) — pass `min_volume_24h=0`
-    # etc. to disable pre-filter for shadow runs.
-    min_volume_24h: float = 250.0,
-    min_liquidity: float = 2000.0,
+    # Pre-filter coarsely so the vector probe doesn't burn cycles on
+    # totally-untradeable markets (closed, expired, pegged at 0/1). We
+    # deliberately stay LOOSER than Filter A (vol=250/liq=2000/+48h in
+    # `app/workers/tasks_scoring.py:_market_quality_reject`) — tightening
+    # the pre-filter to match starved the candidate pool 58k→1.9k and
+    # killed signal emission (incident 2026-05-06: zero signals for 3h
+    # after `b4b1a1e` shipped strict pre-filter). The vector probe is
+    # cheap (HNSW), the post-Filter-A LLM call only fires on top-N anyway,
+    # so a wider net here finds better cosine matches without inflating
+    # the LLM bill. Net pre-filter still removes ~70 % of markets at
+    # vol=50/liq=500/+12h. Pass `min_volume_24h=0` etc. to disable.
+    min_volume_24h: float = 50.0,
+    min_liquidity: float = 500.0,
     price_low: float = 0.03,
     price_high: float = 0.97,
-    min_remaining_hours: int = 48,
+    min_remaining_hours: int = 12,
 ) -> list[dict]:
     """Search for active, non-closed markets with the closest embeddings.
 
