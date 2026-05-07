@@ -55,13 +55,39 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/polymarket", tags=["polymarket"])
 
 
-# Restrict the builder credential to the CLOB API surface. Anything
-# outside this allow-list is rejected — narrows blast radius if the
-# endpoint is ever called maliciously.
+# Restrict the builder credential to the actual CLOB API surface.
+# Verified via live probe 2026-05-07: Polymarket's CLOB uses ROOT-LEVEL
+# paths (`/markets`, `/order`, etc.), not the `/api/v1/` prefix the
+# initial draft assumed. Anything outside this allow-list is rejected
+# so the builder credential can't be misused for unrelated calls (e.g.
+# admin or non-Polymarket hosts via path traversal).
 _ALLOWED_PATH_PREFIXES = (
-    "/api/v1/",        # main CLOB API surface (orders, markets, etc.)
-    "/relayer-rpc/",   # relayer for Safe deployment + USDC approvals
-    "/data-api/",      # public data (markets, prices) — safe to allow
+    # Order lifecycle
+    "/order",          # POST place, GET fetch (with /<id>)
+    "/orders",         # GET list, DELETE cancel-many
+    "/cancel-order",   # DELETE single
+    "/cancel-orders",  # DELETE many
+    "/cancel-market-orders",
+    "/cancel-all",
+    # Market data (public but signing them is harmless and the JS
+    # client may include them in attribution chains)
+    "/markets",
+    "/sampling-markets",
+    "/markets/",
+    "/book",
+    "/price",
+    "/prices",
+    "/midpoint",
+    "/midpoints",
+    "/spreads",
+    "/last-trade-price",
+    "/trades",
+    # Relayer + auth derivation paths used by builder integrations
+    "/relayer-rpc/",
+    "/auth/",
+    # Generic catch-alls for the official wagmi-safe-builder-example
+    "/data-api/",
+    "/api/v1/",
 )
 
 
