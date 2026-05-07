@@ -1097,6 +1097,7 @@ dependencies = [
     { name = "pgvector" },
     { name = "playwright" },
     { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "py-builder-signing-sdk" },
     { name = "py-clob-client-v2" },
     { name = "py-order-utils" },
     { name = "pydantic-settings" },
@@ -1151,6 +1152,7 @@ requires-dist = [
     { name = "pgvector", specifier = ">=0.2.0" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.0" },
+    { name = "py-builder-signing-sdk", specifier = ">=0.0.2" },
     { name = "py-clob-client-v2", specifier = ">=0.1.0" },
     { name = "py-order-utils", specifier = ">=0.1.0" },
     { name = "pydantic-settings", specifier = ">=2.5.0" },
@@ -2168,6 +2170,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/56/9a/9470d013d0d50af0da9c4251614aeb3c1823635cab3edc211e3839db0bcf/psycopg_pool-3.3.0.tar.gz", hash = "sha256:fa115eb2860bd88fce1717d75611f41490dec6135efb619611142b24da3f6db5", size = 31606, upload-time = "2025-12-01T11:34:33.11Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/c3/26b8a0908a9db249de3b4169692e1c7c19048a9bc41a4d3209cee7dbb758/psycopg_pool-3.3.0-py3-none-any.whl", hash = "sha256:2e44329155c410b5e8666372db44276a8b1ebd8c90f1c3026ebba40d4bc81063", size = 39995, upload-time = "2025-12-01T11:34:29.761Z" },
+]
+
+[[package]]
+name = "py-builder-signing-sdk"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dotenv" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/18/e3/fab3253021a4d766345f491f00e40d89c7c5640bf6d20d9f5a3182b482de/py_builder_signing_sdk-0.0.2.tar.gz", hash = "sha256:27fa4401944220c51809f549a263c6e53b5cd981fca98eda7ef6f21944e6bf94", size = 6411, upload-time = "2025-10-20T22:17:56.658Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/fb/23c68c8f6356a50f959e2df2ae80e8344c3ff8ccca92943848a57a495928/py_builder_signing_sdk-0.0.2-py3-none-any.whl", hash = "sha256:114b9d57bec228177d759ce15c475589f47db2252ed1fd67cac3c9b0640abe76", size = 9082, upload-time = "2025-10-20T22:17:55.629Z" },
 ]
 
 [[package]]

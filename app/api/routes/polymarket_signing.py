@@ -48,7 +48,7 @@ from pydantic import BaseModel
 
 from app.api.routes.auth import get_current_user
 from app.core.config import get_settings
-from app.db.models import User
+from app.db.models import UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def _validate_method(method: str) -> str:
 @router.post("/sign", response_model=SignResponse)
 async def sign_request(
     req: SignRequest,
-    user: User = Depends(get_current_user),
+    user: UserProfile = Depends(get_current_user),
 ) -> SignResponse:
     """Build HMAC headers for a Polymarket CLOB request.
 
@@ -143,11 +143,12 @@ async def sign_request(
     body = req.body or ""
 
     try:
-        from py_builder_signing_sdk import BuilderApiKeyCreds, BuilderConfig
+        # Imports are inside-function because the SDK's top-level
+        # `__init__.py` is empty (verified at SDK 0.0.2) — the classes
+        # live in submodules.
+        from py_builder_signing_sdk.config import BuilderConfig
+        from py_builder_signing_sdk.sdk_types import BuilderApiKeyCreds
     except ImportError as exc:
-        # The SDK is in pyproject.toml but the wheel may be missing in
-        # an old container — surface the install gap cleanly instead of
-        # a 500.
         logger.exception("py_builder_signing_sdk not available")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -161,14 +162,18 @@ async def sign_request(
     )
     config = BuilderConfig(local_builder_creds=creds)
 
-    # `generate_builder_headers` returns a dict with the 4 header names
-    # Polymarket expects. We forward them as-is so the browser can splat
-    # them into the request.
-    headers = config.generate_builder_headers(method, req.path, body)
+    # Returns a `BuilderHeaderPayload` dataclass with the 4 fields
+    # Polymarket expects on every CLOB request.
+    payload = config.generate_builder_headers(method, req.path, body)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="builder header generation returned no payload",
+        )
 
     return SignResponse(
-        POLY_BUILDER_SIGNATURE=headers["POLY_BUILDER_SIGNATURE"],
-        POLY_BUILDER_TIMESTAMP=str(headers["POLY_BUILDER_TIMESTAMP"]),
-        POLY_BUILDER_API_KEY=headers["POLY_BUILDER_API_KEY"],
-        POLY_BUILDER_PASSPHRASE=headers["POLY_BUILDER_PASSPHRASE"],
+        POLY_BUILDER_SIGNATURE=payload.POLY_BUILDER_SIGNATURE,
+        POLY_BUILDER_TIMESTAMP=payload.POLY_BUILDER_TIMESTAMP,
+        POLY_BUILDER_API_KEY=payload.POLY_BUILDER_API_KEY,
+        POLY_BUILDER_PASSPHRASE=payload.POLY_BUILDER_PASSPHRASE,
     )
