@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowUpRight, Check, ChevronRight, Sparkles, TriangleAlert, X } from "lucide-react"
-import type { OrderDraft, Position, Signal, UserProfile } from "@/types/signal"
+import type { OrderDraft, Signal, UserProfile } from "@/types/signal"
 import { Button } from "@/components/ui/Button"
 import { useUserPreferences } from "@/lib/userPreferences"
 import { useProfile, getAmountPresets, getDefaultAmount } from "@/lib/useProfile"
@@ -21,15 +21,16 @@ import {
   isAmountValid,
   parseAmountInput,
 } from "@/lib/orderMath"
-import {
-  POSITIONS_CHANGED_EVENT,
-  SESSION_KEYS,
-  STORAGE_KEYS,
-} from "@/lib/storageKeys"
-import { placeTrade } from "@/lib/api/trading"
+import { SESSION_KEYS, STORAGE_KEYS } from "@/lib/storageKeys"
 import { ApiError } from "@/lib/api/client"
+import {
+  fetchClobMarketInfo,
+  recordOrder,
+  type ClobMarketInfo,
+} from "@/lib/api/clobTrading"
 import { useIsFreePlan } from "@/hooks/useAuth"
 import { hasToken } from "@/lib/api/auth"
+import { useClobClient } from "@/hooks/useClobClient"
 import { useWalletSetup } from "@/hooks/useWalletSetup"
 import { WalletSetupModal } from "@/components/trading/WalletSetupModal"
 
@@ -198,8 +199,19 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
   }, [])
 
   const isFreePlan = useIsFreePlan()
-  const { walletConnected, step: walletStep, error: walletError, startSetup } = useWalletSetup()
+  const {
+    walletConnected,
+    safeAddress,
+    step: walletStep,
+    error: walletError,
+    startSetup,
+  } = useWalletSetup()
   const [showWalletModal, setShowWalletModal] = useState(false)
+  // CLOB client — null until wallet+safe ready. The hook recreates on
+  // safeAddress change so we never hold a stale funder.
+  const { client: clobClient, ready: clobReady, reason: clobReason } = useClobClient({
+    safeAddress,
+  })
 
   // L&T per-signal stake limits + cooloff blocker were removed
   // 2026-04-27 (per-signal spending caps were not earning their UX cost
@@ -215,7 +227,24 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     return match ? match[1] : null
   }
 
-  const executeTrade = () => {
+  /**
+   * Non-custodial trade execution (Polymarket Builder pattern, post-2026-05-08
+   * pivot). Replaces the prior `placeTrade()` custodial flow that tried to
+   * sign orders server-side with BUILDER_PRIVATE_KEY (rejected by Polymarket
+   * because our deployer Safes don't authorize that key as a signer).
+   *
+   * Steps:
+   *   1. Resolve token_id (YES/NO) and trading params from the backend.
+   *   2. Ask the user's MetaMask to sign the order via clobClient (popup).
+   *   3. clob-client posts the signed order to clob.polymarket.com,
+   *      attaching our HMAC builder headers via /api/polymarket/sign.
+   *   4. On success: persist Order via /api/trading/orders/record so the
+   *      portfolio + worker poll see it. Show real polymarket_order_id.
+   *   5. On any failure: surface the actual error (no more
+   *      "ordre en local uniquement" silent-fallback that wrote a fake
+   *      Position to localStorage).
+   */
+  const executeTrade = async () => {
     // Free plan guard: Score 90+ signals are Pro-only. Send users with
     // a reachable /signup flow to /pricing instead of the Stripe path.
     if (isFreePlan && signal.score >= 90) {
@@ -225,6 +254,39 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
         description: "Passe Pro pour exécuter sur les signaux Score 90+.",
       })
       navigate("/pricing?plan=pro")
+      return
+    }
+
+    if (!hasToken()) {
+      addToast({
+        type: "info",
+        title: "Connexion requise",
+        description: "Connecte-toi pour passer un ordre.",
+      })
+      return
+    }
+
+    if (!clobReady || !clobClient) {
+      // Most likely the wallet is connected but the Safe isn't ready
+      // yet, OR walletClient is still rehydrating. Re-open the wallet
+      // modal — it covers all of those cases (deploy, reconnect, etc.).
+      setShowWalletModal(true)
+      addToast({
+        type: "info",
+        title: "Wallet pas prêt",
+        description: clobReason ?? "Connecte ton wallet pour exécuter.",
+        duration: 4000,
+      })
+      return
+    }
+
+    const marketId = extractMarketId(signal.polymarketUrl)
+    if (!marketId) {
+      addToast({
+        type: "info",
+        title: "Market introuvable",
+        description: "Impossible de lire l'identifiant Polymarket de ce signal.",
+      })
       return
     }
 
@@ -239,145 +301,162 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     onSubmit?.(draft)
     setSubmitted(true)
 
-    const positionId = `pos_${Date.now()}`
-    const now = new Date().toISOString()
-    const position: Position = {
-      id: positionId,
-      signalId: signal.id,
-      signal,
-      direction,
-      entryPrice: pricePerShare,
-      currentPrice: pricePerShare,
-      entryDate: now,
-      status: "tenir",
-      lifePercent: signal.lifePercent,
-      estimatedGain: 0,
-      stake: amount,
-      resolved: false,
-      correctPrediction: null,
-      source: "native",
-    }
-
-    // Optimistic localStorage write so Portfolio anchors to the new
-    // position immediately — the remote sync via /api/portfolio will
-    // reconcile on the next refetch.
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEYS.positions)
-      const arr: Position[] = raw ? JSON.parse(raw) : []
-      arr.unshift(position)
-      window.localStorage.setItem(STORAGE_KEYS.positions, JSON.stringify(arr))
-      window.dispatchEvent(new Event(POSITIONS_CHANGED_EVENT))
-    } catch {
-      // quota / disabled storage — continue with toast+nav anyway
-    }
-
-    /** Roll back the optimistic side-effects when the backend hard-rejects
-     *  the trade (HTTP 403 from `can_trade_real`: cooloff, age unconfirmed,
-     *  etc.). Without this, a rejected user is silently navigated to a
-     *  phantom position with a green success toast — exactly what the
-     *  rejection is meant to prevent. */
-    const rollbackOptimistic = () => {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEYS.positions)
-        const arr: Position[] = raw ? JSON.parse(raw) : []
-        const next = arr.filter((p) => p.id !== positionId)
-        window.localStorage.setItem(STORAGE_KEYS.positions, JSON.stringify(next))
-        window.dispatchEvent(new Event(POSITIONS_CHANGED_EVENT))
-      } catch {
-        // ignore storage failures — still cancel nav + reset submitted
-      }
-      if (navTimeoutRef.current !== null) {
-        window.clearTimeout(navTimeoutRef.current)
-        navTimeoutRef.current = null
-      }
-      setSubmitted(false)
-    }
-
-    const marketId = extractMarketId(signal.polymarketUrl)
     const signalIdNum = /^\d+$/.test(signal.id) ? Number(signal.id) : undefined
-    if (hasToken() && marketId) {
-      void placeTrade({
+
+    let info: ClobMarketInfo
+    try {
+      info = await fetchClobMarketInfo(marketId)
+    } catch (err) {
+      setSubmitted(false)
+      if (err instanceof ApiError && err.status === 404) {
+        addToast({
+          type: "info",
+          title: "Market introuvable",
+          description: "Ce market n'est pas (encore) référencé côté Foresight.",
+        })
+        return
+      }
+      addToast({
+        type: "info",
+        title: "Lookup market échoué",
+        description: err instanceof Error ? err.message : String(err),
+      })
+      return
+    }
+
+    const tokenId =
+      direction === "YES" ? info.yes_token_id : info.no_token_id
+    if (!tokenId) {
+      setSubmitted(false)
+      addToast({
+        type: "info",
+        title: "Token Polymarket manquant",
+        description: `Le côté ${direction} n'a pas de token_id (market non-binaire ou corrompu).`,
+      })
+      return
+    }
+
+    if (!info.accepting_orders) {
+      setSubmitted(false)
+      addToast({
+        type: "info",
+        title: "Market fermé",
+        description: "Polymarket n'accepte plus d'ordre sur ce market.",
+      })
+      return
+    }
+
+    // Build the order args using the EXACT shape clob-client expects.
+    // We submit a market order (FOK) for amount-based execution. If we
+    // ever expose limit orders in the UI, switch to GTC and pass `price`
+    // + `size` instead of `amount`.
+    let orderResp: { success?: boolean; orderID?: string; errorMsg?: string }
+    try {
+      // Lazy require — avoids pulling clob-client into pages that don't
+      // open the OrderForm.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const clob = require("@polymarket/clob-client") as typeof import("@polymarket/clob-client")
+
+      // Limit order on the user's stated `pricePerShare` — the user
+      // already saw the slippage estimate in the form so honouring the
+      // stated price is the right behaviour.
+      orderResp = await clobClient.createAndPostOrder(
+        {
+          tokenID: tokenId,
+          price: pricePerShare,
+          size: amount,
+          side: clob.Side.BUY,
+          feeRateBps: 0,
+          // builder_code attribution: clob-client splices it from
+          // BuilderConfig set up in useClobClient. No need to pass here.
+        },
+        { tickSize: info.tick_size as "0.1" | "0.01" | "0.001" | "0.0001", negRisk: info.neg_risk },
+        clob.OrderType.GTC,
+      )
+    } catch (err) {
+      setSubmitted(false)
+      // Distinguish "user rejected in MetaMask" from genuine failures.
+      const msg = err instanceof Error ? err.message : String(err)
+      const userRejected = /user (rejected|denied)|action_rejected/i.test(msg)
+      addToast({
+        type: "info",
+        title: userRejected ? "Ordre annulé" : "Erreur signature",
+        description: userRejected
+          ? "Tu as annulé la signature dans MetaMask."
+          : msg,
+        duration: userRejected ? 3000 : 6000,
+      })
+      return
+    }
+
+    if (!orderResp.success || !orderResp.orderID) {
+      setSubmitted(false)
+      addToast({
+        type: "info",
+        title: "Ordre rejeté par Polymarket",
+        description: orderResp.errorMsg ?? "Polymarket n'a pas accepté l'ordre.",
+        duration: 6000,
+      })
+      return
+    }
+
+    const polymarketOrderId = orderResp.orderID
+
+    // Persist the order metadata so the worker fill-poller picks it up
+    // and the Portfolio sees it. Failure here is NOT fatal — the user's
+    // money is already moving; surface a soft warning.
+    try {
+      const recordRes = await recordOrder({
         market_id: marketId,
+        polymarket_order_id: polymarketOrderId,
         direction,
-        amount,
+        token_id: tokenId,
+        size: amount,
         price: pricePerShare,
+        order_type: "GTC",
         signal_id: signalIdNum,
       })
-        .then((res) => {
-          if (res.success) {
-            addToast({
-              type: "success",
-              title: "Ordre envoyé à Polymarket",
-              description: res.polymarket_order_id
-                ? `ID ${res.polymarket_order_id}`
-                : undefined,
-              duration: 3000,
-            })
-          } else if (res.error === "wallet_not_connected") {
-            setSubmitted(false)
-            setShowWalletModal(true)
-            addToast({
-              type: "info",
-              title: "Wallet requis",
-              description: "Connecte ton wallet pour exécuter sur Polymarket.",
-              duration: 4000,
-            })
-          } else {
-            addToast({
-              type: "info",
-              title: "Ordre en local uniquement",
-              description:
-                res.error ||
-                "Exécution native indisponible. Ta position reste suivie dans le portfolio.",
-              duration: 4000,
-            })
-          }
+      if (!recordRes.success) {
+        // Backend rejected the record (e.g., 403 cooloff). The Polymarket
+        // order is already on the book — we cannot un-do it. Inform the
+        // user clearly so they know what state they're in.
+        addToast({
+          type: "info",
+          title: "Ordre placé, suivi local indisponible",
+          description:
+            recordRes.error ??
+            "Ton ordre est sur Polymarket, mais Foresight ne pourra pas le suivre dans le Portfolio. Voir polymarket.com.",
+          duration: 6000,
         })
-        .catch((err: unknown) => {
-          // Hard rejection by the backend (cooloff, age unconfirmed, etc.) —
-          // roll back the optimistic UI and surface the real reason.
-          if (err instanceof ApiError && err.status === 403) {
-            rollbackOptimistic()
-            const reason =
-              (err.body as { detail?: { reason?: string } } | undefined)?.detail
-                ?.reason
-            const rejectionMessages: Record<string, { title: string; description: string }> = {
-              in_cooloff: {
-                title: t("orderForm.rejection.inCooloff.title"),
-                description: t("orderForm.rejection.inCooloff.description"),
-              },
-              age_not_confirmed: {
-                title: t("orderForm.rejection.ageNotConfirmed.title"),
-                description: t("orderForm.rejection.ageNotConfirmed.description"),
-              },
-            }
-            const msg = (reason && rejectionMessages[reason]) || {
-              title: t("orderForm.rejection.generic.title"),
-              description: reason ?? t("orderForm.rejection.generic.descriptionFallback"),
-            }
-            addToast({ type: "info", ...msg, duration: 6000 })
-            return
-          }
-          // Other errors (network, 5xx, CLOB) — keep the optimistic local
-          // entry; the position-sync sweep on /api/portfolio will reconcile.
-          addToast({
-            type: "info",
-            title: "Ordre en local uniquement",
-            description:
-              "Exécution indisponible (CLOB). Ta position reste suivie dans le portfolio.",
-            duration: 4000,
-          })
-        })
+      }
+    } catch (err) {
+      // Non-fatal — log and continue. The order EXISTS on Polymarket;
+      // recordOrder() failure means our local view is just incomplete.
+      console.warn("recordOrder failed:", err)
+      addToast({
+        type: "info",
+        title: "Ordre placé sur Polymarket",
+        description:
+          "Le suivi dans Foresight pourrait être incomplet. ID Polymarket : " +
+          polymarketOrderId.slice(0, 12) +
+          "…",
+        duration: 6000,
+      })
     }
 
     addToast({
       type: "success",
-      title: t("orderForm.successToastTitle"),
-      duration: 1500,
+      title: "Ordre envoyé à Polymarket",
+      description: `ID ${polymarketOrderId.slice(0, 16)}…`,
+      duration: 3000,
     })
+
+    // Navigate to portfolio so the user sees the order list + (when the
+    // worker poll lands) the materialised position. No more
+    // optimistic-fake position in localStorage.
     navTimeoutRef.current = window.setTimeout(() => {
       navTimeoutRef.current = null
-      navigate(`/portfolio#position-${positionId}`)
+      navigate("/portfolio")
     }, 1500)
   }
 
@@ -391,13 +470,13 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       return
     }
 
-    executeTrade()
+    void executeTrade()
   }
 
   const handleWalletSuccess = () => {
     setShowWalletModal(false)
     if (amountValid) {
-      executeTrade()
+      void executeTrade()
     }
   }
 

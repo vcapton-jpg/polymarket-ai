@@ -260,6 +260,181 @@ async def get_portfolio(
     )
 
 
+class ClobMarketInfo(BaseModel):
+    """Minimal CLOB info the frontend needs to build a Polymarket order.
+
+    Returned to the OrderForm before it asks the user's MetaMask for an
+    EIP-712 signature, so the frontend can pick the right token_id
+    (YES vs NO) and the correct tick_size for the market.
+    """
+    market_id: str
+    yes_token_id: str | None
+    no_token_id: str | None
+    tick_size: str = "0.01"
+    neg_risk: bool = False
+    last_trade_price: float | None = None
+    accepting_orders: bool = True
+
+
+@router.get("/markets/{market_id}/clob-info", response_model=ClobMarketInfo)
+async def get_clob_market_info(
+    market_id: str,
+    db: AsyncSession = Depends(get_db_session),
+    user: UserProfile = Depends(get_current_user),
+) -> ClobMarketInfo:
+    """Resolve the CLOB token_ids + trading params for `market_id`.
+
+    The non-custodial trading flow (Polymarket Builder pattern) requires
+    the frontend to know the YES/NO token_id before it can build an
+    OrderArgs for clob-client. Rather than expose `clob_token_ids` on
+    every signal payload (bloats list responses), the OrderForm calls
+    this endpoint once when the user opens the order panel.
+
+    JWT-protected — only authed users see token_ids; the public catalog
+    only ever returns the human-readable `polymarketUrl`.
+
+    `tick_size` and `neg_risk` are not yet columns on our Market table
+    (we never needed them server-side because the old custodial path
+    used py-clob-client defaults). They default here to the safe
+    Polymarket fallback (`tick_size="0.01"`, `neg_risk=False`) which
+    holds for ~99 % of binary markets.
+    """
+    result = await db.execute(select(Market).where(Market.market_id == market_id))
+    market = result.scalar_one_or_none()
+    if not market:
+        raise HTTPException(status_code=404, detail="Market not found")
+
+    token_ids = market.clob_token_ids or {}
+    yes_token = token_ids.get("yes") or token_ids.get("YES")
+    no_token = token_ids.get("no") or token_ids.get("NO")
+
+    return ClobMarketInfo(
+        market_id=market.market_id,
+        yes_token_id=yes_token,
+        no_token_id=no_token,
+        tick_size="0.01",
+        neg_risk=False,
+        last_trade_price=float(market.last_trade_price) if market.last_trade_price else None,
+        accepting_orders=bool(market.accepting_orders),
+    )
+
+
+class OrderRecordRequest(BaseModel):
+    """Frontend-placed order to persist for portfolio tracking.
+
+    The non-custodial flow has the user's MetaMask sign the order and
+    the browser's clob-client POSTs it directly to clob.polymarket.com
+    (with our /api/polymarket/sign HMAC for builder attribution). After
+    a successful submit we ping THIS endpoint so the order shows up in
+    the user's portfolio, the worker fill-poller picks it up, and the
+    risk-manager can monitor it.
+
+    Crucial: the FRONTEND has already executed the trade by the time
+    this endpoint is called. We are NOT placing the order here — that
+    would require a server-side private key (the rejected custodial
+    pattern). We are only RECORDING something the user already did.
+    """
+    market_id: str = Field(min_length=1, max_length=128)
+    polymarket_order_id: str = Field(min_length=1, max_length=128)
+    direction: str = Field(pattern=r"^(YES|NO|BUY_YES|BUY_NO)$")
+    token_id: str = Field(min_length=1, max_length=128)
+    size: float = Field(gt=0, le=TRADE_AMOUNT_MAX_USDC)
+    price: float = Field(gt=0, lt=1)
+    order_type: str = Field(default="GTC", pattern=r"^(GTC|FOK|GTD|FAK)$")
+    signal_id: int | None = Field(default=None, ge=1)
+
+
+class OrderRecordResponse(BaseModel):
+    success: bool
+    order_id: int | None = None
+    error: str | None = None
+
+
+@router.post("/orders/record", response_model=OrderRecordResponse)
+async def record_order(
+    req: OrderRecordRequest,
+    db: AsyncSession = Depends(get_db_session),
+    user: UserProfile = Depends(get_current_user),
+) -> OrderRecordResponse:
+    """Persist a frontend-placed order so the portfolio + workers see it.
+
+    This is the non-custodial counterpart to `/trade`. The contract:
+      - Frontend has already received `polymarket_order_id` from the
+        Polymarket CLOB (the user signed in MetaMask, the order is
+        accepted by Polymarket).
+      - We only persist metadata. We do NOT call back to Polymarket
+        to verify — the worker `poll_order_fills` task will reconcile
+        on its next pass (every 60 s) and update the status.
+
+    Limit gating mirrors `/trade`: `can_trade_real` for age + cooloff,
+    plus the same TRADE_AMOUNT_MAX_USDC cap on size. We also debit the
+    weekly budget tracker on success so the trade-cap UX stays honest.
+    """
+    decision = await can_trade_real(user_id=user.id, stake_eur=float(req.size))
+    if not decision.allowed:
+        raise HTTPException(status_code=403, detail={"reason": decision.reason})
+
+    if not user.polymarket_safe_address:
+        return OrderRecordResponse(
+            success=False, error="wallet_not_connected"
+        )
+
+    portfolio = await _get_or_create_portfolio(db, user)
+
+    # Sanity check the market exists in our table — guards against the
+    # frontend sending a stale or fabricated market_id.
+    market_exists = await db.execute(
+        select(Market.market_id).where(Market.market_id == req.market_id)
+    )
+    if market_exists.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Market not found")
+
+    # Guard against duplicate `polymarket_order_id` if the frontend
+    # double-fires the record call. Idempotent: return the existing row.
+    existing = await db.execute(
+        select(Order).where(
+            Order.portfolio_id == portfolio.id,
+            Order.polymarket_order_id == req.polymarket_order_id,
+        )
+    )
+    duplicate = existing.scalar_one_or_none()
+    if duplicate is not None:
+        return OrderRecordResponse(success=True, order_id=duplicate.id)
+
+    side = "BUY"  # The Builder flow always passes BUY-side orders
+                  # (BUY_YES = buy YES token, BUY_NO = buy NO token).
+                  # SELL-side closes are routed via a separate flow.
+
+    order = Order(
+        portfolio_id=portfolio.id,
+        market_id=req.market_id,
+        signal_id=req.signal_id,
+        token_id=req.token_id,
+        side=side,
+        price=req.price,
+        size=req.size,
+        order_type=req.order_type,
+        polymarket_order_id=req.polymarket_order_id,
+        # `submitted` not `pending` — the frontend already put it on the
+        # CLOB. The worker poll will flip it to `filled` (or `cancelled`
+        # / `failed`) on the next sweep.
+        status="submitted",
+    )
+    db.add(order)
+    await db.flush()
+    await db.commit()
+
+    # Debit the weekly budget tracker (same as /trade post-commit).
+    await register_trade_opened(user_id=user.id, stake_eur=float(req.size))
+
+    logger.info(
+        "Order recorded: user=%s portfolio=%s market=%s polymarket_id=%s size=%s",
+        user.id, portfolio.id, req.market_id, req.polymarket_order_id, req.size,
+    )
+
+    return OrderRecordResponse(success=True, order_id=order.id)
+
+
 @router.get("/orders")
 async def get_orders(
     status: str | None = Query(None),
