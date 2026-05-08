@@ -32,8 +32,8 @@ SELECT
   count(o.move_t5min_pct) AS resolved,
   round(
     100.0 * count(*) FILTER (WHERE
-      (s.direction = 'YES' AND o.move_t5min_pct > 0)
-      OR (s.direction = 'NO'  AND o.move_t5min_pct < 0)
+      (s.direction IN ('YES','BUY_YES','UP') AND o.move_t5min_pct > 0)
+      OR (s.direction IN ('NO','BUY_NO','DOWN') AND o.move_t5min_pct < 0)
     ) / NULLIF(count(o.move_t5min_pct), 0),
     1
   ) AS winrate_pct
@@ -45,8 +45,8 @@ SELECT
   count(o.move_t15min_pct),
   round(
     100.0 * count(*) FILTER (WHERE
-      (s.direction = 'YES' AND o.move_t15min_pct > 0)
-      OR (s.direction = 'NO'  AND o.move_t15min_pct < 0)
+      (s.direction IN ('YES','BUY_YES','UP') AND o.move_t15min_pct > 0)
+      OR (s.direction IN ('NO','BUY_NO','DOWN') AND o.move_t15min_pct < 0)
     ) / NULLIF(count(o.move_t15min_pct), 0),
     1
   )
@@ -58,8 +58,8 @@ SELECT
   count(o.move_t1h_pct),
   round(
     100.0 * count(*) FILTER (WHERE
-      (s.direction = 'YES' AND o.move_t1h_pct > 0)
-      OR (s.direction = 'NO'  AND o.move_t1h_pct < 0)
+      (s.direction IN ('YES','BUY_YES','UP') AND o.move_t1h_pct > 0)
+      OR (s.direction IN ('NO','BUY_NO','DOWN') AND o.move_t1h_pct < 0)
     ) / NULLIF(count(o.move_t1h_pct), 0),
     1
   )
@@ -71,8 +71,8 @@ SELECT
   count(o.move_t24h_pct),
   round(
     100.0 * count(*) FILTER (WHERE
-      (s.direction = 'YES' AND o.move_t24h_pct > 0)
-      OR (s.direction = 'NO'  AND o.move_t24h_pct < 0)
+      (s.direction IN ('YES','BUY_YES','UP') AND o.move_t24h_pct > 0)
+      OR (s.direction IN ('NO','BUY_NO','DOWN') AND o.move_t24h_pct < 0)
     ) / NULLIF(count(o.move_t24h_pct), 0),
     1
   )
