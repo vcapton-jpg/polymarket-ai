@@ -296,11 +296,16 @@ services:
       - ./prompts:/app/prompts
 
   # ── Worker: markets (CLOB enrichment, isolated) ──────────────────
-  # Memory: 1 GB (was 512 MB). Audit 2026-05-05: observed 90.7% of the
-  # 512 MB ceiling (464 MB RSS) just from holding the markets table's
-  # working set during `fetch_markets` + `compute_market_percentiles`.
-  # Single OOM spike would loop the worker. 1 GB doubles the headroom
-  # without committing more than the host can afford.
+  # Memory: 2 GB (was 1 GB → 512 MB historically). Incident 2026-05-08:
+  # cgroup OOM-killed the celery process 5× in ~4 h with anon-rss ≈ 1.03 GB
+  # (very close to the 1 GB cap). Each kill restarted the worker, which
+  # then re-loaded the markets working set and re-OOM'd within the hour.
+  # Net effect upstream: `worker-markets` flapped between Up and dead,
+  # market data went stale, scoring pre-filter starved and signals dried
+  # up. Doubling the cap to 2 GB matches `worker-scoring` and gives the
+  # batch path (`fetch_markets` + percentiles + embedding refresh) the
+  # headroom we observed it actually needs. Host has ~16 GB total — the
+  # extra GB stays well within the budget.
   worker-markets:
     build: .
     container_name: foresight-worker-markets
@@ -308,7 +313,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
