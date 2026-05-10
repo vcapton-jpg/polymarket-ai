@@ -30,6 +30,14 @@ SOURCES = [
     {"source_name": "AFP via Google", "source_type": "rss", "url": "https://news.google.com/rss/search?q=AFP+breaking", "tier": 1, "weight": 1.0},
     {"source_name": "CNN Politics", "source_type": "rss", "url": "http://rss.cnn.com/rss/cnn_allpolitics.rss", "tier": 1, "weight": 0.95},
     {"source_name": "Guardian World", "source_type": "rss", "url": "https://www.theguardian.com/world/rss", "tier": 1, "weight": 0.85},
+    # ── Direct publisher RSS — replaces rate-limited X scraping (audit 2026-05-10)
+    # Bloomberg/NYT/FT X accounts return 0 items via RSSHub (Twitter rate-limits
+    # the cookie account on heavily-scraped targets). Direct RSS bypasses this.
+    {"source_name": "FT World", "source_type": "rss", "url": "https://www.ft.com/world?format=rss", "tier": 1, "weight": 0.95},
+    {"source_name": "NYT Politics RSS", "source_type": "rss", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml", "tier": 1, "weight": 0.95},
+    {"source_name": "NYT HomePage RSS", "source_type": "rss", "url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", "tier": 1, "weight": 0.90},
+    {"source_name": "Bloomberg Markets RSS", "source_type": "rss", "url": "https://feeds.bloomberg.com/markets/news.rss", "tier": 1, "weight": 0.95},
+    {"source_name": "Bloomberg Politics RSS", "source_type": "rss", "url": "https://feeds.bloomberg.com/politics/news.rss", "tier": 1, "weight": 0.90},
     # ══════════════════════════════════════════════════════════════════
     # Tier 1 — X/Twitter accounts via RSSHub (agencies)
     # ══════════════════════════════════════════════════════════════════
