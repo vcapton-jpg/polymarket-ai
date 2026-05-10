@@ -166,6 +166,14 @@ _beat_schedule = {
     #     "schedule": settings.worldnews_poll_interval_seconds,
     #     "options": {"queue": "ingestion"},
     # },
+    # ── Ingestion — Telegram channels (FirstSquawk etc.) ─────────────
+    # No-op if TELEGRAM_API_ID/HASH/SESSION_STRING are not set in .env.
+    # See app/scripts/init_telegram_session.py for one-shot setup.
+    "fetch-telegram-channels": {
+        "task": "app.workers.tasks_ingestion.fetch_telegram_channels",
+        "schedule": settings.telegram_poll_interval_seconds,
+        "options": {"queue": "ingestion"},
+    },
     # ── Markets — isolated queue ─────────────────────────────────────
     "fetch-markets": {
         "task": "app.workers.tasks_ingestion.fetch_markets",

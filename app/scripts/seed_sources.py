@@ -64,6 +64,15 @@ SOURCES = [
     {"source_name": "X @whale_alert", "source_type": "x_rss", "url": f"{RSSHUB}/whale_alert", "tier": 1, "weight": 0.70},
     {"source_name": "X @DeItaone", "source_type": "x_rss", "url": f"{RSSHUB}/DeItaone", "tier": 1, "weight": 0.95},
     # ══════════════════════════════════════════════════════════════════
+    # Tier 1 — Telegram public channels (free, no rate-limit, <2s push)
+    # Bypasses Twitter rate-limit on hot accounts by reading the same
+    # content from the publisher's official Telegram channel.
+    # Requires TELEGRAM_API_ID/HASH/SESSION_STRING in .env (see
+    # app/scripts/init_telegram_session.py).
+    # ══════════════════════════════════════════════════════════════════
+    {"source_name": "TG @firstsquaw", "source_type": "telegram", "url": "https://t.me/firstsquaw", "tier": 1, "weight": 0.95},
+    {"source_name": "TG @bloomberg", "source_type": "telegram", "url": "https://t.me/bloomberg", "tier": 1, "weight": 0.90},
+    # ══════════════════════════════════════════════════════════════════
     # Tier 2 — Crypto RSS (free, editorial lag 5-30 min)
     # Comble le gap : 5.7k marchés crypto / ~2 signaux 7j pré-2026-05-10.
     # ══════════════════════════════════════════════════════════════════

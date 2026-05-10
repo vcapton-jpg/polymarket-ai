@@ -56,6 +56,23 @@ class Settings(BaseSettings):
     # 2026-05-05.
     telegram_webhook_secret: str = Field(default="")
 
+    # ── Telegram channel scraping (FirstSquawk etc.) ─────────────────────
+    # Bypass Twitter rate-limit on hot accounts by reading the same content
+    # from their public Telegram channels (Telegram MTProto is free + no
+    # rate-limit for normal usage + sub-2s push latency).
+    # Setup: see app/scripts/init_telegram_session.py. The three values
+    # must all be set or telegram_scraper is a no-op.
+    telegram_api_id: str | None = Field(default=None)
+    telegram_api_hash: str | None = Field(default=None)
+    telegram_session_string: str | None = Field(default=None)
+    # Poll interval for fetch_telegram_channels. 30s is aggressive but
+    # MTProto handles it; downstream `rss_max_article_age_hours=2` still
+    # filters stale content from a long-lived channel.
+    telegram_poll_interval_seconds: int = Field(default=30)
+    # Max messages per channel per poll. ~10 msg/h on the busiest channels
+    # (@firstsquaw), 30/poll @ 30s cycle = sufficient catch-up after outages.
+    telegram_messages_per_poll: int = Field(default=30)
+
     # ── Auth / Security ──────────────────────────────────────────────────
     jwt_secret_key: str = Field(default="change-me-in-production")
     jwt_algorithm: str = Field(default="HS256")
