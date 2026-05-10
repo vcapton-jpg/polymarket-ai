@@ -33,7 +33,7 @@ from telethon.errors import (
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, MessageService
 
-from app.core.config import settings
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ async def get_client() -> Optional[TelegramClient]:
     if _client is not None and _client.is_connected():
         return _client
 
+    settings = get_settings()
     if not (
         settings.telegram_api_id
         and settings.telegram_api_hash
