@@ -56,6 +56,27 @@ SOURCES = [
     {"source_name": "X @whale_alert", "source_type": "x_rss", "url": f"{RSSHUB}/whale_alert", "tier": 1, "weight": 0.70},
     {"source_name": "X @DeItaone", "source_type": "x_rss", "url": f"{RSSHUB}/DeItaone", "tier": 1, "weight": 0.95},
     # ══════════════════════════════════════════════════════════════════
+    # Tier 2 — Crypto RSS (free, editorial lag 5-30 min)
+    # Comble le gap : 5.7k marchés crypto / ~2 signaux 7j pré-2026-05-10.
+    # ══════════════════════════════════════════════════════════════════
+    {"source_name": "CoinDesk", "source_type": "rss", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml", "tier": 2, "weight": 0.75},
+    {"source_name": "CoinTelegraph", "source_type": "rss", "url": "https://cointelegraph.com/rss", "tier": 2, "weight": 0.60},
+    {"source_name": "Decrypt", "source_type": "rss", "url": "https://decrypt.co/feed", "tier": 2, "weight": 0.65},
+    # ══════════════════════════════════════════════════════════════════
+    # Tier 2 — Sports RSS (free)
+    # Comble le gap : 36k marchés sports / ~2 signaux 7j pré-2026-05-10.
+    # ══════════════════════════════════════════════════════════════════
+    {"source_name": "BBC Sport", "source_type": "rss", "url": "https://feeds.bbci.co.uk/sport/rss.xml", "tier": 2, "weight": 0.75},
+    {"source_name": "ESPN Top Headlines", "source_type": "rss", "url": "https://www.espn.com/espn/rss/news", "tier": 2, "weight": 0.75},
+    {"source_name": "Sky Sports", "source_type": "rss", "url": "https://www.skysports.com/rss/0,20514,11661,00.xml", "tier": 2, "weight": 0.65},
+    {"source_name": "Guardian Sport", "source_type": "rss", "url": "https://www.theguardian.com/sport/rss", "tier": 2, "weight": 0.65},
+    # ══════════════════════════════════════════════════════════════════
+    # Tier 2 — Finance RSS (free, complète les X markets/business RSSHub-broken)
+    # ══════════════════════════════════════════════════════════════════
+    {"source_name": "Yahoo Finance", "source_type": "rss", "url": "https://finance.yahoo.com/news/rssindex", "tier": 2, "weight": 0.70},
+    {"source_name": "MarketWatch Top Stories", "source_type": "rss", "url": "https://feeds.marketwatch.com/marketwatch/topstories/", "tier": 2, "weight": 0.75},
+    {"source_name": "Investing.com News", "source_type": "rss", "url": "https://www.investing.com/rss/news.rss", "tier": 2, "weight": 0.65},
+    # ══════════════════════════════════════════════════════════════════
     # Tier 2 — World News API (< 5 min)
     # ══════════════════════════════════════════════════════════════════
     {"source_name": "World News API", "source_type": "api", "url": "https://api.worldnewsapi.com", "tier": 2, "weight": 0.70},
