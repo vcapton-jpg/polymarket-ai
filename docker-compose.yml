@@ -162,14 +162,18 @@ services:
       - ./pyproject.toml:/app/pyproject.toml
 
   # ── Worker: ingestion (RSS, World News, X-scraper inbox) ─────────
-  # `replicas: 4` (audit follow-up 2026-05-05) — pre-fix the single solo
-  # worker drained ~30 fetch_rss tasks/min while beat enqueued ~200/min,
-  # so the queue grew without bound (observed: 2025 → 2960 messages in
-  # 30 min). 4 replicas × 1 solo concurrency = 4 tasks in parallel,
-  # fully absorbing the beat throughput. Each replica is its own
-  # process so asyncio loop bookkeeping stays clean (no `--pool=prefork`
-  # surprises). `container_name:` removed because compose rejects it
-  # alongside `replicas:` (name collision).
+  # `replicas: 2` (down from 4 on 2026-05-09) — incident 2026-05-09
+  # showed the host (Hetzner CPX31, 7.6 GB physical) running with 95 %
+  # swap utilization and host-level OOM-killing postgres + celery.
+  # Total docker `deploy.resources.limits.memory` claim across services
+  # was ~28 GB on 7.6 GB host (3.7× oversubscription), and each
+  # ingestion replica's 1.3 GB spaCy/Python baseline made these the
+  # heaviest workers. 2 replicas (instead of 4) cuts ~2.6 GB of working
+  # set. Throughput trade-off: drain ~60 fetch_rss/min vs beat's
+  # ~200/min — queue will grow somewhat but Filter A pre-SQL means most
+  # `compute_score_and_signal` work was already gated, and the scoring
+  # bottleneck is LLM I/O not ingestion. Long-term fix is host upgrade
+  # to CPX41 (16 GB) so we can restore 4 replicas.
   worker-ingestion:
     build: .
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q ingestion -n ingestion@%h
@@ -179,7 +183,7 @@ services:
     # baseline alone is ~1.3 GB RSS at boot; 1.5 GB left no headroom
     # for normal task allocations. 3 GB gives a 1.7 GB working margin.
     deploy:
-      replicas: 4
+      replicas: 2
       resources:
         limits:
           memory: 3G
@@ -211,8 +215,12 @@ services:
     # left ~100 MB headroom; any per-task allocation pushed it over and
     # the host kernel SIGKILLed the container (exit 137). Diagnosed
     # 2026-05-05 from `docker events` showing `oom`.
+    # `replicas: 1` (down from 2 on 2026-05-09) — see worker-ingestion
+    # comment for the host-OOM context. Pipeline tasks (process_article
+    # + embed) are throughput-bound by OpenAI API not by parallelism;
+    # 1 replica drains the queue ~30 % slower but fits the memory budget.
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           memory: 3G
@@ -235,19 +243,18 @@ services:
   # Realtime hot path only — see worker-scoring-batch for the heavy/batch
   # twin that drains the four subordinate queues (P1-9 split).
   #
-  # Scaled to 3 replicas (was 1) on 2026-05-06 after diag showed worker
-  # idling at ~0% CPU but signal output stuck at 0/h — the bottleneck was
-  # not capacity but parallelism: each event takes 4-7s of LLM I/O,
-  # solo-pool serialises them, so a single worker caps out around 12
-  # events/min wall-clock even when DB/network can deliver more. Three
-  # replicas triple LLM-call concurrency; OpenAI rate limits (30k rpm
-  # gpt-4o-mini for paid tier) leave ~150x headroom even at 3x our peak.
+  # Scaled to 3 replicas (was 1) on 2026-05-06; reduced to 2 on
+  # 2026-05-09 after host-OOM incident — see worker-ingestion comment
+  # for context. Each scoring worker is ~1 GB RSS at peak so 3 replicas
+  # cost ~3 GB of host RAM the CPX31 doesn't have. 2 replicas still
+  # double the original solo throughput and absorb ~24 events/min,
+  # well above current emission peak of ~70/day = 0.05/min.
   # `container_name` removed because compose forbids it with replicas.
   worker-scoring:
     build: .
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 --pool=solo -Q scoring -n scoring@%h
     deploy:
-      replicas: 3
+      replicas: 2
       resources:
         limits:
           memory: 2G
@@ -296,16 +303,17 @@ services:
       - ./prompts:/app/prompts
 
   # ── Worker: markets (CLOB enrichment, isolated) ──────────────────
-  # Memory: 2 GB (was 1 GB → 512 MB historically). Incident 2026-05-08:
-  # cgroup OOM-killed the celery process 5× in ~4 h with anon-rss ≈ 1.03 GB
-  # (very close to the 1 GB cap). Each kill restarted the worker, which
-  # then re-loaded the markets working set and re-OOM'd within the hour.
-  # Net effect upstream: `worker-markets` flapped between Up and dead,
-  # market data went stale, scoring pre-filter starved and signals dried
-  # up. Doubling the cap to 2 GB matches `worker-scoring` and gives the
-  # batch path (`fetch_markets` + percentiles + embedding refresh) the
-  # headroom we observed it actually needs. Host has ~16 GB total — the
-  # extra GB stays well within the budget.
+  # Memory: 1 GB. Reverted from a 2 GB bump on 2026-05-09 — that change
+  # was made under a wrong host-RAM assumption (thought CPX41 / 16 GB,
+  # actually CPX31 / 7.6 GB). The extra GB pushed total `deploy` claim
+  # over the host budget and triggered host-level OOM kills overnight
+  # (postgres + celery, dmesg logs at incident timestamps 91754 / 92304
+  # / 92731). The 1 GB cgroup OOMs we saw on 2026-05-08 were a SYMPTOM
+  # of host pressure, not a cgroup-sizing bug — bumping the cgroup just
+  # moved the OOM up to the host. Real fix is reducing replicas + (TODO)
+  # upgrading the host. Audit 2026-05-05 originally bumped 512 MB → 1 GB
+  # because RSS was at 90.7 % of 512 MB during fetch_markets +
+  # compute_market_percentiles; that 1 GB is the right number.
   worker-markets:
     build: .
     container_name: foresight-worker-markets
@@ -313,7 +321,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 1G
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/signal
