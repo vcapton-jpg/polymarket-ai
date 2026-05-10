@@ -815,3 +815,136 @@ async def _fetch_gdelt_async(queries: list[str] | None = None) -> int:
 @celery_app.task(name="app.workers.tasks_ingestion.fetch_gdelt")
 def fetch_gdelt() -> int:
     return _run_async(_fetch_gdelt_async())
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Phase 4 — Telegram public channels (FirstSquawk, Bloomberg, etc.)
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Bypasses Twitter rate-limit on hot accounts by reading the same content
+# from public Telegram channels. Telethon (user API, not Bot API) talks
+# MTProto direct to Telegram — free, no rate-limit, push latency <2s.
+#
+# Sources are seeded in app/scripts/seed_sources.py with `source_type='telegram'`
+# and URL `https://t.me/<channel_username>`.
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=30)
+def fetch_telegram_channels(self):
+    """Poll all active telegram sources, persist new messages, dispatch processing."""
+    try:
+        return _run_async(_fetch_telegram_async())
+    except Exception as exc:
+        logger.exception("fetch_telegram_channels failed")
+        raise self.retry(exc=exc, throw=False) from exc
+
+
+async def _fetch_telegram_async() -> dict:
+    from urllib.parse import urlparse
+
+    from sqlalchemy import func, select
+
+    from app.core.config import get_settings
+    from app.db.database import get_session_factory
+    from app.db.models import News
+    from app.ingestion.sources_registry import get_sources_by_type
+    from app.ingestion.telegram_scraper import fetch_channel_messages
+    from app.processing.freshness import is_fresh_enough
+
+    settings = get_settings()
+    async_session_factory = get_session_factory()
+
+    sources = await get_sources_by_type("telegram")
+    if not sources:
+        return {"status": "no_sources"}
+
+    inserted = 0
+    duplicates = 0
+    skipped_stale = 0
+    fetched = 0
+    new_ids: list[int] = []
+
+    async with async_session_factory() as session:
+        # Compute the highest external_id seen per source — Telegram message ids
+        # are monotonic int per channel, so this lets the scraper fetch
+        # incrementally (min_id) instead of always pulling the last N messages
+        # and relying on URL dedupe alone.
+        for src in sources:
+            handle = urlparse(src["url"]).path.lstrip("/")
+            if not handle:
+                logger.warning("Telegram source %s has invalid URL: %s",
+                               src["source_name"], src["url"])
+                continue
+
+            # max id already in DB for this source (extracted from t.me URL)
+            row = await session.execute(
+                select(func.max(News.id))
+                .where(News.source_id == src["id"])
+            )
+            # We use News.id only to know if any rows exist; for min_id we
+            # parse the URL suffix of the most recent row.
+            latest = await session.execute(
+                select(News.url)
+                .where(News.source_id == src["id"])
+                .order_by(News.ingestion_date.desc())
+                .limit(1)
+            )
+            latest_url = latest.scalar_one_or_none()
+            min_id = 0
+            if latest_url:
+                try:
+                    min_id = int(latest_url.rstrip("/").rsplit("/", 1)[-1])
+                except (ValueError, IndexError):
+                    min_id = 0
+
+            messages = await fetch_channel_messages(
+                handle,
+                limit=settings.telegram_messages_per_poll,
+                min_id=min_id,
+            )
+            fetched += len(messages)
+
+            for msg in messages:
+                if not is_fresh_enough(
+                    msg.get("publish_date"),
+                    None,
+                    max_age_hours=settings.rss_max_article_age_hours,
+                ):
+                    skipped_stale += 1
+                    continue
+
+                exists = (await session.execute(
+                    select(News.id).where(News.url == msg["url"])
+                )).scalar_one_or_none()
+                if exists:
+                    duplicates += 1
+                    continue
+
+                news_row = News(
+                    url=msg["url"],
+                    title=msg["title"],
+                    text=msg["text"],
+                    source_name=src["source_name"],
+                    source_id=src["id"],
+                    source_tier=src["tier"],
+                    source_weight=src["weight"],
+                    publish_date=msg["publish_date"],
+                )
+                session.add(news_row)
+                await session.flush()
+                new_ids.append(news_row.id)
+                inserted += 1
+
+        await session.commit()
+
+    _dispatch_processing(new_ids)
+
+    result = {
+        "status": "ok",
+        "channels": len(sources),
+        "fetched": fetched,
+        "inserted": inserted,
+        "duplicates": duplicates,
+        "skipped_stale": skipped_stale,
+    }
+    logger.info("fetch_telegram_channels: %s", result)
+    return result
