@@ -156,11 +156,16 @@ _beat_schedule = {
         "options": {"queue": "ingestion"},
     },
     # ── Ingestion — World News API ───────────────────────────────────
-    "fetch-worldnews": {
-        "task": "app.workers.tasks_ingestion.fetch_worldnews",
-        "schedule": settings.worldnews_poll_interval_seconds,
-        "options": {"queue": "ingestion"},
-    },
+    # Disabled 2026-05-10: fetched=50 inserted=0 sur 7+ jours (toutes les
+    # rows déjà connues → max_age_hours=2 + dedupe URL les rejettent toutes).
+    # World News API + 14 country codes WorldNews:* sont actifs en DB mais
+    # produisent 0 rows depuis ≥7j. La task spamme worker-ingestion sans gain.
+    # Pour réactiver : décommenter ci-dessous + audit pourquoi inserted=0.
+    # "fetch-worldnews": {
+    #     "task": "app.workers.tasks_ingestion.fetch_worldnews",
+    #     "schedule": settings.worldnews_poll_interval_seconds,
+    #     "options": {"queue": "ingestion"},
+    # },
     # ── Markets — isolated queue ─────────────────────────────────────
     "fetch-markets": {
         "task": "app.workers.tasks_ingestion.fetch_markets",

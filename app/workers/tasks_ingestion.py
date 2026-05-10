@@ -455,7 +455,15 @@ async def _fetch_rss_async(*, tiers: tuple[int, ...] = (1, 2, 3)) -> dict:
         "duplicates": duplicates,
         "skipped_stale": skipped_stale,
     }
-    logger.info("fetch_rss_feeds: %s", result)
+    fetched = len(articles)
+    if fetched >= 20 and inserted / fetched < 0.05:
+        logger.warning(
+            "fetch_rss_feeds: low yield inserted=%d/fetched=%d (%.1f%%) "
+            "duplicates=%d skipped_stale=%d — sources may be lagging or stale",
+            inserted, fetched, 100 * inserted / fetched, duplicates, skipped_stale,
+        )
+    else:
+        logger.info("fetch_rss_feeds: %s", result)
     return result
 
 
