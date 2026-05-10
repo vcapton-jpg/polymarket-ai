@@ -74,13 +74,27 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
-    # Cap memory at 1 GB with `noeviction` — losing a celery queue key
-    # is worse than failing a write. Without a cap, an unbounded queue
-    # backlog could grow until the host OOMs (audit C.3 cliff scenario).
-    # 1 GB is ~3× peak observed (27 MB) so this is generous insurance.
-    # Persistence stays at the alpine image default (RDB, save 3600 1
-    # 300 100 60 10000) — sufficient for our queue-and-cache workload.
-    command: ["redis-server", "--maxmemory", "1gb", "--maxmemory-policy", "noeviction"]
+    # Cap memory at 1 GB with `volatile-lru` (updated 2026-05-10).
+    #
+    # Previous policy `noeviction` caused production zombification under
+    # load: once 1 GB filled (mostly embcache:* OpenAI embedding cache,
+    # ~94 % of DB 0 keyspace), any client write returned OutOfMemoryError.
+    # Celery workers don't catch this exception cleanly — they heartbeat
+    # but stop consuming tasks (observed 2026-05-10: worker-pipeline
+    # zombie 30+ min, signal emission to 0 until manual restart).
+    #
+    # `volatile-lru` evicts the least-recently-used keys that have a TTL
+    # set. In our DB 0, 12 640 / 12 655 keys have TTL — and all of them
+    # are embcache:* (set by app/processing/embedding_cache.py with a TTL
+    # in the days-range). The 15 keys without TTL are Celery broker
+    # data (queue lists like "pipeline", "scoring", etc.) — these stay
+    # protected. So evictions hit only the regeneratable cache, never
+    # in-flight tasks.
+    #
+    # Cost of an eviction: one OpenAI re-embedding (~$0.00002 per news).
+    # Cost of a worker zombification: 0 signals until manual `restart`.
+    # The tradeoff is clearly in favor of LRU eviction.
+    command: ["redis-server", "--maxmemory", "1gb", "--maxmemory-policy", "volatile-lru"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
