@@ -64,19 +64,28 @@ def _redis_client():
     return redis.Redis.from_url(get_settings().redis_url, decode_responses=True)
 
 
-def _build_client(api_id: str, api_hash: str):
+def _build_client(api_id: str, api_hash: str, session_str: str = ""):
     """Build a TelegramClient with ConnectionTcpObfuscated.
 
     Hetzner egress IPs are DPI-classified on the default plaintext
     MTProto port. The obfuscated transport bypasses that — see
     c195f2e on fix/telegram-obfuscated-connection.
+
+    `session_str` lets the caller resume an existing Telethon session
+    (auth_key + DC routing). When empty, a fresh StringSession() is used.
+    Critical for the send_code → verify_code round-trip: the
+    `phone_code_hash` returned by send_code_request is tied to the
+    auth_key of the connecting client. If verify_code spins up a
+    brand-new session, Telegram refuses the hash with PhoneCodeExpired
+    even though the user-facing code is still fresh. Reuse the session
+    string we serialised after send_code to keep the same auth_key.
     """
     from telethon import TelegramClient
     from telethon.network import ConnectionTcpObfuscated
     from telethon.sessions import StringSession
 
     return TelegramClient(
-        StringSession(),
+        StringSession(session_str) if session_str else StringSession(),
         int(api_id),
         api_hash,
         connection=ConnectionTcpObfuscated,
@@ -156,6 +165,11 @@ async def _async_send_code(api_id: str, api_hash: str, phone: str) -> dict:
         if not phone_code_hash:
             return {"ok": False, "error": "telegram returned no phone_code_hash — cannot proceed"}
 
+        # Serialise the pre-auth session string so verify_code can resume
+        # with the same auth_key. Without this, Telegram returns
+        # PhoneCodeExpiredError because the hash is tied to this auth.
+        session_str = client.session.save()
+
         # Stash in Redis (DB 0) so the verify task can pick up.
         try:
             r = _redis_client()
@@ -166,6 +180,7 @@ async def _async_send_code(api_id: str, api_hash: str, phone: str) -> dict:
                     "api_hash": api_hash,
                     "phone": phone,
                     "phone_code_hash": phone_code_hash,
+                    "session_str": session_str,
                 }),
                 ex=_REDIS_TTL_SECONDS,
             )
@@ -207,8 +222,9 @@ async def _async_verify_code(phone: str, code: str, password: str) -> dict:
     api_id = state["api_id"]
     api_hash = state["api_hash"]
     phone_code_hash = state["phone_code_hash"]
+    session_str = state.get("session_str", "")
 
-    client = _build_client(api_id, api_hash)
+    client = _build_client(api_id, api_hash, session_str=session_str)
     try:
         try:
             await asyncio.wait_for(client.connect(), timeout=20.0)
