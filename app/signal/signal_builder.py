@@ -262,6 +262,11 @@ class SignalBuilder:
             tradability_label=tradability_label,
             market_price_at_signal=market_data.get("last_trade_price"),
             cosine_score=cosine_score,
+            # T-011: stamp the producing model on every new signal so
+            # admin stats can group winrate by `llm_model_version`. Pre-
+            # migration-032 legacy `analysis` rows are NULL — the column
+            # is nullable end-to-end, so this is safe on every path.
+            llm_model_version=(llm_analysis or {}).get("llm_model_version"),
         )
         sig._score_label = score_label
         sig._score_explanation = score_explanation
