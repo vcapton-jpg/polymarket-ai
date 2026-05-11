@@ -292,6 +292,19 @@ _beat_schedule["retention-nightly"] = {
     "options": {"queue": "default"},
 }
 
+# ── Observability — OpenAI cost watch (T-008) ─────────────────────────
+# Daily 24 h roll-up of llm_cost_log grouped by (call_type, model).
+# Same cadence as retention-nightly but offset so they don't run on the
+# same beat tick (the cost task is read-only and tiny — single grouped
+# SELECT — but no reason to bunch them). Fires a Telegram alert when
+# 24 h spend crosses 50 % of `llm_cost_alert_usd` so an operator gets
+# a leading indicator before the circuit breaker drops live signals.
+_beat_schedule["cost-watch-daily"] = {
+    "task": "app.workers.tasks_costs.emit_daily_cost",
+    "schedule": 86400.0,
+    "options": {"queue": "default"},
+}
+
 celery_app.conf.beat_schedule = _beat_schedule
 
 celery_app.autodiscover_tasks([
@@ -307,6 +320,7 @@ celery_app.autodiscover_tasks([
     "app.workers.tasks_ranking_shadow",
     "app.workers.tasks_diagnostics",
     "app.workers.tasks_retention",
+    "app.workers.tasks_costs",
 ])
 
 
