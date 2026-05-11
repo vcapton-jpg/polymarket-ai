@@ -220,6 +220,26 @@ class Settings(BaseSettings):
     # ── LLM cost guardrails ───────────────────────────────────────────────
     llm_cost_alert_usd: float = Field(default=30.0)
 
+    # ── Prompt version — T-009 in docs/PLAN_30D_SIGNAL_QUALITY.md ────────
+    # Selects which `prompts/impact_analysis_<version>.txt` the
+    # ImpactAnalyzer loads at startup. The label is also suffixed onto
+    # the persisted `llm_model_version` so `/admin/stats/extended`
+    # `by_llm_model_version` can split RTP by prompt version, not just
+    # by model.
+    #
+    # v1 (default): the legacy free-form prompt — does NOT see the
+    #               market price. Active since project start.
+    # v2:           price-conditional reasoning — receives
+    #               `market_yes_price` and is required to compare its
+    #               own `implied_yes_probability` to the market before
+    #               recommending a direction. 5 pp edge minimum.
+    #
+    # Switch this to "v2" only AFTER running the offline replay script
+    # (scripts/shadow/compare_impact_v1_v2.py) and validating agreement
+    # rate + disagreement distribution on a representative sample. The
+    # plan calls for this gate to be explicit, not by feel.
+    impact_prompt_version: str = Field(default="v1")
+
     # ── Signup geo-restriction (Legal-PR-1 B3) ────────────────────────────
     # ISO 3166-1 alpha-2 country codes blocked at signup time. US is the
     # primary target (CFTC + Polymarket geofence); UK because the FCA has

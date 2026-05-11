@@ -791,7 +791,19 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 if mid in existing_analysis_mids:
                     return {"market_id": mid, "skipped": True}
 
-                result = await analyzer.analyze(event_full_text, market.question)
+                # T-009: pass the current YES price so the v2 prompt
+                # can reason about edge vs the market. v1 ignores this
+                # arg — keeps the call site uniform across prompt versions.
+                market_yes_price = (
+                    float(market.last_trade_price)
+                    if market.last_trade_price is not None
+                    else None
+                )
+                result = await analyzer.analyze(
+                    event_full_text,
+                    market.question,
+                    market_yes_price=market_yes_price,
+                )
                 if not result:
                     return None
 
