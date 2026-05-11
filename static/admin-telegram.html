@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Foresight — Telegram session setup</title>
+<style>
+  :root {
+    --bg: #0e1014;
+    --panel: #161a22;
+    --panel-2: #1d222c;
+    --border: #2a3140;
+    --text: #e5e9f0;
+    --muted: #8a93a6;
+    --accent: #6ea8ff;
+    --accent-2: #2a72e0;
+    --ok: #4ade80;
+    --err: #f87171;
+    --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  h1 {
+    font-size: 1.4rem;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0 0 24px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .panel.dim { opacity: 0.55; }
+  .panel h2 {
+    font-size: 1rem;
+    margin: 0 0 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 12px 0 4px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  input {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: #535b6e; }
+  button {
+    margin-top: 16px;
+    width: 100%;
+    background: var(--accent-2);
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button:hover:not(:disabled) { background: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 12px;
+    font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--muted);
+    display: none;
+  }
+  .status.show { display: block; }
+  .status.ok { color: var(--ok); border-color: rgba(74, 222, 128, 0.3); }
+  .status.err { color: var(--err); border-color: rgba(248, 113, 113, 0.3); }
+  .status.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.3); }
+  .hint {
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 6px;
+  }
+  .footer {
+    margin-top: 32px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-align: center;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .badge.ok { color: var(--ok); border-color: rgba(74, 222, 128, 0.3); }
+  .badge.err { color: var(--err); border-color: rgba(248, 113, 113, 0.3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Foresight — Telegram session setup</h1>
+  <p class="sub">Connect your Telegram user-session so worker-ingestion can scrape MTProto channels.</p>
+
+  <div class="panel" id="panel-auth">
+    <h2><span class="num">A</span> Admin token <span id="status-badge" class="badge">unchecked</span></h2>
+    <label for="admin-token">X-Admin-Token (from server .env)</label>
+    <input id="admin-token" type="password" autocomplete="off" placeholder="paste ADMIN_TOKEN here" />
+    <div class="hint">Generated server-side with <code>openssl rand -hex 32</code>. Held only in memory.</div>
+    <button id="btn-check-status" type="button">Verify token + status</button>
+    <div id="status-out" class="status"></div>
+  </div>
+
+  <div class="panel" id="panel-start">
+    <h2><span class="num">1</span> Send login code</h2>
+    <label for="api-id">api_id (digits)</label>
+    <input id="api-id" inputmode="numeric" autocomplete="off" placeholder="e.g. 1234567" />
+    <label for="api-hash">api_hash (32 hex chars)</label>
+    <input id="api-hash" autocomplete="off" placeholder="e.g. abcdef0123456789abcdef0123456789" />
+    <label for="phone">phone (international format)</label>
+    <input id="phone" autocomplete="off" placeholder="e.g. +33612345678" />
+    <button id="btn-start" type="button">Send code</button>
+    <div id="start-out" class="status"></div>
+  </div>
+
+  <div class="panel dim" id="panel-verify">
+    <h2><span class="num">2</span> Complete login</h2>
+    <label for="code">code (5 digits, from Telegram app)</label>
+    <input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="e.g. 12345" />
+    <label for="password">2FA password (only if your account has cloud password)</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="leave empty if no 2FA" />
+    <button id="btn-verify" type="button" disabled>Complete login</button>
+    <div id="verify-out" class="status"></div>
+  </div>
+
+  <p class="footer">
+    After success, the worker picks up the new session at the next poll (~30s).
+    No restart needed — beat re-loads env on each fetch.
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var API = "/api/admin/telegram";
+
+  function $(id) { return document.getElementById(id); }
+  function show(el, msg, kind) {
+    el.textContent = msg;
+    el.className = "status show " + (kind || "");
+  }
+  function hide(el) {
+    el.textContent = "";
+    el.className = "status";
+  }
+  function getToken() {
+    return ($("admin-token").value || "").trim();
+  }
+  function ensureToken(outEl) {
+    var t = getToken();
+    if (!t) {
+      show(outEl, "Enter the admin token first.", "err");
+      return null;
+    }
+    return t;
+  }
+  async function post(path, body, token) {
+    var resp;
+    try {
+      resp = await fetch(API + path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Token": token,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      return { ok: false, error: "network error: " + e.message };
+    }
+    var json;
+    try { json = await resp.json(); }
+    catch (e) { return { ok: false, error: "HTTP " + resp.status + " — non-JSON body" }; }
+    if (resp.status === 403) {
+      return { ok: false, error: json.detail || "forbidden" };
+    }
+    if (!resp.ok && !("ok" in json)) {
+      return { ok: false, error: "HTTP " + resp.status + ": " + (json.detail || JSON.stringify(json)) };
+    }
+    return json;
+  }
+  async function getJson(path, token) {
+    var resp;
+    try {
+      resp = await fetch(API + path, {
+        method: "GET",
+        headers: { "X-Admin-Token": token },
+      });
+    } catch (e) {
+      return { ok: false, error: "network error: " + e.message };
+    }
+    var json;
+    try { json = await resp.json(); }
+    catch (e) { return { ok: false, error: "HTTP " + resp.status + " — non-JSON body" }; }
+    if (resp.status === 403) {
+      return { ok: false, error: json.detail || "forbidden" };
+    }
+    return json;
+  }
+  function setBusy(btn, busy, idleLabel, busyLabel) {
+    btn.disabled = busy;
+    btn.textContent = busy ? (busyLabel || "Working…") : idleLabel;
+  }
+  function enableVerifyPanel() {
+    $("panel-verify").classList.remove("dim");
+    $("btn-verify").disabled = false;
+  }
+
+  $("btn-check-status").addEventListener("click", async function () {
+    var out = $("status-out");
+    var badge = $("status-badge");
+    hide(out);
+    var token = ensureToken(out);
+    if (!token) {
+      badge.textContent = "no token";
+      badge.className = "badge err";
+      return;
+    }
+    setBusy(this, true, "Verify token + status", "Checking…");
+    var json = await getJson("/status", token);
+    setBusy(this, false, "Verify token + status");
+    if (json.ok === false || ("error" in json && !("configured" in json))) {
+      badge.textContent = "rejected";
+      badge.className = "badge err";
+      show(out, "Auth failed: " + (json.error || json.detail || "unknown"), "err");
+      return;
+    }
+    badge.textContent = "accepted";
+    badge.className = "badge ok";
+    if (json.configured) {
+      show(out, "Token accepted. Telegram session already configured (length=" + json.len + "). " +
+        "Submitting a new one will overwrite it.", "warn");
+    } else {
+      show(out, "Token accepted. No Telegram session configured yet — proceed below.", "ok");
+    }
+  });
+
+  $("btn-start").addEventListener("click", async function () {
+    var out = $("start-out");
+    hide(out);
+    var token = ensureToken(out); if (!token) return;
+    var api_id = $("api-id").value.trim();
+    var api_hash = $("api-hash").value.trim();
+    var phone = $("phone").value.trim();
+    if (!api_id || !api_hash || !phone) {
+      show(out, "api_id, api_hash and phone are all required.", "err");
+      return;
+    }
+    setBusy(this, true, "Send code", "Sending…");
+    var json = await post("/start", { api_id: api_id, api_hash: api_hash, phone: phone }, token);
+    setBusy(this, false, "Send code");
+    if (json.ok) {
+      show(out, (json.message || "Code sent.") + "\nCheck your Telegram app for a 5-digit code from 'Telegram'.", "ok");
+      enableVerifyPanel();
+      $("code").focus();
+    } else {
+      show(out, "Error: " + (json.error || json.detail || "unknown"), "err");
+    }
+  });
+
+  $("btn-verify").addEventListener("click", async function () {
+    var out = $("verify-out");
+    hide(out);
+    var token = ensureToken(out); if (!token) return;
+    var phone = $("phone").value.trim();
+    var code = $("code").value.trim();
+    var password = $("password").value;
+    if (!phone || !code) {
+      show(out, "phone (from step 1) and code are required.", "err");
+      return;
+    }
+    setBusy(this, true, "Complete login", "Signing in…");
+    var json = await post("/verify", { phone: phone, code: code, password: password }, token);
+    setBusy(this, false, "Complete login");
+    if (json.ok) {
+      var who = json.username ? ("@" + json.username) : ("id=" + json.id);
+      show(out,
+        "Logged in as " + who + " (session length=" + (json.session_len || "?") + " chars).\n" +
+        "Telegram is now connected. The worker will pick it up at the next cycle (~30s).",
+        "ok");
+    } else {
+      var msg = json.error || json.detail || "unknown error";
+      show(out, "Error: " + msg, "err");
+    }
+  });
+})();
+</script>
+</body>
+</html>

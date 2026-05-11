@@ -302,3 +302,17 @@ celery_app.autodiscover_tasks([
     "app.workers.tasks_diagnostics",
     "app.workers.tasks_retention",
 ])
+
+
+# ── Worker-only tasks (telethon) ──────────────────────────────────────
+# `tasks_telegram_admin` imports telethon, which is only installed on
+# the `worker-ingestion` image. The `app` API container would crash at
+# import if we let autodiscovery try to load it there. Import it
+# inside a guarded block so workers register the tasks while the API
+# stays clean. The API dispatches via `celery_app.send_task(...)` by
+# name, which does NOT require the task object to be importable in the
+# caller process.
+try:
+    import app.workers.tasks_telegram_admin  # noqa: F401
+except ImportError as _e:
+    logger.info("tasks_telegram_admin not loaded (likely missing telethon — expected on `app` container): %s", _e)

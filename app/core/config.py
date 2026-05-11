@@ -84,6 +84,16 @@ class Settings(BaseSettings):
     # Not a role column — temporary until we need >1 permission tier.
     admin_emails: str = Field(default="")
 
+    # ── Admin / web admin form ───────────────────────────────────────────
+    # Shared secret for the web admin form at
+    # /static/admin-telegram.html (and its backing endpoints under
+    # /api/admin/telegram/*). Every request to those endpoints must
+    # include `X-Admin-Token: <this value>`; if `admin_token` is unset
+    # or empty, every admin endpoint returns 403 (fail-closed). Set
+    # via the `ADMIN_TOKEN` env var on the host — generate with:
+    #     openssl rand -hex 32
+    admin_token: str | None = Field(default=None)
+
     # ── Push Notifications (VAPID) ────────────────────────────────────
     vapid_private_key: str | None = Field(default=None)
     vapid_public_key: str | None = Field(default=None)
