@@ -19,6 +19,7 @@ Auth model:
      to be able to read them from Telethon.
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -67,22 +68,47 @@ async def get_client() -> Optional[TelegramClient]:
         return None
 
     try:
+        logger.info("Telegram: building client (api_id=%s, session_len=%d)",
+                    settings.telegram_api_id, len(settings.telegram_session_string))
         _client = TelegramClient(
             StringSession(settings.telegram_session_string),
             int(settings.telegram_api_id),
             settings.telegram_api_hash,
         )
-        await _client.connect()
-        if not await _client.is_user_authorized():
+        logger.info("Telegram: connecting (timeout=15s)...")
+        await asyncio.wait_for(_client.connect(), timeout=15.0)
+        logger.info("Telegram: connect() OK, checking authorization (timeout=15s)...")
+        is_auth = await asyncio.wait_for(_client.is_user_authorized(), timeout=15.0)
+        if not is_auth:
             logger.error(
-                "Telegram session string is invalid or expired. Re-run "
+                "Telegram: NOT AUTHORIZED — session string invalid/expired or "
+                "2FA password was required at init but not provided. Re-run "
                 "app.scripts.init_telegram_session and update .env."
             )
             await _client.disconnect()
             _client = None
             return None
-        logger.info("Telegram client connected (user session)")
+        me = await asyncio.wait_for(_client.get_me(), timeout=10.0)
+        logger.info(
+            "Telegram client connected as @%s (id=%s) — user session OK",
+            getattr(me, "username", "<no-username>"), getattr(me, "id", "?"),
+        )
         return _client
+    except asyncio.TimeoutError:
+        logger.error(
+            "Telegram: TIMEOUT during init (>15s on connect/authorize). "
+            "Likely causes: (1) Hetzner egress blocking 149.154.x.x:443 "
+            "for some packets after handshake, (2) session string is for a "
+            "different DC and migration hangs, (3) account requires re-auth. "
+            "Drop client and retry next cycle."
+        )
+        try:
+            if _client:
+                await _client.disconnect()
+        except Exception:
+            pass
+        _client = None
+        return None
     except Exception as e:
         logger.exception("Telegram client init failed: %s", e)
         _client = None
@@ -112,7 +138,10 @@ async def fetch_channel_messages(
 
     handle = channel_username.lstrip("@")
     try:
-        entity = await client.get_entity(handle)
+        entity = await asyncio.wait_for(client.get_entity(handle), timeout=15.0)
+    except asyncio.TimeoutError:
+        logger.error("Telegram: get_entity(@%s) timeout >15s — dropping", handle)
+        return []
     except (UsernameInvalidError, UsernameNotOccupiedError):
         logger.warning("Telegram channel @%s does not exist", handle)
         return []
@@ -137,7 +166,13 @@ async def fetch_channel_messages(
         return []
 
     try:
-        messages = await client.get_messages(entity, limit=limit, min_id=min_id)
+        messages = await asyncio.wait_for(
+            client.get_messages(entity, limit=limit, min_id=min_id),
+            timeout=15.0,
+        )
+    except asyncio.TimeoutError:
+        logger.error("Telegram: get_messages(@%s) timeout >15s — dropping", handle)
+        return []
     except FloodWaitError as e:
         logger.warning(
             "Telegram FloodWait %ss on get_messages(@%s) — backing off",
