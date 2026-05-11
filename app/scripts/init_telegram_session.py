@@ -41,6 +41,7 @@ and lives only on the VPS. To revoke: Telegram app → Settings → Devices
 
 import asyncio
 import getpass
+import os
 
 from telethon import TelegramClient
 from telethon.sessions import StringSession
@@ -84,6 +85,37 @@ async def main() -> None:
         print(f"\nAlso written to {creds_path} (cat it if scrollback is lost).")
     except OSError as e:
         print(f"\n[warn] could not write {creds_path}: {e}")
+
+    # If the host `.env` was mounted via docker-compose (see compose volume
+    # `./.env:/opt/host-env`), patch it directly: strip out any existing
+    # TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_SESSION_STRING lines
+    # (and any dash-cased variants left over by paste corruption) and append
+    # fresh ones. This is the zero-copy-paste path for restricted consoles.
+    host_env = "/opt/host-env"
+    if os.path.exists(host_env) and os.access(host_env, os.W_OK):
+        try:
+            with open(host_env) as f:
+                lines = f.readlines()
+            prefixes_to_strip = (
+                "TELEGRAM_API_ID=", "TELEGRAM_API_HASH=", "TELEGRAM_SESSION_STRING=",
+                "TELEGRAM-API-ID=", "TELEGRAM-API-HASH=", "TELEGRAM-SESSION-STRING=",
+            )
+            keep = [l for l in lines if not l.startswith(prefixes_to_strip)]
+            # Trim trailing blank/comment-only lines, then append cleanly
+            while keep and keep[-1].strip() == "":
+                keep.pop()
+            keep.append("\n# Telegram user-session credentials (auto-written by init_telegram_session.py)\n")
+            keep.append(f"TELEGRAM_API_ID={api_id}\n")
+            keep.append(f"TELEGRAM_API_HASH={api_hash}\n")
+            keep.append(f"TELEGRAM_SESSION_STRING={session_string}\n")
+            with open(host_env, "w") as f:
+                f.writelines(keep)
+            print(f"\n✓ Updated host {host_env} directly — no copy-paste needed.")
+            print("  Restart the workers to pick up the new env vars:")
+            print("    docker compose -f /opt/foresight/docker-compose.yml restart worker-ingestion beat")
+            return
+        except OSError as e:
+            print(f"\n[warn] could not patch {host_env}: {e} — fall back to manual paste below")
 
     print()
     print("Next steps:")

@@ -218,6 +218,10 @@ services:
       - ./prompts:/app/prompts
       - ./data/x_scraper_inbox:/app/data/x_scraper_inbox
       - ./data/x_scraper_processed:/app/data/x_scraper_processed
+      # Mount the host `.env` so init_telegram_session.py can rewrite the
+      # TELEGRAM_* lines directly — bypasses copy-paste in restricted web
+      # consoles (Hetzner) that mangle underscores. Read-write is required.
+      - ./.env:/opt/host-env
 
   # ── Worker: pipeline (process_article + embed + backfill) ─────────
   worker-pipeline:
