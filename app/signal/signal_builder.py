@@ -183,6 +183,28 @@ class SignalBuilder:
                         _eid, y, settings.buyno_lowprice_filter_threshold,
                     )
                     return None
+
+                # T-013: mirror of T-001 — drop BUY_NO when YES is already
+                # high. Audit 2026-05-12 on 30 d (after T-001 was active):
+                # BUY_NO × YES≥0.70 → n=70, RTP −4.57 %, a contrarian bet
+                # against the market consensus that loses in expectation.
+                # Combined backtest (T-001 + T-013): RTP −1.75 % → +6.42 %,
+                # retention 60 %, t-stat 1.82 (~93 % conf). See
+                # docs/measurements/buyno_band_exploration_2026-05-12.md.
+                # Toggle OFF by default — flip after the v2 prompt
+                # rollout has had a clean 7-day window so the two
+                # interventions don't confound each other on the
+                # by_llm_model_version metric.
+                if (
+                    settings.enable_buyno_highprice_filter
+                    and direction == "BUY_NO"
+                    and y >= settings.buyno_highprice_filter_threshold
+                ):
+                    logger.info(
+                        "[%s] REJECT BUY_NO × high YES price %.4f >= %.2f (T-013 mirror zone)",
+                        _eid, y, settings.buyno_highprice_filter_threshold,
+                    )
+                    return None
         else:
             logger.info("[%s] REJECT no LLM analysis", _eid)
             return None

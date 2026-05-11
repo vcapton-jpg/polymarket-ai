@@ -217,6 +217,16 @@ class Settings(BaseSettings):
     enable_buyno_lowprice_filter: bool = Field(default=True)
     buyno_lowprice_filter_threshold: float = Field(default=0.30)
 
+    # T-013 in docs/PLAN_30D_SIGNAL_QUALITY.md — mirror of T-001 on the
+    # other side of the price band. Disabled by default until the v2
+    # prompt rollout (T-009, flipped 2026-05-11 22:08 UTC) has had a
+    # clean 7-day measurement window. Backtest signal:
+    #   T-001 alone:        RTP +4.68 %, retention 70 %
+    #   T-001 + T-013:      RTP +6.42 %, retention 60 %  (t=1.82 ~93%)
+    # Flip via `ENABLE_BUYNO_HIGHPRICE_FILTER=true` in /opt/foresight/.env.
+    enable_buyno_highprice_filter: bool = Field(default=False)
+    buyno_highprice_filter_threshold: float = Field(default=0.70)
+
     # ── LLM cost guardrails ───────────────────────────────────────────────
     llm_cost_alert_usd: float = Field(default=30.0)
 
