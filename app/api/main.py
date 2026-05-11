@@ -27,7 +27,14 @@ logging.basicConfig(
 )
 
 from app.core.config import get_settings, log_active_config  # noqa: E402
+from app.core.sentry_init import init_sentry  # noqa: E402
 from app.db.database import engine  # noqa: E402
+
+# Sentry must initialize BEFORE FastAPI's app instance is created so the
+# auto-instrumenting FastApiIntegration sees the constructor call.
+# `init_sentry` is idempotent + no-op without a DSN, so dev/CI keep
+# booting silently.
+init_sentry(component="api")
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

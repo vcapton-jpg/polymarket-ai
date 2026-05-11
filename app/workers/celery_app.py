@@ -27,9 +27,15 @@ from celery import Celery
 from celery.signals import task_postrun, worker_ready
 
 from app.core.config import get_settings, log_active_config
+from app.core.sentry_init import init_sentry
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Sentry init has to happen before any task can run so the
+# CeleryIntegration auto-wires up its task-execution hooks. Like the
+# API side, this is a silent no-op when SENTRY_DSN is unset.
+init_sentry(component="celery")
 
 
 # ── Worker recycling (memory leak mitigation) ──────────────────────────

@@ -150,6 +150,21 @@ class Settings(BaseSettings):
     # Audit follow-up: replaces the prior `allow_origins=["*"]` in main.py.
     cors_extra_origins: str = Field(default="")
 
+    # ── Sentry (observability) ────────────────────────────────────────────
+    # T-006 in docs/PLAN_30D_SIGNAL_QUALITY.md. The DSN is the only
+    # required field — when unset Sentry init is skipped silently (so
+    # `pytest` and local dev never need the project). `sentry_environment`
+    # surfaces in the Sentry UI as a tag; default mirrors `env`.
+    #
+    # `traces_sample_rate=0.05` keeps the budget low: at ~50 req/min on
+    # the API and ~5k Celery tasks/h, this caps spans at ~250/min API +
+    # ~250/h Celery = ~6k spans/h, well below the free-tier 10k limit.
+    # Errors are always captured (no sample rate on `capture_exception`).
+    sentry_dsn: str | None = Field(default=None)
+    sentry_environment: str | None = Field(default=None)
+    sentry_traces_sample_rate: float = Field(default=0.05)
+    sentry_release: str | None = Field(default=None)
+
     # ── Ingestion intervals (seconds) ─────────────────────────────────────
     # Slow cadence for tier-2/3 sources (commentary, World News API,
     # less-active X accounts).
