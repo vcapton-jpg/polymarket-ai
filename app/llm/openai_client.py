@@ -135,9 +135,20 @@ async def _record_call_cost(cost_usd: float) -> None:
 
 
 def _reset_cost_state_for_tests() -> None:
-    """Test-only — drop the cached total so each test starts clean."""
+    """Test-only — drop the cached total so each test starts clean.
+
+    `fetched_at_monotonic` must be set far enough in the past that the
+    `is_stale` check in `_ensure_under_budget` always fires on the first
+    call after a reset. Using 0.0 was buggy on a fresh Python interpreter
+    where `time.monotonic()` itself returns < 60s — `now - 0.0 < TTL`,
+    so the cache was considered fresh and the mocked DB fetch was never
+    called. Surfaced on CI run 25700433718 (PR #104) where my new test
+    module shifted timings just enough to expose the latent bug.
+    """
     _COST_STATE["total_usd_24h"] = 0.0
-    _COST_STATE["fetched_at_monotonic"] = 0.0
+    # Negative infinity — guarantees `now - last_fetch >= TTL` for any
+    # reasonable TTL the breaker uses.
+    _COST_STATE["fetched_at_monotonic"] = float("-inf")
 
 
 CHAT_COMPLETION_TIMEOUT_SECONDS = 45.0
