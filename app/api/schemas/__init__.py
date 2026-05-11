@@ -11,7 +11,7 @@ class HealthResponse(BaseModel):
     status: str  # "healthy" | "degraded"
     version: str
     env: str
-    workers: Optional[dict[str, bool]] = None
+    workers: dict[str, bool] | None = None
 
 
 # ── Markets ───────────────────────────────────────────────────────────
@@ -20,20 +20,20 @@ class MarketOut(BaseModel):
 
     market_id: str
     question: str
-    description: Optional[str] = None
-    category: Optional[str] = None
-    tags: Optional[list[str]] = None
-    end_date: Optional[datetime] = None
+    description: str | None = None
+    category: str | None = None
+    tags: list[str] | None = None
+    end_date: datetime | None = None
     active: bool
     closed: bool
-    volume_24h: Optional[float] = None
-    liquidity: Optional[float] = None
-    best_bid: Optional[float] = None
-    best_ask: Optional[float] = None
-    spread: Optional[float] = None
-    last_trade_price: Optional[float] = None
-    liquidity_pct: Optional[float] = None
-    volume_24h_pct: Optional[float] = None
+    volume_24h: float | None = None
+    liquidity: float | None = None
+    best_bid: float | None = None
+    best_ask: float | None = None
+    spread: float | None = None
+    last_trade_price: float | None = None
+    liquidity_pct: float | None = None
+    volume_24h_pct: float | None = None
     updated_at: datetime
 
 
@@ -48,10 +48,10 @@ class EventOut(BaseModel):
 
     id: int
     event_title: str
-    event_summary: Optional[str] = None
-    key_entities: Optional[list[str]] = None
-    event_type: Optional[str] = None
-    bucket: Optional[str] = None
+    event_summary: str | None = None
+    key_entities: list[str] | None = None
+    event_type: str | None = None
+    bucket: str | None = None
     articles_count: int
     unique_sources_count: int
     first_seen: datetime
@@ -72,54 +72,54 @@ class SignalOut(BaseModel):
     event_id: int
     market_id: str
     signal_score: float
-    signal_strength: Optional[float] = None
-    trade_quality: Optional[float] = None
+    signal_strength: float | None = None
+    trade_quality: float | None = None
     direction: str
-    confidence_label: Optional[str] = None
-    urgency_label: Optional[str] = None
-    tradability_label: Optional[str] = None
-    market_price_at_signal: Optional[float] = None
-    dedupe_key: Optional[str] = None
-    score_label: Optional[str] = None
-    score_explanation: Optional[str] = None
-    window_estimate: Optional[str] = None
-    yes_probability_explanation: Optional[str] = None
-    event_title: Optional[str] = None
-    market_question: Optional[str] = None
+    confidence_label: str | None = None
+    urgency_label: str | None = None
+    tradability_label: str | None = None
+    market_price_at_signal: float | None = None
+    dedupe_key: str | None = None
+    score_label: str | None = None
+    score_explanation: str | None = None
+    window_estimate: str | None = None
+    yes_probability_explanation: str | None = None
+    event_title: str | None = None
+    market_question: str | None = None
     created_at: datetime
 
 
 class LlmAnalysisOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    impact_direction: Optional[str] = None
-    impact_strength: Optional[float] = None
-    llm_confidence: Optional[float] = None
-    specificity_score: Optional[float] = None
-    catalysts: Optional[list] = None
-    risks: Optional[list] = None
-    reasoning: Optional[str] = None
+    impact_direction: str | None = None
+    impact_strength: float | None = None
+    llm_confidence: float | None = None
+    specificity_score: float | None = None
+    catalysts: list | None = None
+    risks: list | None = None
+    reasoning: str | None = None
 
 
 class SignalDetailOut(SignalOut):
-    event: Optional[EventOut] = None
-    market: Optional[MarketOut] = None
+    event: EventOut | None = None
+    market: MarketOut | None = None
     outcome: Optional["SignalOutcomeOut"] = None
-    analysis: Optional[LlmAnalysisOut] = None
+    analysis: LlmAnalysisOut | None = None
 
 
 class SignalOutcomeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     signal_id: int
-    price_t5min: Optional[float] = None
-    price_t15min: Optional[float] = None
-    price_t1h: Optional[float] = None
-    price_t24h: Optional[float] = None
-    price_resolved: Optional[float] = None
-    direction_correct: Optional[bool] = None
-    outcome_label: Optional[int] = None
-    move_t5min_pct: Optional[float] = None
+    price_t5min: float | None = None
+    price_t15min: float | None = None
+    price_t1h: float | None = None
+    price_t24h: float | None = None
+    price_resolved: float | None = None
+    direction_correct: bool | None = None
+    outcome_label: int | None = None
+    move_t5min_pct: float | None = None
 
 
 class SignalListResponse(BaseModel):
@@ -132,7 +132,7 @@ class AccuracyResponse(BaseModel):
     total_signals: int
     resolved_signals: int
     correct_signals: int
-    accuracy_pct: Optional[float] = None
+    accuracy_pct: float | None = None
     by_bucket: dict[str, dict] = {}
 
 
@@ -145,15 +145,15 @@ class CostResponse(BaseModel):
 # ── Pipeline health ──────────────────────────────────────────────────
 class IngestionHealthResponse(BaseModel):
     sources: list[dict]
-    tier1_median_lag_seconds: Optional[float] = None
+    tier1_median_lag_seconds: float | None = None
     alert: bool = False
 
 
 # ── Pipeline status ───────────────────────────────────────────────────
 class PipelineStatusResponse(BaseModel):
-    last_article_ingested: Optional[datetime] = None
-    last_event_created: Optional[datetime] = None
-    last_signal_created: Optional[datetime] = None
+    last_article_ingested: datetime | None = None
+    last_event_created: datetime | None = None
+    last_signal_created: datetime | None = None
     events_pending: int = 0
     active_workers: int = 0
 
@@ -162,14 +162,14 @@ class PipelineStatusResponse(BaseModel):
 class SimulatedPnlResponse(BaseModel):
     total_signals: int
     resolved_signals: int
-    simulated_pnl_pct: Optional[float] = None
-    win_rate: Optional[float] = None
+    simulated_pnl_pct: float | None = None
+    win_rate: float | None = None
     wins: int = 0
     losses: int = 0
-    avg_win_move_pct: Optional[float] = None
-    avg_loss_move_pct: Optional[float] = None
-    best_signal: Optional[dict] = None
-    worst_signal: Optional[dict] = None
+    avg_win_move_pct: float | None = None
+    avg_loss_move_pct: float | None = None
+    best_signal: dict | None = None
+    worst_signal: dict | None = None
     by_direction: dict = {}
     by_score_tier: dict = {}
 
@@ -179,11 +179,11 @@ class DashboardKpisResponse(BaseModel):
     total_signals: int
     signals_today: int
     resolved_signals: int
-    win_rate: Optional[float] = None
+    win_rate: float | None = None
     wins: int = 0
     losses: int = 0
-    best_signal: Optional[dict] = None
-    avg_score: Optional[float] = None
+    best_signal: dict | None = None
+    avg_score: float | None = None
     streak: int = 0
     streak_type: str = ""
 
@@ -192,7 +192,7 @@ class DashboardKpisResponse(BaseModel):
 class TrackRecordResponse(BaseModel):
     total_signals: int
     resolved_signals: int
-    overall_win_rate: Optional[float] = None
+    overall_win_rate: float | None = None
     weekly: list[dict] = []
     by_bucket: dict = {}
     recent_resolved: list[dict] = []

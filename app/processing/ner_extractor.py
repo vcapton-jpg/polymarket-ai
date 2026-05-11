@@ -21,7 +21,7 @@ class NERExtractor:
             model_name: Name of the spaCy model to use.
         """
         self.model_name = model_name
-        self._nlp: Optional[spacy.language.Language] = None
+        self._nlp: spacy.language.Language | None = None
 
     def _load_model(self) -> spacy.language.Language:
         """Load the spaCy model."""

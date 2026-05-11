@@ -54,7 +54,7 @@ def send_push_to_all(title: str, body: str, url: str = "/dashboard", tag: str | 
     Called from tasks_scoring when a high-value signal is created."""
     try:
         import redis as _redis
-        from pywebpush import webpush, WebPushException
+        from pywebpush import WebPushException, webpush
         settings = get_settings()
 
         vapid_private = settings.vapid_private_key

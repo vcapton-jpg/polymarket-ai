@@ -9,7 +9,10 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.database import get_session_factory
 from app.db.models import (
-    Market, Signal, SignalArticle, SignalPrediction,
+    Market,
+    Signal,
+    SignalArticle,
+    SignalPrediction,
 )
 from app.llm.reasoning_analyzer import get_reasoning_analyzer
 from app.sourcing.article_ranker import ArticleRanker

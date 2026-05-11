@@ -1,7 +1,7 @@
 """Signal builder — creates Signal rows from scored event-market pairs."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.db.models import Signal
 from app.scoring.feature_builder import create_feature_builder
@@ -60,8 +60,8 @@ def _estimate_window(market_data: dict) -> str | None:
         except ValueError:
             return None
     if end_date.tzinfo is None:
-        end_date = end_date.replace(tzinfo=timezone.utc)
-    hours_left = (end_date - datetime.now(timezone.utc)).total_seconds() / 3600
+        end_date = end_date.replace(tzinfo=UTC)
+    hours_left = (end_date - datetime.now(UTC)).total_seconds() / 3600
     if hours_left <= 0:
         return "Resolving now"
     if hours_left <= 24:
@@ -190,7 +190,7 @@ class SignalBuilder:
         ref_dt = (
             event_data.get("last_seen")
             or event_data.get("first_seen")
-            or datetime.now(timezone.utc)
+            or datetime.now(UTC)
         )
 
         source_count = event_data.get("unique_sources_count", 1)

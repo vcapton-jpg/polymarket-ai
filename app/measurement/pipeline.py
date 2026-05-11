@@ -12,7 +12,7 @@ Celery task (chantier #2).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 async def record_baselines(
-    session: "AsyncSession",
+    session: AsyncSession,
     *,
     signal_id: int,
     ctx: ScoringContext,
@@ -115,7 +115,7 @@ async def record_baselines(
 
 
 async def record_baselines_for_signal(
-    session: "AsyncSession",
+    session: AsyncSession,
     *,
     signal: Signal,
     articles: list[dict] | None,
@@ -151,7 +151,7 @@ async def record_baselines_for_signal(
             event_id=signal.event_id,
             market_price=float(signal.market_price_at_signal or 0.0),
             articles=articles,
-            t0=datetime.now(timezone.utc),
+            t0=datetime.now(UTC),
             market_price_24h_ago=market_price_24h_ago,
         )
         return await record_baselines(
@@ -208,7 +208,7 @@ def _binary_from_resolved(price_resolved: float) -> int | None:
 
 
 async def record_prediction_resolution(
-    session: "AsyncSession",
+    session: AsyncSession,
     *,
     signal_id: int,
     price_resolved: float,
@@ -221,7 +221,7 @@ async def record_prediction_resolution(
     """
     resolved_binary = _binary_from_resolved(price_resolved)
     expected_direction = "BUY_YES" if price_resolved >= 0.5 else "BUY_NO"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     rows = (
         await session.execute(

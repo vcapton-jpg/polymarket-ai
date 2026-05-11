@@ -40,8 +40,8 @@ import importlib
 import json
 import math
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 # Add repo root to sys.path so `from app.db.database import ...` works.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -49,7 +49,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 
-def wilson_ci_95(wins: int, n: int) -> tuple[Optional[float], Optional[float]]:
+def wilson_ci_95(wins: int, n: int) -> tuple[float | None, float | None]:
     """Wilson score 95% interval (lower, upper) in percentage points."""
     if n <= 0:
         return None, None
@@ -71,7 +71,7 @@ def signed_pnl_pct(direction: str, move_pct: float) -> float:
     return 0.0
 
 
-def is_win(direction: str, move_pct: float) -> Optional[bool]:
+def is_win(direction: str, move_pct: float) -> bool | None:
     """Tri-state: True (win) / False (loss) / None (tie, move == 0)."""
     if move_pct == 0:
         return None
@@ -189,7 +189,7 @@ def evaluate(rule_fn: Callable[[dict], bool], signals: list[dict]) -> dict:
     }
 
 
-def print_markdown_report(rule_name: str, window_days: int, baseline: dict, candidate: Optional[dict] = None) -> None:
+def print_markdown_report(rule_name: str, window_days: int, baseline: dict, candidate: dict | None = None) -> None:
     """Pretty-print to stdout. If `candidate` given, also print baseline-vs-candidate delta table."""
     print()
     print(f"# Backtest report — rule=`{rule_name}` window={window_days}d")

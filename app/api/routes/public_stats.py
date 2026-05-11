@@ -21,8 +21,7 @@ and a once-per-minute round-trip per worker is negligible.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -31,7 +30,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db_session
 from app.db.models import Market, Position, Signal, SignalOutcome
-
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -46,11 +44,11 @@ class PublicStatsOut(BaseModel):
     active_traders_week: int
     # Pipeline freshness — minutes since the most recent signal, or null
     # when the DB has no signals yet.
-    last_signal_minutes_ago: Optional[int]
+    last_signal_minutes_ago: int | None
     # Quality signal — direction-correct ratio at +1h horizon over the
     # last 30 days. Returns null + n=0 until at least 30 resolved
     # signals exist (any narrower sample is too noisy to publish).
-    win_rate_1h_pct: Optional[float]
+    win_rate_1h_pct: float | None
     win_rate_sample_size: int
     win_rate_window_days: int
 
@@ -66,7 +64,7 @@ async def _compute_public_stats(db: AsyncSession) -> PublicStatsOut:
     bounded by either a primary-key scan or an indexed `created_at`
     range so the total cost is sub-millisecond on the production DB.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_cutoff = now - timedelta(days=7)
     win_rate_cutoff = now - timedelta(days=WIN_RATE_WINDOW_DAYS)
@@ -88,7 +86,7 @@ async def _compute_public_stats(db: AsyncSession) -> PublicStatsOut:
     last_signal_at = (
         await db.execute(select(func.max(Signal.created_at)))
     ).scalar_one_or_none()
-    last_signal_minutes_ago: Optional[int] = None
+    last_signal_minutes_ago: int | None = None
     if last_signal_at is not None:
         delta = now - last_signal_at
         last_signal_minutes_ago = max(0, int(delta.total_seconds() // 60))
@@ -123,7 +121,7 @@ async def _compute_public_stats(db: AsyncSession) -> PublicStatsOut:
     )
     win_rate_sample_size = sample_size_q.scalar_one()
 
-    win_rate_1h_pct: Optional[float] = None
+    win_rate_1h_pct: float | None = None
     if win_rate_sample_size >= WIN_RATE_MIN_SAMPLE:
         wins_q = await db.execute(
             select(func.count(Signal.id))

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 
-
 # Z-score for 95% two-sided confidence (1.959963984540054)
 _Z95 = 1.959963984540054
 

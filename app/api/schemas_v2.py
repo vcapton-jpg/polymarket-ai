@@ -8,10 +8,9 @@ can drop them straight into the UI with zero client-side mapping.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
-
 
 Category = Literal[
     "geopolitics", "politics", "economics", "crypto", "sports", "science"
@@ -77,7 +76,7 @@ class SignalCardOut(BaseModel):
     sourcesCount: int = 0
     lifePercent: int
     polymarketUrl: str
-    image: Optional[str] = None
+    image: str | None = None
     createdAt: datetime
 
 
@@ -89,10 +88,10 @@ class SignalSourceOut(BaseModel):
     url: str
     sourceName: str
     sourceTier: Literal[1, 2, 3]
-    sourceWeight: Optional[float] = None
-    publishDate: Optional[str] = None
-    excerpt: Optional[str] = None
-    relevanceScore: Optional[float] = None
+    sourceWeight: float | None = None
+    publishDate: str | None = None
+    excerpt: str | None = None
+    relevanceScore: float | None = None
     role: Literal["primary", "supporting"] = "supporting"
 
 
@@ -102,17 +101,17 @@ class TimelineEventOut(BaseModel):
     at: str
     source: str
     type: Literal["news", "market_move"] = "news"
-    headline: Optional[str] = None
-    detail: Optional[str] = None
+    headline: str | None = None
+    detail: str | None = None
 
 
 class OutcomeOut(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    directionCorrect: Optional[bool] = None
-    finalPrice: Optional[float] = None
-    basePrice: Optional[float] = None
-    movePct: Optional[float] = None
+    directionCorrect: bool | None = None
+    finalPrice: float | None = None
+    basePrice: float | None = None
+    movePct: float | None = None
     learningPoint: str
 
 
@@ -123,15 +122,15 @@ class SignalDetailOut(SignalCardOut):
     enriched content from LlmAnalysis + EventNewsLink chain.
     """
 
-    reasoning: Optional[str] = None
-    llmModelVersion: Optional[str] = None
+    reasoning: str | None = None
+    llmModelVersion: str | None = None
     # Stored as shares per tier (e.g. {"tier_1": 0.6, "tier_2": 0.4}) by
     # tasks_scoring._run_full_scoring_pipeline. dict[str, float] (not int)
     # so 1.0/0.6 don't get truncated on the wire.
-    sourceTierMix: Optional[dict[str, float]] = None
+    sourceTierMix: dict[str, float] | None = None
     detailedSources: list[SignalSourceOut] = []
     timeline: list[TimelineEventOut] = []
-    outcome: Optional[OutcomeOut] = None
+    outcome: OutcomeOut | None = None
 
 
 class SignalListOut(BaseModel):

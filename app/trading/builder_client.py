@@ -2,16 +2,15 @@
 
 import asyncio
 import logging
-from typing import Optional
 
 from py_clob_client_v2.client import ClobClient
 from py_clob_client_v2.clob_types import (
     ApiCreds,
-    OrderArgsV2,
     MarketOrderArgsV2,
+    OrderArgsV2,
+    OrderPayload,
     OrderType,
     PartialCreateOrderOptions,
-    OrderPayload,
 )
 from py_clob_client_v2.order_utils.model.side import Side
 
@@ -37,7 +36,7 @@ def get_user_clob_client(safe_address: str) -> ClobClient:
     if not s.builder_private_key:
         raise RuntimeError("BUILDER_PRIVATE_KEY not configured")
 
-    creds: Optional[ApiCreds] = None
+    creds: ApiCreds | None = None
     if s.builder_api_key and s.builder_api_secret and s.builder_api_passphrase:
         creds = ApiCreds(
             api_key=s.builder_api_key,
@@ -70,7 +69,7 @@ class BuilderTradeClient:
 
     def __init__(self, safe_address: str):
         self._safe_address = safe_address
-        self._client: Optional[ClobClient] = None
+        self._client: ClobClient | None = None
         self._settings = get_settings()
 
     def _get_client(self) -> ClobClient:
@@ -171,7 +170,7 @@ class BuilderTradeClient:
             logger.error("Market order failed: %s", e, exc_info=True)
             return {"success": False, "order_id": None, "error": str(e)}
 
-    async def get_order(self, order_id: str) -> Optional[dict]:
+    async def get_order(self, order_id: str) -> dict | None:
         """Fetch a single order by ID."""
         client = self._get_client()
         try:
@@ -193,7 +192,7 @@ class BuilderTradeClient:
             logger.error("Cancel failed: %s", e, exc_info=True)
             return {"success": False, "error": str(e)}
 
-    async def get_open_orders(self, market_id: Optional[str] = None) -> list:
+    async def get_open_orders(self, market_id: str | None = None) -> list:
         """Return all open orders, optionally filtered by market."""
         client = self._get_client()
         try:
@@ -206,7 +205,7 @@ class BuilderTradeClient:
             logger.error("get_open_orders failed: %s", e, exc_info=True)
             return []
 
-    async def get_price_yes(self, condition_id: str) -> Optional[float]:
+    async def get_price_yes(self, condition_id: str) -> float | None:
         """Return the current YES price for a market."""
         client = self._get_client()
         try:

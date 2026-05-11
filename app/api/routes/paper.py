@@ -7,7 +7,9 @@ from sqlalchemy import select
 
 from app.api.routes.auth import get_current_user  # NOT app.api.deps
 from app.api.schemas.learn_and_trade import (
-    PaperPositionOut, PaperPositionsOut, PaperTradeIn,
+    PaperPositionOut,
+    PaperPositionsOut,
+    PaperTradeIn,
 )
 from app.db.database import get_session_factory
 from app.db.models import PaperPosition, UserProfile

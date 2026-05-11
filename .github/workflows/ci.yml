@@ -1,0 +1,80 @@
+name: ci
+
+# T-004 in docs/PLAN_30D_SIGNAL_QUALITY.md.
+# Baseline gate on every PR + push to main : ruff lint, smoke imports,
+# pytest unit suite. Integration tests need Postgres+Redis and are skipped
+# here; they run on the VPS pre-deploy if needed.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-flight runs when a PR is force-pushed.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: lint + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Cache uv venv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          # Cache key tracks pyproject + uv.lock so a dep bump
+          # invalidates automatically.
+          key: uv-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-py311-
+
+      - name: Install dependencies
+        # `--frozen` enforces lockfile, prevents drift in CI.
+        run: uv sync --frozen --extra dev
+
+      - name: Ruff lint
+        run: uv run ruff check app/ scripts/
+
+      - name: Smoke import (catches NameError, ImportError, syntax in app/)
+        # Important: must succeed BEFORE we touch DB-dependent tests.
+        run: |
+          uv run python -c "from app.api.main import app; print('app import OK')"
+          uv run python -c "from app.workers.celery_app import celery_app; print('celery import OK')"
+
+      - name: Pytest unit
+        # `-m "not integration"` skips DB-bound tests (auto-marked via
+        # tests/conftest.py — any test pulling `async_db_factory` /
+        # `async_db_engine` is treated as integration). No DB on the runner.
+        # OPENAI_API_KEY dummy lets singleton-construction tests pass
+        # (`tests/unit/llm/test_llm_singletons.py`) — they pin object
+        # identity, not real API calls.
+        env:
+          OPENAI_API_KEY: sk-ci-test-dummy
+        run: uv run pytest tests/unit -x --maxfail=5 -q -m "not integration"
+
+      - name: Schema invariant (smoke)
+        # T-026 follow-up: make sure all SQLAlchemy models still import
+        # cleanly together (catches future drift like the 2026-05-08
+        # INTEGER→BIGINT bug on news_clean.simhash).
+        run: |
+          uv run python -c "from app.db.models import *; print('models OK')"

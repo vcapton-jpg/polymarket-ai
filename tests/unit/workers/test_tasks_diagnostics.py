@@ -12,6 +12,10 @@ import pytest
 
 from app.db.models import Event
 
+# Integration: imports the live Celery app which probes the broker on
+# task-registry build. CI unit gate skips via `-m "not integration"`.
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio
 async def test_emit_diversity_distribution_returns_histogram(async_db_factory, monkeypatch):

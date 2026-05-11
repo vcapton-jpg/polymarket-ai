@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from app.core.config import get_settings
 from app.llm.openai_client import get_openai_client
@@ -150,10 +150,10 @@ def create_reasoning_analyzer() -> ReasoningAnalyzer:
 # for the rationale (H9 audit follow-up 2026-05-05). Same shape: wrapper
 # allocated once, prompt file read once, underlying OpenAIClient already
 # singleton.
-_reasoning_analyzer_singleton: Optional["ReasoningAnalyzer"] = None
+_reasoning_analyzer_singleton: Optional[ReasoningAnalyzer] = None
 
 
-def get_reasoning_analyzer() -> "ReasoningAnalyzer":
+def get_reasoning_analyzer() -> ReasoningAnalyzer:
     """Return the process-wide `ReasoningAnalyzer` singleton."""
     global _reasoning_analyzer_singleton
     if _reasoning_analyzer_singleton is None:

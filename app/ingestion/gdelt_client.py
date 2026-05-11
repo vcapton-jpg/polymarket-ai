@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -76,6 +76,6 @@ def _parse_seendate(s: str | None) -> datetime | None:
     if not s:
         return None
     try:
-        return datetime.strptime(s, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        return datetime.strptime(s, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
     except ValueError:
         return None

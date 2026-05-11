@@ -1,4 +1,9 @@
-"""Tests for wallet connect/status endpoints."""
+"""Tests for wallet connect/status endpoints.
+
+Marked `integration` because FastAPI's `TestClient(app)` lifespan
+triggers the Celery broker / Redis bootstrap. CI runs unit gate with
+`-m "not integration"`; the full suite needs `docker compose up`.
+"""
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
@@ -6,6 +11,8 @@ from fastapi.testclient import TestClient
 from app.api.main import app
 from app.api.routes.auth import get_current_user
 from app.db.database import get_db_session
+
+pytestmark = pytest.mark.integration
 
 
 def make_user(safe_address=None, wallet_address=None):

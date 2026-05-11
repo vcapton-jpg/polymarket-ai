@@ -13,7 +13,7 @@ Wired into beat in `app/workers/celery_app.py`:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import case, func, select
 
@@ -85,7 +85,7 @@ async def _emit_signals_outcome_distribution(window_days: int = 7) -> list[dict]
     the inflated `move_pct` figures from poisoning the average.
     """
     session_factory = _get_session_factory()
-    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
+    cutoff = datetime.now(UTC) - timedelta(days=window_days)
 
     # `price_t1h` IS NOT NULL is the gate that excludes signals still
     # inside the resolution window. Buckets with all-None outcomes drop

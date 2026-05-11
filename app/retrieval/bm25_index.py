@@ -2,7 +2,6 @@
 
 import logging
 import re
-from typing import Optional
 
 from rank_bm25 import BM25Okapi
 
@@ -37,7 +36,7 @@ class BM25Index:
     """BM25 in-memory index for text search."""
 
     def __init__(self):
-        self._index: Optional[BM25Okapi] = None
+        self._index: BM25Okapi | None = None
         self._documents: list[dict] = []
 
     def build_index(self, documents: list[dict], text_field: str = "retrieval_text") -> None:

@@ -12,7 +12,6 @@ bit-exact comparison.)
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,9 +32,9 @@ async def hybrid_search_markets_dispatch(
     session: AsyncSession,
     event_embedding: list[float],
     event_text: str,
-    top_k: Optional[int] = None,
-    event_bucket: Optional[str] = None,
-    event_entities: Optional[list[str]] = None,
+    top_k: int | None = None,
+    event_bucket: str | None = None,
+    event_entities: list[str] | None = None,
     event_last_seen=None,
 ) -> list[dict]:
     """Route to v1 or v2 based on the active ranking variant."""

@@ -38,13 +38,13 @@ prefer a noisy abort to a silent purge).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
+from app.db.database import get_session_factory
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
-from app.db.database import get_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ async def _run_retention_async() -> dict:
     async_session_factory = get_session_factory()
 
     summary: dict = {"deleted_per_table": {}, "skipped_safety": []}
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     async with async_session_factory() as session:
         for table, age_col, retention_days in RETENTION_POLICIES:

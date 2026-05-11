@@ -1,8 +1,6 @@
 """Base agent class — all agents inherit from this."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +20,7 @@ class BaseAgent:
         db: AsyncSession,
         action_type: str,
         summary: str,
-        details: Optional[dict] = None,
+        details: dict | None = None,
     ) -> AgentActivity:
         activity = AgentActivity(
             agent_name=self.agent_name,

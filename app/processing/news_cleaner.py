@@ -2,10 +2,9 @@
 
 import logging
 import re
-from typing import Optional
 
 from bs4 import BeautifulSoup
-from langdetect import detect, LangDetectException
+from langdetect import LangDetectException, detect
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class NewsCleaner:
 
         return text
 
-    def detect_language(self, text: str) -> Optional[str]:
+    def detect_language(self, text: str) -> str | None:
         """Detect language of text.
 
         Args:

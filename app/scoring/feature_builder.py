@@ -1,8 +1,7 @@
 """Feature builder for scoring features."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +12,12 @@ MAX_HOURS_TO_RESOLUTION = 24 * 365
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _ensure_aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -58,7 +57,7 @@ class FeatureBuilder:
             return 0.7
         return 0.5
 
-    def build_liquidity_factor(self, liquidity: Optional[float]) -> float:
+    def build_liquidity_factor(self, liquidity: float | None) -> float:
         if not liquidity or liquidity <= 0:
             return 0.1
 
@@ -72,7 +71,7 @@ class FeatureBuilder:
             return 0.7
         return 0.4
 
-    def build_spread_penalty(self, spread: Optional[float]) -> float:
+    def build_spread_penalty(self, spread: float | None) -> float:
         if not spread or spread <= 0:
             return 0.8
         if spread <= 0.02:
@@ -85,7 +84,7 @@ class FeatureBuilder:
 
     def build_time_to_resolution_factor(
         self,
-        end_date: Optional[datetime],
+        end_date: datetime | None,
     ) -> float:
         if not end_date:
             return 0.5

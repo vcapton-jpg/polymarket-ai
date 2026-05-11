@@ -7,7 +7,6 @@ safe. Kill-switched via `settings.ranking_shadow_enabled`.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert

@@ -1,6 +1,7 @@
 """Analyst Agent — wraps the scoring/impact analysis pipeline."""
 
 import logging
+
 from app.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)

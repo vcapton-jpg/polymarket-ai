@@ -2,7 +2,7 @@
 
 import hashlib
 import logging
-from typing import Optional
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import desc, select
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/v1", tags=["b2b"])
 
 
 async def verify_b2b_key(
-    x_api_key: Optional[str] = Header(None),
+    x_api_key: str | None = Header(None),
     db: AsyncSession = Depends(get_db_session),
 ) -> ApiKeyB2B:
     if not x_api_key:
@@ -35,7 +35,7 @@ async def verify_b2b_key(
 
 @router.get("/signals")
 async def b2b_signals(
-    bucket: Optional[str] = Query(None),
+    bucket: str | None = Query(None),
     min_score: int = Query(60),
     limit: int = Query(50, le=200),
     api_key: ApiKeyB2B = Depends(verify_b2b_key),
@@ -120,8 +120,8 @@ async def b2b_historical(
     if api_key.tier not in ("pro", "enterprise"):
         raise HTTPException(status_code=403, detail="Historical data requires pro or enterprise tier")
 
-    from datetime import datetime, timedelta, timezone
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    from datetime import datetime, timedelta
+    cutoff = datetime.now(UTC) - timedelta(days=days)
 
     result = await db.execute(
         select(Signal).where(Signal.created_at >= cutoff).order_by(desc(Signal.created_at))

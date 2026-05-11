@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+
 from sqlalchemy import select
 
 from app.db.database import get_session_factory

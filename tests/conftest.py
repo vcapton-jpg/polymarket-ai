@@ -8,6 +8,19 @@ import app.db.database as _db_mod
 from app.core.config import get_settings
 
 
+# Auto-mark every test that requires a live Postgres fixture as `integration`.
+# CI runs `pytest -m "not integration"` so those tests are skipped in the
+# unit gate (no DB available on the GH runner). Locally, run the full suite
+# with `pytest tests/` against a running compose stack.
+_DB_FIXTURES = {"async_db_factory", "async_db_engine"}
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        if hasattr(item, "fixturenames") and _DB_FIXTURES.intersection(item.fixturenames):
+            item.add_marker(pytest.mark.integration)
+
+
 # Base de données SQLite en mémoire pour les tests
 @pytest.fixture
 def db_session():

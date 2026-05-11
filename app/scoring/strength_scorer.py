@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from app.scoring.weights import HeuristicWeights
 
-
 _NEUTRAL = 0.5  # legacy fallback when a feature key is missing
 
 

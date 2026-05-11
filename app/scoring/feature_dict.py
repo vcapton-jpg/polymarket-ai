@@ -12,7 +12,7 @@ change here must move that test in the same PR.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.scoring.feature_builder import FeatureBuilder, create_feature_builder
 
@@ -31,8 +31,8 @@ def build_feature_dict(
     # same age twice. The freshness FACTOR (0-1) goes into the weighted
     # strength bloc; the age in hours feeds the post-blend bonus.
     if ref_dt is not None:
-        ref_aware = ref_dt if ref_dt.tzinfo else ref_dt.replace(tzinfo=timezone.utc)
-        age_hours = max(0.0, (datetime.now(timezone.utc) - ref_aware).total_seconds() / 3600)
+        ref_aware = ref_dt if ref_dt.tzinfo else ref_dt.replace(tzinfo=UTC)
+        age_hours = max(0.0, (datetime.now(UTC) - ref_aware).total_seconds() / 3600)
     else:
         age_hours = 999.0
     return {

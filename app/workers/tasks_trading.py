@@ -1,10 +1,10 @@
 """Trading worker tasks — position sync, price updates, order monitoring."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from app.workers.celery_app import celery_app
 from app.workers._async_helpers import run_async
+from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ def sync_positions():
 
 async def _sync_positions_async():
     from sqlalchemy import select
+
     from app.db.database import get_session_factory
     from app.db.models import Portfolio, Position
     from app.polymarket.clob_client import ClobClient
@@ -66,11 +67,11 @@ def poll_order_fills():
 
 
 async def _poll_order_fills_async():
-    from datetime import datetime, timezone
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
+
     from app.db.database import get_session_factory
-    from app.db.models import Order, Portfolio, UserProfile
+    from app.db.models import Order, Portfolio
     from app.trading.builder_client import BuilderTradeClient
     from app.trading.position_tracker import sync_positions_from_orders
 
@@ -111,7 +112,7 @@ async def _poll_order_fills_async():
                 # MATCHED = fully filled, PARTIALLY_FILLED = partial
                 if status in ("MATCHED", "FILLED"):
                     order.status = "filled"
-                    order.filled_at = datetime.now(timezone.utc)
+                    order.filled_at = datetime.now(UTC)
                     order.filled_price = float(data.get("price") or order.price)
                     order.filled_size = float(data.get("size_matched") or data.get("size") or order.size)
                     filled_count += 1
@@ -137,9 +138,10 @@ def check_risk_alerts():
 
 async def _check_risk_async():
     from sqlalchemy import select
+
+    from app.agents.risk_manager import risk_manager_agent
     from app.db.database import get_session_factory
     from app.db.models import Portfolio
-    from app.agents.risk_manager import risk_manager_agent
 
     async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))

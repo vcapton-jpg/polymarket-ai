@@ -146,12 +146,14 @@ from app.api.routes.auth import router as auth_router  # noqa: E402
 from app.api.routes.outcome_views import router as outcome_views_router  # noqa: E402
 from app.api.routes.paper import router as paper_router  # noqa: E402
 from app.api.routes.performance_v2 import router as performance_v2_router  # noqa: E402
+from app.api.routes.polymarket_signing import (
+    router as polymarket_signing_router,  # noqa: E402
+)
 from app.api.routes.portfolio_v2 import router as portfolio_v2_router  # noqa: E402
 from app.api.routes.public_stats import router as public_stats_router  # noqa: E402
 from app.api.routes.quota import router as quota_router  # noqa: E402
 from app.api.routes.sources import router as sources_router  # noqa: E402
 from app.api.routes.subscriptions import router as subs_router  # noqa: E402
-from app.api.routes.polymarket_signing import router as polymarket_signing_router  # noqa: E402
 from app.api.routes.trading import router as trading_router  # noqa: E402
 from app.api.routes.trading_wallet import router as trading_wallet_router  # noqa: E402
 
@@ -184,8 +186,8 @@ from app.api.routes.telegram_webhook import router as tg_webhook_router  # noqa:
 
 app.include_router(tg_webhook_router, prefix="/api")
 
-from app.api.routes.admin_telegram import router as admin_telegram_router  # noqa: E402
 from app.api.routes.admin_stats import router as admin_stats_router  # noqa: E402
+from app.api.routes.admin_telegram import router as admin_telegram_router  # noqa: E402
 
 # Web admin form for Telegram session setup — gated behind
 # `settings.admin_token` (X-Admin-Token header). See

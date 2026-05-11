@@ -28,7 +28,7 @@ class EventSummarizer:
         self.client = get_openai_client()
         self.system_prompt = _load_system_prompt()
 
-    async def summarize(self, articles: list[dict]) -> Optional[dict]:
+    async def summarize(self, articles: list[dict]) -> dict | None:
         """Summarize a cluster of articles into an event title + summary.
 
         Returns dict with keys: title, summary, key_entities

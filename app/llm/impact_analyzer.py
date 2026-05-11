@@ -41,7 +41,7 @@ class ImpactAnalyzer:
         self,
         event_text: str,
         market_question: str,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Analyze event → market impact using LLM.
 
         Returns parsed JSON dict or None on failure.

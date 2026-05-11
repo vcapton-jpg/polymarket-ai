@@ -1,8 +1,7 @@
 """World News API client — async, returns article dicts ready for DB insertion."""
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from dateutil import parser as date_parser
@@ -17,7 +16,7 @@ FETCH_TIMEOUT = 30.0
 
 CATEGORIES = "politics,business,science,technology,environment,entertainment"
 
-_quota_backoff_until: Optional[datetime] = None
+_quota_backoff_until: datetime | None = None
 
 
 async def fetch_top_news(limit: int = 50) -> list[dict]:
@@ -34,7 +33,7 @@ async def fetch_top_news(limit: int = 50) -> list[dict]:
         logger.warning("worldnews_api_key not set — skipping")
         return []
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if _quota_backoff_until and now < _quota_backoff_until:
         logger.info("World News API quota backoff until %s — skipping", _quota_backoff_until.isoformat())
@@ -101,13 +100,13 @@ async def fetch_top_news(limit: int = 50) -> list[dict]:
     return articles
 
 
-def _parse_date(raw: Optional[str]) -> Optional[datetime]:
+def _parse_date(raw: str | None) -> datetime | None:
     if not raw:
         return None
     try:
         dt = date_parser.parse(str(raw))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, OverflowError):
         return None

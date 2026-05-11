@@ -1,10 +1,10 @@
 """Freshness helpers — single place for content-age rules (real-time pipeline)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def content_reference_time(

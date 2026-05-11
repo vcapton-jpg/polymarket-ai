@@ -1,7 +1,6 @@
 """Gamma API client — fetch all active markets via the events endpoint."""
 
 import logging
-from typing import Optional
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -14,7 +13,7 @@ PAGE_SIZE = 100
 
 class GammaClient:
     def __init__(self):
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -68,7 +67,7 @@ class GammaClient:
         return all_markets
 
     @staticmethod
-    def _parse_market(m: dict, event: dict) -> Optional[dict]:
+    def _parse_market(m: dict, event: dict) -> dict | None:
         condition_id = m.get("conditionId")
         question = m.get("question") or m.get("groupItemTitle")
         if not condition_id or not question:
@@ -118,7 +117,7 @@ class GammaClient:
         }
 
 
-def _to_float(val) -> Optional[float]:
+def _to_float(val) -> float | None:
     if val is None:
         return None
     try:

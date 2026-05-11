@@ -1,8 +1,7 @@
 """Vector retriever using pgvector cosine distance."""
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,8 +18,8 @@ async def search_markets_by_embedding(
     session: AsyncSession,
     event_embedding: list[float],
     limit: int = 20,
-    event_bucket: Optional[str] = None,
-    min_sim: Optional[float] = None,
+    event_bucket: str | None = None,
+    min_sim: float | None = None,
     *,
     # Pre-filter coarsely so the vector probe doesn't burn cycles on
     # totally-untradeable markets (closed, expired, pegged at 0/1). We
@@ -55,7 +54,7 @@ async def search_markets_by_embedding(
     embedding_str = "[" + ",".join(str(x) for x in event_embedding) + "]"
 
     effective_min_sim = MIN_COSINE_SIMILARITY if min_sim is None else min_sim
-    end_date_min = datetime.now(timezone.utc) + timedelta(hours=min_remaining_hours)
+    end_date_min = datetime.now(UTC) + timedelta(hours=min_remaining_hours)
 
     params: dict = {
         "embedding": embedding_str,

@@ -3,7 +3,6 @@
 import logging
 import secrets
 import time
-from typing import Optional
 
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -120,7 +119,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         settings = get_settings()
-        required_key: Optional[str] = settings.signal_api_key
+        required_key: str | None = settings.signal_api_key
 
         if not required_key:
             return await call_next(request)

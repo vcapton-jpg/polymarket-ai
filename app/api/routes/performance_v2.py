@@ -7,8 +7,7 @@ GET so the Performance.tsx page hydrates from one round-trip.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -28,7 +27,6 @@ from app.db.models import (
     SignalOutcome,
     UserProfile,
 )
-
 
 router = APIRouter(prefix="/performance", tags=["performance"])
 
@@ -227,7 +225,7 @@ async def get_performance_me(
     ]
 
     # Best category: highest winRate with >=2 signals; fallback to any.
-    best: Optional[UserCategoryWinRate] = None
+    best: UserCategoryWinRate | None = None
     for entry in user_win_rate_by_category:
         if entry.signalCount < 2:
             continue
@@ -238,7 +236,7 @@ async def get_performance_me(
 
     # Weekly gains over the trailing 8 weeks — aligned with client's S-7..S-1
     # visual but using ISO week labels the UI can format itself.
-    now_week = _week_key(datetime.now(timezone.utc))
+    now_week = _week_key(datetime.now(UTC))
     # Sort week keys
     weekly_gains = [
         GainsOverTimePoint(week=k, gain=round(v, 2))
@@ -248,7 +246,7 @@ async def get_performance_me(
     # Win-rate over time — weekly platform vs user. MVP returns a single
     # point (cumulative to date) so the chart still renders without
     # gimmicks; L10+ can backfill from DB.
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     win_rate_over_time = [
         WinRatePoint(
             date=today,
