@@ -1,17 +1,17 @@
 """Subscription management routes — Stripe integration."""
 
 import logging
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes.auth import get_current_user
 from app.core.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import UserProfile
-from app.api.routes.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
@@ -242,7 +242,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db_ses
     return {"status": "ok"}
 
 
-def _plan_from_subscription(sub: dict, settings) -> Optional[str]:
+def _plan_from_subscription(sub: dict, settings) -> str | None:
     """Determine plan name from Stripe subscription price ID."""
     items = sub.get("items", {}).get("data", [])
     if not items:

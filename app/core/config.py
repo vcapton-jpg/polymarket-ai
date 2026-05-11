@@ -11,6 +11,14 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # Tolerate unknown env vars. Pydantic-settings 2.12+ default is
+        # `extra="forbid"` which breaks `pytest` locally as soon as the
+        # operator drops a deprecated/legacy key in `.env` (e.g. the
+        # twitter_auth_token left over from the X scraper). Production
+        # already trusts the operator's env, so silent acceptance is the
+        # right tradeoff. Real typos still surface as missing fields at
+        # the call site.
+        extra="ignore",
     )
 
     # ── Database ──────────────────────────────────────────────────────────

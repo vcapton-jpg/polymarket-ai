@@ -25,8 +25,8 @@ import sys
 from telethon import TelegramClient
 from telethon.errors import (
     PasswordHashInvalidError,
-    PhoneCodeInvalidError,
     PhoneCodeExpiredError,
+    PhoneCodeInvalidError,
     SessionPasswordNeededError,
 )
 from telethon.sessions import StringSession
@@ -86,7 +86,7 @@ async def main() -> int:
     client = TelegramClient(StringSession(), int(api_id), api_hash)
     try:
         await asyncio.wait_for(client.connect(), timeout=20.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print("  ✗ TIMEOUT during connect (>20s). Network blocked? Aborting.")
         return 1
     print("  ✓ connected to Telegram MTProto")
@@ -98,7 +98,7 @@ async def main() -> int:
         print(f"  ✓ code request sent (type={getattr(sent, 'type', '?').__class__.__name__})")
         print("    → CHECK YOUR TELEGRAM APP for an incoming message")
         print("      from the 'Telegram' service — it contains a 5-digit code.")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print("  ✗ TIMEOUT sending code request. Aborting.")
         await client.disconnect()
         return 2
@@ -147,7 +147,7 @@ async def main() -> int:
     banner("STEP 5/6 — verify auth + serialize session")
     try:
         is_auth = await asyncio.wait_for(client.is_user_authorized(), timeout=10.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         is_auth = False
     if not is_auth:
         print("  ✗ client is NOT authorized after sign_in (unexpected). Aborting.")
@@ -178,8 +178,8 @@ async def main() -> int:
     # Now the main event: patch host .env via volume mount
     if not os.path.exists(HOST_ENV):
         print(f"  ✗ {HOST_ENV} does NOT exist. The volume mount './.env:/opt/host-env'")
-        print(f"    is not in effect. Run from the host: docker compose up -d --force-recreate worker-ingestion")
-        print(f"    Then re-run this script. Manual fallback below.")
+        print("    is not in effect. Run from the host: docker compose up -d --force-recreate worker-ingestion")
+        print("    Then re-run this script. Manual fallback below.")
         _print_manual_fallback(api_id, api_hash, session_string)
         return 5
 
@@ -214,7 +214,7 @@ async def main() -> int:
         after = f.read()
     expected_ss_line = f"TELEGRAM_SESSION_STRING={session_string}"
     if expected_ss_line not in after:
-        print(f"  ✗ verification failed — SESSION_STRING line not found after write. Aborting.")
+        print("  ✗ verification failed — SESSION_STRING line not found after write. Aborting.")
         return 5
 
     print(f"  ✓ host .env patched and verified — SESSION_STRING is {len(session_string)} chars long")

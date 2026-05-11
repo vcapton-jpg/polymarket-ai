@@ -4,9 +4,10 @@ Pulls source URLs from sources_registry (DB), not from hardcoded lists.
 Both 'rss' and 'x_rss' source types use feedparser under the hood.
 """
 
+import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+import os
+from datetime import UTC, datetime
 
 import feedparser
 import httpx
@@ -22,7 +23,7 @@ _USER_AGENT = "PolymarketSignalBot/1.0"
 async def fetch_feed(
     url: str,
     *,
-    client: Optional[httpx.AsyncClient] = None,
+    client: httpx.AsyncClient | None = None,
 ) -> list[dict]:
     """Fetch and parse a single RSS feed URL.
 
@@ -76,8 +77,6 @@ async def fetch_feed(
 # once is fine on a fat broadband link; below that the bottleneck stops
 # being TCP and starts being the upstream feeds. Tune via
 # `RSS_FETCH_CONCURRENCY` env var if needed (e.g. on a constrained VPS).
-import os
-
 _FETCH_CONCURRENCY = int(os.environ.get("RSS_FETCH_CONCURRENCY", "20"))
 
 
@@ -158,7 +157,7 @@ async def fetch_sources(sources: list[dict]) -> list[dict]:
     """
     import asyncio
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     semaphore = asyncio.Semaphore(_FETCH_CONCURRENCY)
 
     async with httpx.AsyncClient(
@@ -200,7 +199,7 @@ def _extract_content(entry) -> str:
     return content
 
 
-def _parse_publish_date(entry) -> Optional[datetime]:
+def _parse_publish_date(entry) -> datetime | None:
     """Parse publish date from a feedparser entry, returning timezone-aware UTC."""
     for field in ("published", "updated", "created"):
         raw = getattr(entry, field, None)
@@ -208,7 +207,7 @@ def _parse_publish_date(entry) -> Optional[datetime]:
             try:
                 dt = date_parser.parse(raw)
                 if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
+                    dt = dt.replace(tzinfo=UTC)
                 return dt
             except (ValueError, OverflowError):
                 continue

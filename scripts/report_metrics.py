@@ -13,7 +13,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from httpx import ASGITransport, AsyncClient
 
@@ -65,8 +65,8 @@ def _render_table(data: dict, window: str) -> str:
 
     try:
         days = int(window.rstrip("d"))
-        start = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
-        end = datetime.now(timezone.utc).date().isoformat()
+        start = (datetime.now(UTC) - timedelta(days=days)).date().isoformat()
+        end = datetime.now(UTC).date().isoformat()
         lines.append("")
         lines.append(f"Window: {start} → {end} ({window})")
     except ValueError:

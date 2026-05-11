@@ -16,8 +16,7 @@ the columns entirely.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from app.db.database import get_session_factory
 from app.db.models import UserLimits
@@ -29,8 +28,8 @@ COOLOFF_TRIGGER_LOSSES = 3
 @dataclass
 class TradeDecision:
     allowed: bool
-    reason: Optional[str] = None
-    remaining_budget_eur: Optional[float] = None
+    reason: str | None = None
+    remaining_budget_eur: float | None = None
 
 
 async def can_trade_real(user_id: int, stake_eur: float) -> TradeDecision:
@@ -59,7 +58,7 @@ async def can_trade_real(user_id: int, stake_eur: float) -> TradeDecision:
     if not limits.age_confirmed_18:
         return TradeDecision(allowed=False, reason="age_not_confirmed")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if limits.cooloff_until is not None and limits.cooloff_until > now:
         return TradeDecision(allowed=False, reason="in_cooloff")
 
@@ -79,7 +78,7 @@ async def register_trade_result(user_id: int, won: bool, stake_eur: float) -> No
         limits = await s.get(UserLimits, user_id)
         if limits is None:
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if won:
             limits.consecutive_losses = 0

@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable
 
 from sqlalchemy import text
 
@@ -26,7 +26,6 @@ from app.measurement.metrics import (
     simulated_pnl_eur,
     wilson_ci95,
 )
-
 
 ALLOWED_HORIZONS = ("t15min", "t1h", "t24h")
 

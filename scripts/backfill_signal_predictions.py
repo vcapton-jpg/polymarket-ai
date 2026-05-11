@@ -19,13 +19,13 @@ import argparse
 import asyncio
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
 import app.measurement  # noqa: F401 — register baselines on import
 from app.db.database import get_session_factory
-from app.db.models import Signal, SignalOutcome, SignalPrediction
+from app.db.models import Signal, SignalOutcome
 from app.measurement.pipeline import record_baselines, record_prediction_resolution
 from app.measurement.scoring_context import build_scoring_context
 from app.measurement.variant_registry import get_registry
@@ -69,7 +69,7 @@ async def backfill(
                     event_id=sig.event_id,
                     market_price=float(sig.market_price_at_signal or 0.5),
                     articles=None,  # historical articles not reconstructed
-                    t0=sig.created_at or datetime.now(timezone.utc),
+                    t0=sig.created_at or datetime.now(UTC),
                     market_price_24h_ago=None,  # no price history at backfill time
                 )
 
@@ -127,7 +127,7 @@ def main() -> None:
     args = _parse_args()
     since = None
     if args.since:
-        since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc)
+        since = datetime.fromisoformat(args.since).replace(tzinfo=UTC)
     asyncio.run(backfill(dry_run=args.dry_run, since=since, batch_size=args.batch_size))
 
 

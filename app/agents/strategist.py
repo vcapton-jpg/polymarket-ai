@@ -1,7 +1,6 @@
 """Strategist Agent — position sizing and portfolio allocation."""
 
 import logging
-from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +28,7 @@ class StrategistAgent(BaseAgent):
         signal_strength: float,
         market_price: float,
         direction: str,
-        bucket: Optional[str] = None,
+        bucket: str | None = None,
     ) -> dict:
         """Recommend position size based on Kelly criterion and concentration limits."""
         edge = (signal_strength / 100) * abs(0.5 - market_price) * 2

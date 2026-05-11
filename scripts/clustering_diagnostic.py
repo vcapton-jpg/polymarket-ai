@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+
 from sqlalchemy import func, select
 
 from app.db.database import get_session_factory

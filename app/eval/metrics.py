@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Iterable
 
 
 def retrieval_at_k(relevant_ids: set, ranked_ids: list, k: int) -> float:

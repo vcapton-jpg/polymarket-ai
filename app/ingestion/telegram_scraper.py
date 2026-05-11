@@ -21,8 +21,7 @@ Auth model:
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from telethon import TelegramClient
 from telethon.errors import (
@@ -42,7 +41,7 @@ logger = logging.getLogger(__name__)
 # Singleton — Telethon clients are expensive to instantiate (MTProto handshake)
 # and the API rewards long-lived connections. One client per worker process is
 # enough; concurrent message fetches are pipelined over the same socket.
-_client: Optional[TelegramClient] = None
+_client: TelegramClient | None = None
 
 
 def _build_message_url(channel_username: str, message_id: int) -> str:
@@ -50,7 +49,7 @@ def _build_message_url(channel_username: str, message_id: int) -> str:
     return f"https://t.me/{channel_username.lstrip('@')}/{message_id}"
 
 
-async def get_client() -> Optional[TelegramClient]:
+async def get_client() -> TelegramClient | None:
     """Lazy-init singleton Telethon client. Returns None if not configured."""
     global _client
     if _client is not None and _client.is_connected():
@@ -100,7 +99,7 @@ async def get_client() -> Optional[TelegramClient]:
             getattr(me, "username", "<no-username>"), getattr(me, "id", "?"),
         )
         return _client
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error(
             "Telegram: TIMEOUT during init (>15s on connect/authorize). "
             "Likely causes: (1) Hetzner egress blocking 149.154.x.x:443 "
@@ -145,7 +144,7 @@ async def fetch_channel_messages(
     handle = channel_username.lstrip("@")
     try:
         entity = await asyncio.wait_for(client.get_entity(handle), timeout=15.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Telegram: get_entity(@%s) timeout >15s — dropping", handle)
         return []
     except (UsernameInvalidError, UsernameNotOccupiedError):
@@ -176,7 +175,7 @@ async def fetch_channel_messages(
             client.get_messages(entity, limit=limit, min_id=min_id),
             timeout=15.0,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Telegram: get_messages(@%s) timeout >15s — dropping", handle)
         return []
     except FloodWaitError as e:
@@ -200,7 +199,7 @@ async def fetch_channel_messages(
         # Telegram timestamps are tz-aware UTC by default
         publish_date: datetime = msg.date
         if publish_date.tzinfo is None:
-            publish_date = publish_date.replace(tzinfo=timezone.utc)
+            publish_date = publish_date.replace(tzinfo=UTC)
         # Title = first line truncated, mirrors how RSSHub builds tweet titles
         first_line = text.split("\n", 1)[0]
         title = first_line[:240]

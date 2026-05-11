@@ -9,10 +9,10 @@ a signal_id for the same (portfolio, market_id).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Literal, Optional
+from datetime import UTC, datetime
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +25,6 @@ from app.db.database import get_db_session
 from app.db.models import (
     Event,
     EventNewsLink,
-    Market,
     NewsClean,
     Order,
     Portfolio,
@@ -33,7 +32,6 @@ from app.db.models import (
     Signal,
     UserProfile,
 )
-
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -54,7 +52,7 @@ class PositionV2Out(BaseModel):
     estimatedGain: float
     stake: float
     resolved: bool
-    correctPrediction: Optional[bool] = None
+    correctPrediction: bool | None = None
     source: Literal["native"] = "native"
 
 
@@ -76,7 +74,7 @@ class PortfolioV2Out(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────
 def _status_from_prices(
-    side: str, entry: float, current: Optional[float]
+    side: str, entry: float, current: float | None
 ) -> Literal["tenir", "surveiller", "vendre"]:
     """Same 3-state heuristic the V2 UI uses. Direction-aware — NO positions
     win when the YES price drops.
@@ -94,14 +92,14 @@ def _status_from_prices(
 
 def _life_percent(opened_at: datetime, horizon_days: int = 30) -> int:
     if opened_at.tzinfo is None:
-        opened_at = opened_at.replace(tzinfo=timezone.utc)
-    elapsed = max(0.0, (datetime.now(timezone.utc) - opened_at).total_seconds() / 86_400.0)
+        opened_at = opened_at.replace(tzinfo=UTC)
+    elapsed = max(0.0, (datetime.now(UTC) - opened_at).total_seconds() / 86_400.0)
     remaining = 1 - min(1.0, elapsed / horizon_days)
     return max(5, min(100, round(remaining * 100)))
 
 
 def _estimated_gain(
-    side: str, entry: float, current: Optional[float], size: float
+    side: str, entry: float, current: float | None, size: float
 ) -> float:
     if current is None:
         return 0.0

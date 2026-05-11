@@ -23,7 +23,6 @@ import logging
 import random
 import sys
 from pathlib import Path
-from typing import Iterable
 
 from sqlalchemy import select
 
@@ -172,7 +171,9 @@ async def _cmd_scale(
     check (task 10) guards against quality regression.
     """
     from app.eval.labels_event_market import (
-        judge_pairs_llm, openai_judge_call, _APPROX_COST_PER_BATCH_USD,
+        _APPROX_COST_PER_BATCH_USD,
+        judge_pairs_llm,
+        openai_judge_call,
     )
     seed_events: set[int] = set()
     if seed_path.exists():

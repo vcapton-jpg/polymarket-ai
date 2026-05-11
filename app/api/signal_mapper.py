@@ -9,8 +9,9 @@ the client stays thin (no label inference, no heuristics).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Iterable, Literal, Optional
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from typing import Literal
 
 from app.api.schemas_v2 import (
     FactOut,
@@ -22,7 +23,6 @@ from app.api.schemas_v2 import (
     TimelineEventOut,
 )
 from app.db.models import (
-    Event,
     EventMarketAnalysis,
     EventNewsLink,
     Market,
@@ -31,7 +31,6 @@ from app.db.models import (
     Signal,
     SignalOutcome,
 )
-
 
 # ── Category ─────────────────────────────────────────────────────────
 CategoryKey = Literal[
@@ -90,7 +89,7 @@ _SCI_TERMS = (
 )
 
 
-def _match_terms(hay: str) -> Optional[CategoryKey]:
+def _match_terms(hay: str) -> CategoryKey | None:
     h = f" {hay.lower()} "
     if any(t in h for t in _CRYPTO_TERMS):
         return "crypto"
@@ -108,9 +107,9 @@ def _match_terms(hay: str) -> Optional[CategoryKey]:
 
 
 def derive_category(
-    bucket: Optional[str],
-    question: Optional[str],
-    event_title: Optional[str],
+    bucket: str | None,
+    question: str | None,
+    event_title: str | None,
 ) -> tuple[CategoryKey, str]:
     """Map Event.bucket + content to (category, category_label_fr).
 
@@ -164,23 +163,23 @@ _SCORE_LABEL_FR = {
 }
 
 
-def confidence_fr(raw: Optional[str]) -> Literal["Haute", "Moyenne", "Basse"]:
+def confidence_fr(raw: str | None) -> Literal["Haute", "Moyenne", "Basse"]:
     return _CONFIDENCE_FR.get((raw or "").lower(), "Basse")
 
 
 def urgency_fr(
-    raw: Optional[str],
+    raw: str | None,
 ) -> Literal["Haute", "Moyenne", "Basse", "Faible"]:
     return _URGENCY_FR.get((raw or "").lower(), "Faible")
 
 
 def tradability_fr(
-    raw: Optional[str],
+    raw: str | None,
 ) -> Literal["Bonne", "Moyenne", "Faible"]:
     return _TRADABILITY_FR.get((raw or "").lower(), "Moyenne")
 
 
-def score_label_fr(raw: Optional[str], score: int) -> str:
+def score_label_fr(raw: str | None, score: int) -> str:
     fr = _SCORE_LABEL_FR.get((raw or "").lower())
     if fr:
         return fr
@@ -194,7 +193,7 @@ def score_label_fr(raw: Optional[str], score: int) -> str:
 
 
 # ── Window / life ────────────────────────────────────────────────────
-def parse_window_hours(raw: Optional[str]) -> int:
+def parse_window_hours(raw: str | None) -> int:
     """Convert `window_estimate` strings ("< 1h", "2 days", "> 1 month")
     to an approximate number of hours.
     """
@@ -212,12 +211,12 @@ def parse_window_hours(raw: Optional[str]) -> int:
     return 48
 
 
-def life_percent(created_at: Optional[datetime], window_hours: float) -> int:
+def life_percent(created_at: datetime | None, window_hours: float) -> int:
     if not created_at:
         return 50
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
+        created_at = created_at.replace(tzinfo=UTC)
     elapsed_h = max(0.0, (now - created_at).total_seconds() / 3600.0)
     total = max(1 / 60, float(window_hours))  # 1-minute floor avoids div-by-tiny
     remaining = 1 - min(1.0, elapsed_h / total)
@@ -247,7 +246,7 @@ def estimate_opportunity_window_hours(signal: Signal) -> float:
 
     Floor 1 minute, ceiling 7 days, never past market resolution.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base_h = 6.0  # 6h baseline = "typical regional news, mid-tier source"
 
     # 1) News age — how stale is the catalyst?
@@ -255,7 +254,7 @@ def estimate_opportunity_window_hours(signal: Signal) -> float:
     if event is not None and event.first_seen is not None:
         first_seen = event.first_seen
         if first_seen.tzinfo is None:
-            first_seen = first_seen.replace(tzinfo=timezone.utc)
+            first_seen = first_seen.replace(tzinfo=UTC)
         age_h = max(0.0, (now - first_seen).total_seconds() / 3600.0)
         if age_h < 0.5:        # < 30 min: very fresh, react NOW
             base_h *= 0.15
@@ -307,7 +306,7 @@ def estimate_opportunity_window_hours(signal: Signal) -> float:
     end = market.end_date if market else None
     if end is not None:
         if end.tzinfo is None:
-            end = end.replace(tzinfo=timezone.utc)
+            end = end.replace(tzinfo=UTC)
         hours_to_resolution = (end - now).total_seconds() / 3600.0
         if hours_to_resolution > 0:
             base_h = min(base_h, hours_to_resolution)
@@ -321,7 +320,7 @@ def polymarket_url(market_id: str) -> str:
     return f"https://polymarket.com/market/{market_id}"
 
 
-def market_image_url(market: Optional[Market]) -> Optional[str]:
+def market_image_url(market: Market | None) -> str | None:
     if not market:
         return None
     return getattr(market, "image_url", None)
@@ -334,7 +333,7 @@ def _build_fact(type_: str, icon: str, title: str, text: str) -> FactOut:
 
 def build_facts(
     signal: Signal,
-    analysis: Optional[EventMarketAnalysis],
+    analysis: EventMarketAnalysis | None,
 ) -> list[FactOut]:
     facts: list[FactOut] = []
     reasoning = getattr(analysis, "reasoning", None) if analysis else None
@@ -364,20 +363,20 @@ def build_facts(
     return facts
 
 
-def _tier_for(source_tier: Optional[int]) -> int:
+def _tier_for(source_tier: int | None) -> int:
     t = source_tier or 2
     return 1 if t <= 1 else (2 if t == 2 else 3)
 
 
 def build_sources(
     news_links: Iterable[EventNewsLink],
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> list[SourceOut]:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     out: list[SourceOut] = []
     seen: set[str] = set()
     for link in news_links:
-        clean: Optional[NewsClean] = getattr(link, "news_clean", None)
+        clean: NewsClean | None = getattr(link, "news_clean", None)
         if not clean or not clean.news:
             continue
         news: News = clean.news
@@ -387,7 +386,7 @@ def build_sources(
         seen.add(key)
         when = news.publish_date or news.ingestion_date
         if when and when.tzinfo is None:
-            when = when.replace(tzinfo=timezone.utc)
+            when = when.replace(tzinfo=UTC)
         minutes_ago = int(max(0, (now - when).total_seconds() // 60)) if when else 0
         out.append(
             SourceOut(
@@ -423,7 +422,7 @@ def build_detailed_sources(
         news: News = link.news_clean.news
         publish = news.publish_date
         if publish and publish.tzinfo is None:
-            publish = publish.replace(tzinfo=timezone.utc)
+            publish = publish.replace(tzinfo=UTC)
         out.append(SignalSourceOut(
             newsId=news.id,
             title=news.title or "",
@@ -455,7 +454,7 @@ def build_timeline(
             # the frontend's `new Date("")` + formatDistanceToNow() render.
             continue
         if when.tzinfo is None:
-            when = when.replace(tzinfo=timezone.utc)
+            when = when.replace(tzinfo=UTC)
         items.append(TimelineEventOut(
             at=when.isoformat(),
             source=news.source_name or "unknown",
@@ -522,7 +521,7 @@ def to_signal_card(signal: Signal, sources_count: int = 0) -> SignalCardOut:
 
 def to_signal_detail(
     signal: Signal,
-    analysis: Optional[EventMarketAnalysis],
+    analysis: EventMarketAnalysis | None,
     news_links: Iterable[EventNewsLink],
 ) -> SignalDetailOut:
     base = _common_fields(signal)
@@ -544,8 +543,8 @@ def to_signal_detail(
 
 
 def build_outcome_explainer(
-    signal: Signal, outcome: Optional[SignalOutcome]
-) -> Optional[OutcomeOut]:
+    signal: Signal, outcome: SignalOutcome | None
+) -> OutcomeOut | None:
     """Build the FR-language 'outcome explainer' block shown after a signal resolves.
 
     Returns None when the signal hasn't resolved yet (no outcome row or no
@@ -562,7 +561,7 @@ def build_outcome_explainer(
         else None
     )
     final = float(outcome.price_resolved)
-    move_pct: Optional[float] = None
+    move_pct: float | None = None
     if base is not None and base > 0:
         move_pct = ((final - base) / base) * 100
 

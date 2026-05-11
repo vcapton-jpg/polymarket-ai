@@ -14,9 +14,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable
 
 from sqlalchemy import text
 

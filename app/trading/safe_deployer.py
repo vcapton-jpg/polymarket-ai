@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from typing import Optional
 
 from eth_abi import encode
 from eth_account import Account
@@ -83,7 +82,7 @@ class SafeDeployer:
 
     def __init__(self):
         self._settings = get_settings()
-        self._w3: Optional[Web3] = None
+        self._w3: Web3 | None = None
 
     def _get_w3(self) -> Web3:
         if self._w3 is None:

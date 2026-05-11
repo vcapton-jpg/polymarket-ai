@@ -5,6 +5,7 @@ Backfill:   compute_embedding_batch (batch catch-up), build_events (periodic swe
 """
 
 import logging
+from datetime import UTC
 
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
@@ -121,8 +122,8 @@ async def _process_article_async(news_id: int) -> dict:
         except Exception as exc:
             logger.warning("news embedding_v2 compute failed news_id=%s: %s", news_id, exc)
 
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
+        from datetime import datetime
+        now = datetime.now(UTC)
 
         news_clean = NewsClean(
             news_id=news_id,
@@ -211,7 +212,7 @@ async def _try_instant_event_async(clean_id: int) -> dict:
     from app.core.config import get_settings
     from app.db.database import get_session_factory
     async_session_factory = get_session_factory()
-    from app.db.models import ArticleEntity, Event, EventNewsLink, News, NewsClean
+    from app.db.models import Event, EventNewsLink, NewsClean
     from app.processing.freshness import is_fresh_enough
 
     settings = get_settings()
@@ -235,9 +236,14 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         if already_linked:
             return {"status": "already_linked", "clean_id": clean_id}
 
-        # Find recent unlinked articles in the same bucket
-        from datetime import datetime, timedelta, timezone
-        cutoff = datetime.now(timezone.utc) - timedelta(
+        # Find recent unlinked articles in the same bucket.
+        # NOTE: time-bucket filtering is currently applied at the
+        # per-candidate level via `is_fresh_enough(cand_news, ...)` below
+        # (line ~276), not via SQL WHERE. The `_cutoff` value is kept
+        # for symmetry with the comment and future SQL-level filtering;
+        # see T-022 (fragmentation clustering) in the 30d plan.
+        from datetime import datetime, timedelta
+        _cutoff = datetime.now(UTC) - timedelta(
             minutes=settings.clustering_time_window_minutes
         )
 
@@ -294,8 +300,11 @@ async def _try_instant_event_async(clean_id: int) -> dict:
             }
 
         # Build consolidated event — `anchor.news` and every
-        # `cluster_articles[i].news` are already loaded.
-        anchor_news = anchor.news
+        # `cluster_articles[i].news` are already loaded. Access is kept
+        # to trigger the SQLAlchemy lazy-load fallback if eager loading
+        # was skipped upstream (defensive — no current call site bypasses
+        # the eager-load path, but cheap to keep).
+        _ = anchor.news
 
         sources = set()
         titles = []
@@ -428,7 +437,7 @@ def compute_embedding_batch(self, clean_ids: list[int] | None = None, limit: int
 async def _compute_embedding_batch_async(
     clean_ids: list[int] | None, limit: int,
 ) -> dict:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from sqlalchemy import select
 
@@ -457,7 +466,7 @@ async def _compute_embedding_batch_async(
         texts = [r.clean_text for r in rows]
         embeddings = await get_embeddings(texts)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         embedded = 0
         newly_embedded_ids = []
         for row, emb in zip(rows, embeddings):

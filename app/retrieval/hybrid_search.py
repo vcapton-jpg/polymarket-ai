@@ -2,7 +2,6 @@
 
 import logging
 import re
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,9 +32,9 @@ async def hybrid_search_markets(
     session: AsyncSession,
     event_embedding: list[float],
     event_text: str,
-    top_k: Optional[int] = None,
-    event_bucket: Optional[str] = None,
-    event_entities: Optional[list[str]] = None,
+    top_k: int | None = None,
+    event_bucket: str | None = None,
+    event_entities: list[str] | None = None,
 ) -> list[dict]:
     """Run hybrid search: vector retrieval → BM25 re-rank → RRF fusion → entity boost."""
     settings = get_settings()

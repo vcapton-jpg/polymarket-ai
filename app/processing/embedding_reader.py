@@ -15,7 +15,6 @@ from typing import Any
 
 from app.core.config import get_settings
 
-
 _VALID_SURFACES = ("news", "market", "event")
 
 

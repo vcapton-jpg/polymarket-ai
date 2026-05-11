@@ -14,8 +14,6 @@ Two functions:
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 def price_moved_up(base: float, new: float) -> bool:
     """Strict comparison — used by legacy callers. Ties → False."""
@@ -39,7 +37,7 @@ def direction_matches_price_move(direction: str, base: float, new: float) -> boo
 
 def direction_correct_3state(
     direction: str, base: float, new: float
-) -> Optional[bool]:
+) -> bool | None:
     """Tri-state correct-flag : True / False / None (tie).
 
     When the YES-token price did not move strictly between snapshots

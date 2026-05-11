@@ -62,18 +62,18 @@ class News(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     url: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
-    text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_tier: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     source_weight: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
-    publish_date: Mapped[Optional[datetime]] = mapped_column(
+    publish_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     ingestion_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    ingestion_lag_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    source_id: Mapped[Optional[int]] = mapped_column(
+    ingestion_lag_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("sources_registry.id", ondelete="SET NULL"),
         nullable=True,
@@ -99,17 +99,17 @@ class NewsClean(Base):
         Integer, ForeignKey("news.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     clean_text: Mapped[str] = mapped_column(Text, nullable=False)
-    simhash: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    bucket: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    word_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    embedding: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
-    embedding_computed_at: Mapped[Optional[datetime]] = mapped_column(
+    simhash: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    bucket: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    word_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_computed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    embedding_v2: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
-    embedding_v2_composition: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    embedding_v2_computed_at: Mapped[Optional[datetime]] = mapped_column(
+    embedding_v2: Mapped[list[float] | None] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2_composition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding_v2_computed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -146,32 +146,32 @@ class Market(Base):
 
     market_id: Mapped[str] = mapped_column(Text, primary_key=True)
     question: Mapped[str] = mapped_column(Text, nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    bucket: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
-    tags: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text), nullable=True)
-    end_date: Mapped[Optional[datetime]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    bucket: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     closed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     accepting_orders: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    volume: Mapped[Optional[float]] = mapped_column(Numeric(20, 6), nullable=True)
-    volume_24h: Mapped[Optional[float]] = mapped_column(Numeric(20, 6), nullable=True)
-    liquidity: Mapped[Optional[float]] = mapped_column(Numeric(20, 6), nullable=True)
-    best_bid: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    best_ask: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    spread: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    last_trade_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    clob_token_ids: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    liquidity_pct: Mapped[Optional[float]] = mapped_column(Numeric(5, 4), nullable=True)
-    volume_24h_pct: Mapped[Optional[float]] = mapped_column(Numeric(5, 4), nullable=True)
-    market_retrieval_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    embedding: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
-    embedding_v2: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
-    embedding_v2_composition: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    embedding_v2_computed_at: Mapped[Optional[datetime]] = mapped_column(
+    volume: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    volume_24h: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    liquidity: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    best_bid: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    best_ask: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    spread: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    last_trade_price: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    clob_token_ids: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    liquidity_pct: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)
+    volume_24h_pct: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)
+    market_retrieval_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2: Mapped[list[float] | None] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2_composition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding_v2_computed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     updated_at: Mapped[datetime] = mapped_column(
@@ -194,11 +194,11 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     event_title: Mapped[str] = mapped_column(Text, nullable=False)
-    event_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    event_retrieval_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    key_entities: Mapped[Optional[list[str]]] = mapped_column(ARRAY(Text), nullable=True)
-    event_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    bucket: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    event_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    event_retrieval_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    key_entities: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    event_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    bucket: Mapped[str | None] = mapped_column(String(50), nullable=True)
     articles_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     unique_sources_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     first_seen: Mapped[datetime] = mapped_column(
@@ -207,10 +207,10 @@ class Event(Base):
     last_seen: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    embedding: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
-    embedding_v2: Mapped[Optional[list[float]]] = mapped_column(VECTOR(1536), nullable=True)
-    embedding_v2_composition: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    embedding_v2_computed_at: Mapped[Optional[datetime]] = mapped_column(
+    embedding: Mapped[list[float] | None] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2: Mapped[list[float] | None] = mapped_column(VECTOR(1536), nullable=True)
+    embedding_v2_composition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding_v2_computed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     processing_status: Mapped[str] = mapped_column(
@@ -250,8 +250,8 @@ class EventNewsLink(Base):
     role: Mapped[str] = mapped_column(
         String(30), nullable=False, default="supporting"
     )
-    key_excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    relevance_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    key_excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relevance_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     event: Mapped["Event"] = relationship(back_populates="news_links")
     news_clean: Mapped["NewsClean"] = relationship(back_populates="event_links")
@@ -274,10 +274,10 @@ class EventMarketCandidate(Base):
     market_id: Mapped[str] = mapped_column(
         Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
     )
-    bm25_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    cosine_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    rrf_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    rank: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    bm25_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cosine_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rrf_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rank: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
     event: Mapped["Event"] = relationship(back_populates="candidates")
     market: Mapped["Market"] = relationship(back_populates="candidates")
@@ -300,15 +300,15 @@ class EventMarketAnalysis(Base):
     market_id: Mapped[str] = mapped_column(
         Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
     )
-    impact_direction: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    impact_strength: Mapped[Optional[float]] = mapped_column(Numeric(3, 2), nullable=True)
-    llm_confidence: Mapped[Optional[float]] = mapped_column(Numeric(3, 2), nullable=True)
-    ambiguity_score: Mapped[Optional[float]] = mapped_column(Numeric(3, 2), nullable=True)
-    specificity_score: Mapped[Optional[float]] = mapped_column(Numeric(3, 2), nullable=True)
-    catalysts: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-    risks: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-    reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    llm_cost_usd: Mapped[Optional[float]] = mapped_column(Numeric(8, 6), nullable=True)
+    impact_direction: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    impact_strength: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    llm_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    ambiguity_score: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    specificity_score: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    catalysts: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    risks: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    llm_cost_usd: Mapped[float | None] = mapped_column(Numeric(8, 6), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -334,18 +334,18 @@ class EventMarketFeatures(Base):
         Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
     )
     # LLM variables
-    impact_strength: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    llm_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    ambiguity_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    impact_strength: Mapped[float | None] = mapped_column(Float, nullable=True)
+    llm_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ambiguity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Backend variables
-    freshness_factor: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    source_weight: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    confirmation_factor: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    liquidity_factor: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    spread_penalty: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    time_to_resolution_factor: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    freshness_factor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    confirmation_factor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    liquidity_factor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    spread_penalty: Mapped[float | None] = mapped_column(Float, nullable=True)
+    time_to_resolution_factor: Mapped[float | None] = mapped_column(Float, nullable=True)
     # ML label (filled post-resolution)
-    outcome_label: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    outcome_label: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
     event: Mapped["Event"] = relationship(back_populates="features")
 
@@ -372,10 +372,10 @@ class EventMarketRankingShadow(Base):
     variant: Mapped[str] = mapped_column(Text, nullable=False)
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     rrf_score: Mapped[float] = mapped_column(Float, nullable=False)
-    cosine_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    entity_matches: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    date_proximity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    bucket_match: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    cosine_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    entity_matches: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    date_proximity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bucket_match: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -421,26 +421,26 @@ class Signal(Base):
         Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
     )
     signal_score: Mapped[float] = mapped_column(Numeric(5, 1), nullable=False)
-    signal_strength: Mapped[Optional[float]] = mapped_column(Numeric(5, 1), nullable=True)
-    trade_quality: Mapped[Optional[float]] = mapped_column(Numeric(5, 1), nullable=True)
+    signal_strength: Mapped[float | None] = mapped_column(Numeric(5, 1), nullable=True)
+    trade_quality: Mapped[float | None] = mapped_column(Numeric(5, 1), nullable=True)
     direction: Mapped[str] = mapped_column(String(20), nullable=False)
-    confidence_label: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    urgency_label: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    tradability_label: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    market_price_at_signal: Mapped[Optional[float]] = mapped_column(
+    confidence_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    urgency_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    tradability_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    market_price_at_signal: Mapped[float | None] = mapped_column(
         Numeric(6, 4), nullable=True
     )
-    cosine_score: Mapped[Optional[float]] = mapped_column(
+    cosine_score: Mapped[float | None] = mapped_column(
         Numeric(5, 4), nullable=True
     )
-    dedupe_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
-    score_label: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    score_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    window_estimate: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    yes_probability_explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    llm_model_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    source_tier_mix: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    dedupe_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    score_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    score_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    window_estimate: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    yes_probability_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    llm_model_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source_tier_mix: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -461,17 +461,17 @@ class SignalOutcome(Base):
     signal_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("signals.id", ondelete="CASCADE"), primary_key=True
     )
-    price_t5min: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    price_t15min: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    price_t1h: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    price_t24h: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    price_resolved: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    direction_correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    outcome_label: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
-    move_t5min_pct: Mapped[Optional[float]] = mapped_column(Numeric(7, 4), nullable=True)
-    move_t15min_pct: Mapped[Optional[float]] = mapped_column(Numeric(7, 4), nullable=True)
-    move_t1h_pct: Mapped[Optional[float]] = mapped_column(Numeric(7, 4), nullable=True)
-    move_t24h_pct: Mapped[Optional[float]] = mapped_column(Numeric(7, 4), nullable=True)
+    price_t5min: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_t15min: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_t1h: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_t24h: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_resolved: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    direction_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    outcome_label: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    move_t5min_pct: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    move_t15min_pct: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    move_t1h_pct: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    move_t24h_pct: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
 
     signal: Mapped["Signal"] = relationship(back_populates="outcome")
 
@@ -487,17 +487,17 @@ class SignalPrediction(Base):
         BigInteger, ForeignKey("signals.id", ondelete="CASCADE"), nullable=False
     )
     variant: Mapped[str] = mapped_column(Text, nullable=False)
-    predicted_direction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    predicted_probability: Mapped[Optional[float]] = mapped_column(
+    predicted_direction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    predicted_probability: Mapped[float | None] = mapped_column(
         Numeric(5, 4), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    direction_correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    brier_score: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    simulated_pnl_eur: Mapped[Optional[float]] = mapped_column(Numeric(8, 2), nullable=True)
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+    direction_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    brier_score: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    simulated_pnl_eur: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -527,7 +527,7 @@ class SignalArticle(Base):
     score: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
     cosine_score: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
     recency_weight: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
-    excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 # ---------------------------------------------------------------------------
@@ -544,30 +544,30 @@ class UserProfile(Base):
     email: Mapped[str] = mapped_column(
         String(255), nullable=False, unique=True, index=True
     )
-    password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    wallet_address: Mapped[Optional[str]] = mapped_column(String(42), nullable=True, unique=True)
-    polymarket_safe_address: Mapped[Optional[str]] = mapped_column(
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    wallet_address: Mapped[str | None] = mapped_column(String(42), nullable=True, unique=True)
+    polymarket_safe_address: Mapped[str | None] = mapped_column(
         String(42), nullable=True, unique=True
     )
     plan: Mapped[str] = mapped_column(String(20), nullable=False, default="free")
-    stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     card_attached: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    preferences: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    profile: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # ISO 3166-1 alpha-2, captured at signup since 2026-04-28 (Alembic 027,
     # Legal-PR-1 B3). Nullable only for pre-027 rows; the /auth/register
     # endpoint forces a value going forward and `signup_blocked_countries`
     # rejects the registration outright when the declared country is
     # restricted (US, etc.). Persisted so an audit can demonstrate
     # geo-restriction enforcement post-hoc.
-    country_residence: Mapped[Optional[str]] = mapped_column(
+    country_residence: Mapped[str | None] = mapped_column(
         String(2), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -621,17 +621,17 @@ class Position(Base):
     market_id: Mapped[str] = mapped_column(
         Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
     )
-    token_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    token_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     side: Mapped[str] = mapped_column(String(10), nullable=False)
     size: Mapped[float] = mapped_column(Numeric(20, 6), nullable=False, default=0)
     entry_price: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
-    current_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    pnl_pct: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
+    current_price: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    pnl_pct: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     opened_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    closed_at: Mapped[Optional[datetime]] = mapped_column(
+    closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -652,23 +652,23 @@ class Order(Base):
     market_id: Mapped[str] = mapped_column(
         Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
     )
-    signal_id: Mapped[Optional[int]] = mapped_column(
+    signal_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("signals.id", ondelete="SET NULL"), nullable=True
     )
-    token_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    token_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     side: Mapped[str] = mapped_column(String(10), nullable=False)
     price: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
     size: Mapped[float] = mapped_column(Numeric(20, 6), nullable=False)
     order_type: Mapped[str] = mapped_column(String(10), nullable=False, default="GTC")
-    polymarket_order_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    polymarket_order_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    filled_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
-    filled_size: Mapped[Optional[float]] = mapped_column(Numeric(20, 6), nullable=True)
-    error_msg: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    filled_price: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    filled_size: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    filled_at: Mapped[Optional[datetime]] = mapped_column(
+    filled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -687,7 +687,7 @@ class AgentActivity(Base):
     agent_name: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
-    details: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -700,7 +700,7 @@ class DailyBrief(Base):
     __tablename__ = "daily_briefs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[Optional[int]] = mapped_column(
+    user_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=True
     )
     brief_date: Mapped[datetime] = mapped_column(
@@ -708,7 +708,7 @@ class DailyBrief(Base):
     )
     brief_type: Mapped[str] = mapped_column(String(20), nullable=False, default="daily")
     content: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    sent_via: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    sent_via: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -762,7 +762,7 @@ class SignalPendingReasoning(Base):
     market_id: Mapped[str] = mapped_column(Text, nullable=False)
     inputs: Mapped[dict] = mapped_column(JSONB, nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
@@ -790,7 +790,7 @@ class UserLimits(Base):
     consecutive_losses: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
-    cooloff_until: Mapped[Optional[datetime]] = mapped_column(
+    cooloff_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     quiz_passed: Mapped[bool] = mapped_column(
@@ -799,7 +799,7 @@ class UserLimits(Base):
     age_confirmed_18: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    cgu_accepted_at: Mapped[Optional[datetime]] = mapped_column(
+    cgu_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     week_spent_eur: Mapped[float] = mapped_column(
@@ -824,7 +824,7 @@ class PaperPosition(Base):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=False
     )
-    signal_id: Mapped[Optional[int]] = mapped_column(
+    signal_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("signals.id", ondelete="SET NULL"), nullable=True
     )
     market_id: Mapped[str] = mapped_column(
@@ -833,19 +833,19 @@ class PaperPosition(Base):
     direction: Mapped[str] = mapped_column(String(10), nullable=False)  # "YES" | "NO"
     stake_eur: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     entry_price: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
-    current_price: Mapped[Optional[float]] = mapped_column(Numeric(6, 4), nullable=True)
+    current_price: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
     resolved: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    pnl_eur: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    pnl_eur: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     is_tutorial: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
     opened_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+    resolved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
@@ -871,7 +871,7 @@ class OnboardingProgress(Base):
     budget_done: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
-    unlocked_real_trading_at: Mapped[Optional[datetime]] = mapped_column(
+    unlocked_real_trading_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(

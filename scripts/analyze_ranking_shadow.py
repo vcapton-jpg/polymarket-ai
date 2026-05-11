@@ -19,7 +19,7 @@ import asyncio
 import json
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _run(since: timedelta, out_path: Path) -> int:
-    since_ts = datetime.now(timezone.utc) - since
+    since_ts = datetime.now(UTC) - since
     factory = get_session_factory()
     async with factory() as session:
         # Fetch shadow rows and their matching prod ranks.
@@ -115,7 +115,7 @@ async def _run(since: timedelta, out_path: Path) -> int:
                 signal_delta["different"] += 1
 
     report = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "since": since_ts.isoformat(),
         "n_events": n_events,
         "divergence_rate_top1": n_top1_diff / n_events if n_events else 0.0,

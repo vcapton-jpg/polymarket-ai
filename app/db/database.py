@@ -45,7 +45,6 @@ Why NullPool everywhere:
 
 import asyncio
 import os
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -87,7 +86,7 @@ _owner_pid: int | None = None
 _owner_loop_id: int | None = None
 
 
-def _current_loop_id() -> Optional[int]:
+def _current_loop_id() -> int | None:
     """Return id() of the currently-running event loop, or None at import
     time / sync-context call sites where no loop is active yet."""
     try:

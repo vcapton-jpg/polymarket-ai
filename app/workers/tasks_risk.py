@@ -2,8 +2,8 @@
 
 import logging
 
-from app.workers.celery_app import celery_app
 from app.workers._async_helpers import run_async
+from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,11 @@ def monitor_positions():
 
 async def _monitor_async():
     from sqlalchemy import select
+
+    from app.agents.risk_manager import risk_manager_agent
     from app.db.database import get_session_factory
     from app.db.models import Portfolio, Position
     from app.polymarket.clob_client import ClobClient
-    from app.agents.risk_manager import risk_manager_agent
 
     async with get_session_factory()() as db:
         result = await db.execute(select(Portfolio).limit(1))

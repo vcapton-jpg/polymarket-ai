@@ -4,6 +4,7 @@ Phase 7: capture_price, check_resolved_markets
 """
 
 import logging
+from datetime import UTC
 
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
@@ -216,7 +217,7 @@ def catchup_outcomes(self):
 
 
 async def _catchup_outcomes_async() -> dict:
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from sqlalchemy import select
 
@@ -224,7 +225,7 @@ async def _catchup_outcomes_async() -> dict:
     async_session_factory = get_session_factory()
     from app.db.models import Signal, SignalOutcome
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     dispatched = 0
 
     async with async_session_factory() as session:

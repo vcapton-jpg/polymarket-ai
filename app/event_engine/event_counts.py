@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def recompute_event_counts(session: "AsyncSession", *, event_id: int) -> None:
+async def recompute_event_counts(session: AsyncSession, *, event_id: int) -> None:
     """Refresh Event.articles_count + Event.unique_sources_count for one event.
 
     Caller is responsible for the surrounding transaction — this helper

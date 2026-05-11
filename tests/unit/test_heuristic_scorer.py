@@ -42,11 +42,17 @@ def test_compute_score_with_llm():
 
 
 def test_is_actionable():
-    """Test actionability check."""
+    """Test actionability check.
+
+    The threshold is `settings.signal_score_threshold` (default=65 since
+    PR #6 raised it from 55). The test must reflect the current default
+    or it silently asserts the wrong invariant.
+    """
     scorer = HeuristicScorer()
 
-    assert scorer.is_actionable(70)
-    assert scorer.is_actionable(50)
+    assert scorer.is_actionable(scorer.threshold + 5)
+    assert scorer.is_actionable(scorer.threshold)
+    assert not scorer.is_actionable(scorer.threshold - 1)
 
 
 def test_derive_confidence_label():

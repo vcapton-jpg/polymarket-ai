@@ -8,6 +8,10 @@ from app.measurement.pipeline import record_baselines, schedule_shadow_variants
 from app.measurement.scoring_context import ArticleImpact, ScoringContext
 from app.measurement.variant_registry import VariantPrediction, VariantRegistry
 
+# Integration: real DB + Celery broker access. CI unit gate skips via
+# `-m "not integration"`.
+pytestmark = pytest.mark.integration
+
 # Use high, non-clashing IDs so repeated test runs don't conflict.
 _MKT1 = "0xmeasure-pipeline-test-1"
 _MKT2 = "0xmeasure-pipeline-test-2"

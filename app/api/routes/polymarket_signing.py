@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -94,7 +93,7 @@ _ALLOWED_PATH_PREFIXES = (
 class SignRequest(BaseModel):
     method: str  # GET, POST, PUT, DELETE
     path: str    # request path on clob.polymarket.com
-    body: Optional[str] = None  # raw request body (string, exactly as sent)
+    body: str | None = None  # raw request body (string, exactly as sent)
 
 
 class SignResponse(BaseModel):

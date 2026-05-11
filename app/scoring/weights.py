@@ -50,7 +50,7 @@ class HeuristicWeights:
                 )
 
     @classmethod
-    def frozen_v1(cls) -> "HeuristicWeights":
+    def frozen_v1(cls) -> HeuristicWeights:
         """Snapshot of the chantier #5 launch weights.
 
         Anchor point for `heuristic_v1` measurement. Never edit — if the
@@ -60,7 +60,7 @@ class HeuristicWeights:
         return cls()
 
     @classmethod
-    def load_from_settings(cls, settings) -> "HeuristicWeights":
+    def load_from_settings(cls, settings) -> HeuristicWeights:
         """Build from Settings overrides; fall back to defaults per field.
 
         Settings fields: heuristic_w_freshness, heuristic_w_source,

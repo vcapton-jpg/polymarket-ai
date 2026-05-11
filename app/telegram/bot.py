@@ -1,7 +1,6 @@
 """Telegram Bot — full command interface for Signal platform."""
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -73,8 +72,9 @@ async def handle_command(chat_id: str, command: str, args: list[str]) -> str:
 
 
 async def _cmd_signals() -> str:
-    from app.db.database import get_session_factory
     from sqlalchemy import desc, select
+
+    from app.db.database import get_session_factory
     from app.db.models import Signal
 
     async with get_session_factory()() as db:
@@ -96,8 +96,9 @@ async def _cmd_signals() -> str:
 
 
 async def _cmd_portfolio() -> str:
-    from app.db.database import get_session_factory
     from sqlalchemy import select
+
+    from app.db.database import get_session_factory
     from app.db.models import Portfolio, Position
 
     async with get_session_factory()() as db:
@@ -115,7 +116,7 @@ async def _cmd_portfolio() -> str:
         positions = pos_result.scalars().all()
 
     lines = [
-        f"*Portfolio*\n",
+        "*Portfolio*\n",
         f"Total Value: ${float(portfolio.total_value):,.2f}",
         f"Cash: ${float(portfolio.cash_balance):,.2f}",
         f"Open Positions: {len(positions)}\n",
@@ -130,8 +131,9 @@ async def _cmd_portfolio() -> str:
 
 
 async def _cmd_brief() -> str:
-    from app.db.database import get_session_factory
     from sqlalchemy import desc, select
+
+    from app.db.database import get_session_factory
     from app.db.models import DailyBrief
 
     async with get_session_factory()() as db:
@@ -157,8 +159,9 @@ async def _cmd_brief() -> str:
 
 
 async def _cmd_agents() -> str:
+    from sqlalchemy import func, select
+
     from app.db.database import get_session_factory
-    from sqlalchemy import desc, func, select
     from app.db.models import AgentActivity
 
     agent_names = ["scout", "analyst", "strategist", "trader", "risk_manager", "reporter"]

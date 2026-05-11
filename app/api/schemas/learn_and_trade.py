@@ -1,8 +1,10 @@
 """Pydantic schemas for Learn & Trade routes."""
 
 from __future__ import annotations
+
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 Direction = Literal["YES", "NO"]
@@ -10,7 +12,7 @@ Direction = Literal["YES", "NO"]
 
 class PaperTradeIn(BaseModel):
     market_id: str
-    signal_id: Optional[int] = None
+    signal_id: int | None = None
     direction: Direction
     stake_eur: float = Field(gt=0, le=10000)
     entry_price: float = Field(gt=0, lt=1)
@@ -20,17 +22,17 @@ class PaperTradeIn(BaseModel):
 class PaperPositionOut(BaseModel):
     id: int
     market_id: str
-    signal_id: Optional[int]
+    signal_id: int | None
     direction: Direction
     stake_eur: float
     entry_price: float
-    current_price: Optional[float]
+    current_price: float | None
     resolved: bool
-    correct: Optional[bool]
-    pnl_eur: Optional[float]
+    correct: bool | None
+    pnl_eur: float | None
     is_tutorial: bool
     opened_at: datetime
-    resolved_at: Optional[datetime]
+    resolved_at: datetime | None
 
     class Config:
         from_attributes = True
@@ -79,6 +81,6 @@ class UserLimitsOut(BaseModel):
     real_trades_count: int
     consecutive_losses: int
     week_spent_eur: float
-    cooloff_until: Optional[datetime]
+    cooloff_until: datetime | None
     quiz_passed: bool
     age_confirmed_18: bool

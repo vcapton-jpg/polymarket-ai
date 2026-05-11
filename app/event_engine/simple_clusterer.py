@@ -1,8 +1,7 @@
 """Simple clustering for event detection."""
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -14,7 +13,7 @@ settings = get_settings()
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 # Default clustering parameters — MUST match `Settings.clustering_*` defaults
 # in `app/core/config.py`. A CI test (`tests/unit/test_config_integrity.py`)
@@ -43,7 +42,7 @@ class SimpleClusterer:
 
     def is_within_time_window(
         self,
-        date1: Optional[datetime],
+        date1: datetime | None,
         date2: datetime,
     ) -> bool:
         """Check if two dates are within the time window.

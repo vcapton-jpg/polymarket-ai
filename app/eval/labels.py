@@ -25,7 +25,6 @@ from app.db.models import (
     SignalArticle,
 )
 
-
 Surface = Literal["event_to_market", "article_to_event", "market_to_article"]
 _VALID_SURFACES = ("event_to_market", "article_to_event", "market_to_article")
 
@@ -225,6 +224,7 @@ async def _llm_judge_prompt_one_pair(
     """One LLM call. Isolated so tests can monkeypatch it.
     Returns a dict with {"relevance": "yes" | "no" | "unclear"}."""
     from openai import AsyncOpenAI
+
     from app.core.config import get_settings
 
     settings = get_settings()

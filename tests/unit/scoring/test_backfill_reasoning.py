@@ -1,4 +1,8 @@
-"""backfill_reasoning drains signals_pending_reasoning once LLM works again."""
+"""backfill_reasoning drains signals_pending_reasoning once LLM works again.
+
+Integration: hits the live session factory (real Postgres). CI unit gate
+skips via `-m "not integration"`.
+"""
 from unittest.mock import AsyncMock
 
 import pytest
@@ -7,6 +11,8 @@ from sqlalchemy import select
 from app.db.database import get_session_factory
 from app.db.models import Event, Market, Signal, SignalPendingReasoning
 from app.workers.tasks_scoring import _backfill_reasoning_async
+
+pytestmark = pytest.mark.integration
 
 
 @pytest.mark.asyncio

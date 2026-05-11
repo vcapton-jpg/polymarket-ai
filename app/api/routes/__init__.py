@@ -1,6 +1,6 @@
 """API routes — all endpoints under /api."""
 
-from typing import Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Integer, desc, func, select
@@ -22,7 +22,9 @@ from app.api.schemas import (
     TrackRecordResponse,
 )
 from app.api.schemas_v2 import (
-    SignalCardOut,
+    SignalCardOut as SignalCardOut,  # re-exported for downstream importers
+)
+from app.api.schemas_v2 import (
     SignalDetailOut,
     SignalListOut,
     SignalSourceOut,
@@ -91,11 +93,11 @@ async def health_check():
 # the React layer stays a dumb renderer.
 @router.get("/signals", response_model=SignalListOut)
 async def list_signals(
-    category: Optional[str] = Query(
+    category: str | None = Query(
         None,
         description="V2 frontend category filter (geopolitics|politics|economics|crypto|sports|science).",
     ),
-    bucket: Optional[str] = Query(
+    bucket: str | None = Query(
         None, description="Legacy bucket filter (pre-V2 clients)."
     ),
     # Default to the worker's `signal_score_threshold` so the public list
@@ -110,7 +112,7 @@ async def list_signals(
         ge=0,
         le=100,
     ),
-    direction: Optional[str] = Query(
+    direction: str | None = Query(
         None, description="YES, NO, or legacy BUY_YES/BUY_NO."
     ),
     limit: int = Query(20, ge=1, le=100),
@@ -234,7 +236,7 @@ async def get_signal_sources(
 # ── Markets ───────────────────────────────────────────────────────────
 @router.get("/markets", response_model=MarketListResponse)
 async def list_markets(
-    category: Optional[str] = Query(None),
+    category: str | None = Query(None),
     active_only: bool = Query(True),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -262,7 +264,7 @@ async def list_markets(
 # ── Events ────────────────────────────────────────────────────────────
 @router.get("/events", response_model=EventListResponse)
 async def list_events(
-    bucket: Optional[str] = Query(None),
+    bucket: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db_session),
@@ -383,9 +385,9 @@ async def get_llm_costs(db: AsyncSession = Depends(get_db_session)):
 # ── Ingestion health ─────────────────────────────────────────────────
 @router.get("/analytics/ingestion", response_model=IngestionHealthResponse)
 async def get_ingestion_health(db: AsyncSession = Depends(get_db_session)):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
 
     q = (
         select(
@@ -581,9 +583,7 @@ async def get_simulated_pnl(
 # ── Dashboard KPIs (real, not hardcoded) ──────────────────────────────
 @router.get("/analytics/dashboard-kpis", response_model=DashboardKpisResponse)
 async def get_dashboard_kpis(db: AsyncSession = Depends(get_db_session)):
-    from datetime import datetime, timedelta, timezone
-
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     total = (await db.execute(select(func.count()).select_from(Signal))).scalar() or 0
@@ -664,8 +664,6 @@ async def get_dashboard_kpis(db: AsyncSession = Depends(get_db_session)):
 # ── Track Record (public leaderboard) ────────────────────────────────
 @router.get("/analytics/track-record", response_model=TrackRecordResponse)
 async def get_track_record(db: AsyncSession = Depends(get_db_session)):
-    from datetime import datetime, timedelta, timezone
-
     total = (await db.execute(select(func.count()).select_from(Signal))).scalar() or 0
 
     resolved_q = (

@@ -1,7 +1,6 @@
 """Embedding service — OpenAI text-embedding-3-small with batch support."""
 
 import logging
-from typing import Optional
 
 from openai import AsyncOpenAI
 
@@ -31,7 +30,7 @@ class EmbeddingService:
         )
         self._model = settings.openai_embedding_model
 
-    async def compute_single(self, text: str) -> Optional[list[float]]:
+    async def compute_single(self, text: str) -> list[float] | None:
         if not text or not text.strip():
             return None
 
@@ -57,11 +56,11 @@ class EmbeddingService:
             logger.error("Embedding error: %s", e)
             return None
 
-    async def compute_batch(self, texts: list[str]) -> list[Optional[list[float]]]:
+    async def compute_batch(self, texts: list[str]) -> list[list[float] | None]:
         if not texts:
             return []
 
-        results: list[Optional[list[float]]] = [None] * len(texts)
+        results: list[list[float] | None] = [None] * len(texts)
         valid_indices = [i for i, t in enumerate(texts) if t and t.strip()]
 
         # Cache lookup pass — split valid indices into HITs (filled
@@ -99,7 +98,7 @@ class EmbeddingService:
         return results
 
 
-_service: Optional[EmbeddingService] = None
+_service: EmbeddingService | None = None
 
 
 def get_embedding_service() -> EmbeddingService:
@@ -109,9 +108,9 @@ def get_embedding_service() -> EmbeddingService:
     return _service
 
 
-async def get_embedding(text: str) -> Optional[list[float]]:
+async def get_embedding(text: str) -> list[float] | None:
     return await get_embedding_service().compute_single(text)
 
 
-async def get_embeddings(texts: list[str]) -> list[Optional[list[float]]]:
+async def get_embeddings(texts: list[str]) -> list[list[float] | None]:
     return await get_embedding_service().compute_batch(texts)

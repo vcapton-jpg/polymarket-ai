@@ -10,7 +10,6 @@ the app's own origin (+ any extras provided via Settings).
 
 from __future__ import annotations
 
-
 _DEV_ORIGINS = (
     # Vite dev server
     "http://localhost:5173",

@@ -18,9 +18,9 @@ import json
 import logging
 import subprocess
 import sys
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from sqlalchemy import select
 
@@ -121,7 +121,6 @@ async def _score_config_async(cfg: dict, labels_path: Path) -> dict:
     """Run the harness with a specific config, return aggregated report."""
     from app.eval.labels_event_market import load_event_market_labels
     from app.eval.metrics import aggregate, ndcg_at_k, retrieval_at_k
-    from app.retrieval.hybrid_search_v2 import hybrid_search_markets_v2
     # Bypass the env flag — call v2 directly with an override config.
     pairs = load_event_market_labels(labels_path)
     if not pairs:
@@ -226,7 +225,7 @@ async def _run(labels_path: Path, out_path: Path) -> int:
     gate = evaluate_offline_gate(v1_report, v2_report, max_bucket_regression=MAX_BUCKET_REGRESSION)
 
     out = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "git_sha": _git_sha(),
         "labels_path": str(labels_path),
         "v1_config": V1_CONFIG,

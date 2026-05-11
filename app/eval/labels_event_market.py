@@ -15,9 +15,8 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +98,7 @@ def load_event_market_labels(path: Path) -> list[EventMarketPair]:
 # ══════════════════════════════════════════════════════════════════════
 # LLM-judge runner (chantier #4 task 10)
 # ══════════════════════════════════════════════════════════════════════
-import hashlib
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 JUDGE_MODEL = "gpt-4o-mini"
 # Rough: one batched call = ~1200 input + 400 output tokens on gpt-4o-mini
@@ -204,6 +202,7 @@ async def judge_pairs_llm(
 async def openai_judge_call(prompt: str) -> list[dict]:
     """Production call_fn for judge_pairs_llm. Uses OpenAI structured output."""
     from openai import AsyncOpenAI
+
     from app.core.config import get_settings
     settings = get_settings()
     client = AsyncOpenAI(api_key=settings.openai_api_key)

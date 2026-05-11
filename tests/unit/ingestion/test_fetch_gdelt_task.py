@@ -1,4 +1,8 @@
-"""fetch_gdelt task — resolve/auto-create source, insert news with source_id."""
+"""fetch_gdelt task — resolve/auto-create source, insert news with source_id.
+
+Integration: hits the live session factory (real Postgres). CI unit gate
+skips via `-m "not integration"`.
+"""
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,6 +11,8 @@ from sqlalchemy import select, text
 from app.db.database import get_session_factory
 from app.db.models import News, SourceRegistry
 from app.workers.tasks_ingestion import _fetch_gdelt_async
+
+pytestmark = pytest.mark.integration
 
 
 CANNED = [

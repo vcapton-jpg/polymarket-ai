@@ -9,9 +9,10 @@ from __future__ import annotations
 import csv
 import json
 import logging
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from dateutil import parser as date_parser
 
@@ -22,10 +23,10 @@ def _parse_dt(val: Any) -> datetime | None:
     if val is None:
         return None
     if isinstance(val, datetime):
-        return val if val.tzinfo else val.replace(tzinfo=timezone.utc)
+        return val if val.tzinfo else val.replace(tzinfo=UTC)
     try:
         dt = date_parser.parse(str(val))
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
     except (ValueError, TypeError):
         return None
 

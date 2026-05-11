@@ -41,7 +41,7 @@ async def build_scoring_context(
     articles: list[dict[str, Any]] | None,
     t0: datetime,
     market_price_24h_ago: float | None = None,
-) -> "ScoringContext":
+) -> ScoringContext:
     """Assemble a ScoringContext from whatever the signal builder has on hand.
 
     `market_price_24h_ago` is an explicit input — chantier #1 ships with None

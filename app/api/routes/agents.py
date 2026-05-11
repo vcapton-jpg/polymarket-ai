@@ -1,7 +1,6 @@
 """Agent status and activity feed API routes."""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import desc, func, select
@@ -83,7 +82,7 @@ async def get_agents_status(db: AsyncSession = Depends(get_db_session)):
 
 @router.get("/activity")
 async def get_agent_activity(
-    agent: Optional[str] = Query(None),
+    agent: str | None = Query(None),
     limit: int = Query(50, le=200),
     db: AsyncSession = Depends(get_db_session),
 ):

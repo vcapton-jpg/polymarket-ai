@@ -62,7 +62,10 @@ jobs:
           uv run python -c "from app.workers.celery_app import celery_app; print('celery import OK')"
 
       - name: Pytest unit
-        run: uv run pytest tests/unit -x --maxfail=5 -q
+        # `-m "not integration"` skips DB-bound tests (auto-marked via
+        # tests/conftest.py — any test pulling `async_db_factory` /
+        # `async_db_engine` is treated as integration). No DB on the runner.
+        run: uv run pytest tests/unit -x --maxfail=5 -q -m "not integration"
 
       - name: Schema invariant (smoke)
         # T-026 follow-up: make sure all SQLAlchemy models still import

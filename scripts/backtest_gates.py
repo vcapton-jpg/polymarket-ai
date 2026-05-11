@@ -21,7 +21,7 @@ import asyncio
 import json
 import random as _random
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import text
@@ -137,7 +137,7 @@ SELECT
 
 
 async def fetch_samples(window_days: int) -> list[Sample]:
-    since = datetime.now(timezone.utc) - timedelta(days=window_days)
+    since = datetime.now(UTC) - timedelta(days=window_days)
     factory = get_session_factory()
     samples: list[Sample] = []
     async with factory() as s:

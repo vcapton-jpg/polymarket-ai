@@ -22,7 +22,7 @@ class VariantPrediction:
     probability: float | None   # P(YES) in [0, 1] or None
 
 
-from typing import Callable, Protocol
+from typing import Protocol
 
 
 class BaselineFn(Protocol):
@@ -41,20 +41,20 @@ class VariantRegistry:
         self._baselines: dict[str, BaselineFn] = {}
         self._shadows: dict[str, BaselineFn] = {}
 
-    def register_baseline(self, name: str, fn: "BaselineFn") -> None:
+    def register_baseline(self, name: str, fn: BaselineFn) -> None:
         if name in self._baselines:
             raise ValueError(f"Baseline {name!r} already registered")
         self._baselines[name] = fn
 
-    def register_shadow(self, name: str, fn: "BaselineFn") -> None:
+    def register_shadow(self, name: str, fn: BaselineFn) -> None:
         if name in self._shadows:
             raise ValueError(f"Shadow {name!r} already registered")
         self._shadows[name] = fn
 
-    def baselines(self) -> dict[str, "BaselineFn"]:
+    def baselines(self) -> dict[str, BaselineFn]:
         return dict(self._baselines)
 
-    def shadows(self) -> dict[str, "BaselineFn"]:
+    def shadows(self) -> dict[str, BaselineFn]:
         return dict(self._shadows)
 
 

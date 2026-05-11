@@ -8,7 +8,7 @@ import asyncio
 import hashlib
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.workers._async_helpers import run_async as _run_async
 from app.workers.celery_app import celery_app
@@ -60,13 +60,13 @@ async def _check_signal_duplicate(
     and stored but never queried for filtering. The thematic case had no
     coverage at all.
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from sqlalchemy import Float, cast, select
 
     from app.db.models import Market, Signal
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Layer 1: exact dedupe.
     exact_cutoff = now - timedelta(hours=settings.signal_dedupe_window_hours)
@@ -268,10 +268,10 @@ def _market_quality_reject(market) -> str | None:
 
     end_date = getattr(market, "end_date", None)
     if end_date is not None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Normalise naive datetimes to UTC so the comparison never raises.
         if end_date.tzinfo is None:
-            end_date = end_date.replace(tzinfo=timezone.utc)
+            end_date = end_date.replace(tzinfo=UTC)
         if end_date <= now:
             return f"end_date {end_date.isoformat()} already past (now={now.isoformat()})"
         min_remaining_hours = _gs().market_min_remaining_hours
@@ -472,7 +472,7 @@ async def _ensure_event_embeddings(session, event) -> list[float] | None:
         if v2_emb is not None:
             event.embedding_v2 = v2_emb
             event.embedding_v2_composition = composed_v2.composition_version
-            event.embedding_v2_computed_at = datetime.now(timezone.utc)
+            event.embedding_v2_computed_at = datetime.now(UTC)
             await session.flush()
 
     return list(raw_embedding) if raw_embedding is not None else None
@@ -750,7 +750,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         # each `_analyze_one`. With ~10 candidates this drops 10 SELECTs
         # to 1.
         top_cand_mids = [c["market_id"] for c in top_cands]
-        markets_by_mid: dict[str, "Market"] = {}
+        markets_by_mid: dict[str, Market] = {}
         if top_cand_mids:
             market_rows = (
                 await session.execute(
@@ -842,7 +842,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
         # scoring loop reads from memory instead of issuing a second
         # `SELECT … ORDER BY id DESC LIMIT 1` per market. Iterate so the
         # highest id wins — same semantics as the previous query.
-        analysis_by_mid: dict[str, "EventMarketAnalysis"] = {}
+        analysis_by_mid: dict[str, EventMarketAnalysis] = {}
         for a in all_analyses:
             scored_mids.add(a.market_id)
             prev = analysis_by_mid.get(a.market_id)
@@ -920,7 +920,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                 ref_dt = (
                     event.last_seen
                     or event.first_seen
-                    or datetime.now(timezone.utc)
+                    or datetime.now(UTC)
                 )
                 source_count = event.unique_sources_count or 1
                 features_dict = build_feature_dict(
@@ -988,7 +988,7 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
             if existing_signal:
                 continue
 
-            market_cooloff = datetime.now(timezone.utc) - timedelta(hours=6)
+            market_cooloff = datetime.now(UTC) - timedelta(hours=6)
             recent_market_signal = (
                 await session.execute(
                     select(Signal.id)

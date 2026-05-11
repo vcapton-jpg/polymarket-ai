@@ -1,6 +1,7 @@
 """Scout Agent — wraps the ingestion pipeline with agent personality."""
 
 import logging
+
 from app.agents.base import BaseAgent
 
 logger = logging.getLogger(__name__)

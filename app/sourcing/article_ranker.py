@@ -7,9 +7,10 @@ Deterministic tie-break: newer publish_date wins, then lower news_clean_id.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ class ArticleRanker:
         self.tau_hours = float(tau_hours)
 
     @classmethod
-    def from_settings(cls, settings) -> "ArticleRanker":
+    def from_settings(cls, settings) -> ArticleRanker:
         return cls(
             alpha=settings.sourcing_alpha,
             beta=settings.sourcing_beta,

@@ -1,10 +1,9 @@
 """Reporter Agent — generates daily briefs and performance reports."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.base import BaseAgent
@@ -19,7 +18,7 @@ class ReporterAgent(BaseAgent):
 
     async def generate_daily_brief(self, db: AsyncSession) -> dict:
         """Generate a daily intelligence brief."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         day_ago = now - timedelta(hours=24)
 
         signals_result = await db.execute(

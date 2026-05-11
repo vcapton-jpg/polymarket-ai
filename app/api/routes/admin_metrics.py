@@ -7,7 +7,7 @@ stays dumb.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from statistics import mean
 
 from fastapi import APIRouter, Depends, Query
@@ -15,7 +15,10 @@ from sqlalchemy import select
 
 from app.api.deps.admin import require_admin
 from app.api.schemas.admin_metrics import (
-    RollingPoint, RollingResponse, VariantAggregate, VariantsResponse,
+    RollingPoint,
+    RollingResponse,
+    VariantAggregate,
+    VariantsResponse,
 )
 from app.db.database import get_session_factory
 from app.db.models import SignalPrediction
@@ -40,7 +43,7 @@ async def get_variants(
     window: str = Query("30d"),
     _admin=Depends(require_admin),
 ) -> VariantsResponse:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = _window_to_cutoff(window, now)
 
     factory = get_session_factory()
@@ -116,7 +119,7 @@ async def get_rolling(
         # YAGNI — only 1d step for now.
         raise ValueError(f"unsupported step: {step!r}")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = _window_to_cutoff(window, now)
 
     factory = get_session_factory()

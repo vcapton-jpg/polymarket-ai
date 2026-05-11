@@ -1,7 +1,6 @@
 """Bucket classifier for topic categorization."""
 
 import logging
-from typing import Optional
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -154,7 +153,7 @@ class BucketClassifier:
 
     def __init__(self):
         """Initialize the bucket classifier."""
-        self._pipeline: Optional[Pipeline] = None
+        self._pipeline: Pipeline | None = None
         self._trained = False
 
     def _create_pipeline(self) -> Pipeline:
@@ -241,14 +240,14 @@ class BucketClassifier:
             self.train()
 
         if not text:
-            return {bucket: 0.0 for bucket in BUCKETS}
+            return dict.fromkeys(BUCKETS, 0.0)
 
         try:
             probas = self._pipeline.predict_proba([text])[0]
             return dict(zip(self._pipeline.classes_, probas))
         except Exception as e:
             logger.error(f"Probability error: {e}")
-            return {bucket: 0.0 for bucket in BUCKETS}
+            return dict.fromkeys(BUCKETS, 0.0)
 
     def is_relevant(self, text: str, threshold: float = 0.6) -> bool:
         """Check if text is relevant (not classified as "other").
@@ -266,7 +265,7 @@ class BucketClassifier:
 
 
 # Global classifier instance
-_classifier: Optional[BucketClassifier] = None
+_classifier: BucketClassifier | None = None
 
 
 def create_bucket_classifier() -> BucketClassifier:

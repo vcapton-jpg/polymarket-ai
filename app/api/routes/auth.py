@@ -1,8 +1,8 @@
 """Authentication routes — email/password with JWT tokens."""
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -41,7 +41,7 @@ TOKEN_EXPIRE_DAYS = 7
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
-    plan: Optional[Literal["free", "pro"]] = "free"
+    plan: Literal["free", "pro"] | None = "free"
     # Legal-PR-1 B2 — frontend collected the 18+ checkbox in Signup.tsx but
     # never sent it. Now required; the backend mirrors it into UserLimits
     # so the order-time `age_not_confirmed` gate at OrderForm.tsx actually
@@ -50,7 +50,7 @@ class RegisterRequest(BaseModel):
     # Legal-PR-1 B3 — ISO 3166-1 alpha-2. Required so we can refuse signup
     # from blocklisted jurisdictions (CFTC + sanctions). The endpoint
     # cross-checks against `cf-ipcountry` if present.
-    country_residence: Optional[str] = Field(default=None, min_length=2, max_length=2)
+    country_residence: str | None = Field(default=None, min_length=2, max_length=2)
 
 
 class LoginRequest(BaseModel):
@@ -72,13 +72,13 @@ class MeResponse(BaseModel):
     """
 
     id: int
-    email: Optional[str]
+    email: str | None
     plan: Literal["free", "pro"]
-    trial_ends_at: Optional[datetime] = None
+    trial_ends_at: datetime | None = None
     card_attached: bool = False
-    stripe_customer_id: Optional[str] = None
-    preferences: Optional[dict[str, Any]] = None
-    profile: Optional[dict[str, Any]] = None
+    stripe_customer_id: str | None = None
+    preferences: dict[str, Any] | None = None
+    profile: dict[str, Any] | None = None
     created_at: datetime
 
 
@@ -86,7 +86,7 @@ def _create_token(user_id: int) -> str:
     settings = get_settings()
     payload = {
         "sub": str(user_id),
-        "exp": datetime.now(timezone.utc) + timedelta(days=TOKEN_EXPIRE_DAYS),
+        "exp": datetime.now(UTC) + timedelta(days=TOKEN_EXPIRE_DAYS),
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=ALGORITHM)
 
@@ -140,7 +140,7 @@ def _normalised_blocked_countries(raw: str) -> set[str]:
 
 
 def _enforce_geo_restriction(
-    declared_country: Optional[str],
+    declared_country: str | None,
     request: Request,
 ) -> str:
     """Validate the user's declared country and, if available, cross-check
@@ -217,13 +217,13 @@ async def register(
         )
 
     plan = body.plan or "free"
-    trial_ends_at: Optional[datetime] = None
+    trial_ends_at: datetime | None = None
     if plan == "pro":
         # 7-day no-card trial (matches client trial.ts copy). Stripe is
         # wired separately in L6 — until then the user is "pro" for the
         # trial window and auto-downgrades on the first /auth/me call
         # past trial_ends_at.
-        trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
+        trial_ends_at = datetime.now(UTC) + timedelta(days=TRIAL_DAYS)
 
     user = UserProfile(
         email=body.email,
@@ -275,8 +275,8 @@ async def _maybe_auto_downgrade(
         return user
     end = user.trial_ends_at
     if end.tzinfo is None:
-        end = end.replace(tzinfo=timezone.utc)
-    if end > datetime.now(timezone.utc):
+        end = end.replace(tzinfo=UTC)
+    if end > datetime.now(UTC):
         return user
     user.plan = "free"
     user.trial_ends_at = None
@@ -310,11 +310,11 @@ class ProfileUpdate(BaseModel):
     All fields optional so partial updates (Settings profile edits) work.
     """
 
-    type: Optional[str] = None
-    experience: Optional[str] = None
-    reaction: Optional[str] = None
-    budget: Optional[str] = None
-    suggested_sizing: Optional[str] = None
+    type: str | None = None
+    experience: str | None = None
+    reaction: str | None = None
+    budget: str | None = None
+    suggested_sizing: str | None = None
 
 
 @router.put("/me/profile", response_model=MeResponse)
@@ -344,12 +344,12 @@ async def update_profile(
 class PreferencesUpdate(BaseModel):
     """Written by Settings.tsx — currency, language, notif toggles, etc."""
 
-    currency: Optional[Literal["USD", "EUR"]] = None
-    language: Optional[Literal["fr", "en"]] = None
-    exchange_rate: Optional[float] = None
-    notif_email: Optional[bool] = None
-    notif_push: Optional[bool] = None
-    notif_telegram: Optional[bool] = None
+    currency: Literal["USD", "EUR"] | None = None
+    language: Literal["fr", "en"] | None = None
+    exchange_rate: float | None = None
+    notif_email: bool | None = None
+    notif_push: bool | None = None
+    notif_telegram: bool | None = None
 
 
 @router.put("/me/preferences", response_model=MeResponse)

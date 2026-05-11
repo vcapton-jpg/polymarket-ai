@@ -10,19 +10,18 @@ import logging
 import math
 import re
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.retrieval.vector_retriever as _vector_retriever
 from app.core.config import get_settings
 from app.retrieval.bm25_index import BM25Index
-import app.retrieval.vector_retriever as _vector_retriever
 
 logger = logging.getLogger(__name__)
 
 
 def date_proximity(
-    market_end_date: Optional[datetime],
+    market_end_date: datetime | None,
     event_last_seen: datetime,
     tau_days: float,
 ) -> float:
@@ -44,7 +43,7 @@ def date_proximity(
     return math.exp(-(days_until - 7.0) / tau_days)
 
 
-def bucket_match(market_bucket: Optional[str], event_bucket: Optional[str]) -> float:
+def bucket_match(market_bucket: str | None, event_bucket: str | None) -> float:
     """1.0 iff both are the same real bucket; 0.0 for None/other/mismatch."""
     if event_bucket is None or event_bucket == "other":
         return 0.0
@@ -70,10 +69,10 @@ async def hybrid_search_markets_v2(
     session: AsyncSession,
     event_embedding: list[float],
     event_text: str,
-    top_k: Optional[int] = None,
-    event_bucket: Optional[str] = None,
-    event_entities: Optional[list[str]] = None,
-    event_last_seen: Optional[datetime] = None,
+    top_k: int | None = None,
+    event_bucket: str | None = None,
+    event_entities: list[str] | None = None,
+    event_last_seen: datetime | None = None,
 ) -> list[dict]:
     """Run hybrid search v2:
       RRF(vec, bm25) + w_entity*entity_matches

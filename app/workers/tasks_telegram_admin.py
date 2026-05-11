@@ -148,7 +148,7 @@ async def _async_send_code(api_id: str, api_hash: str, phone: str) -> dict:
     client = _build_client(api_id, api_hash)
     try:
         await asyncio.wait_for(client.connect(), timeout=20.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"ok": False, "error": "timeout connecting to Telegram MTProto (>20s) — Hetzner egress may be DPI-blocked"}
     except Exception as e:
         return {"ok": False, "error": f"connect failed: {type(e).__name__}: {e}"}
@@ -156,7 +156,7 @@ async def _async_send_code(api_id: str, api_hash: str, phone: str) -> dict:
     try:
         try:
             sent = await asyncio.wait_for(client.send_code_request(phone), timeout=20.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"ok": False, "error": "timeout calling send_code_request (>20s)"}
         except Exception as e:
             return {"ok": False, "error": f"send_code_request failed: {type(e).__name__}: {e}"}
@@ -228,7 +228,7 @@ async def _async_verify_code(phone: str, code: str, password: str) -> dict:
     try:
         try:
             await asyncio.wait_for(client.connect(), timeout=20.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"ok": False, "error": "timeout connecting to Telegram MTProto (>20s)"}
         except Exception as e:
             return {"ok": False, "error": f"connect failed: {type(e).__name__}: {e}"}
@@ -250,11 +250,11 @@ async def _async_verify_code(phone: str, code: str, password: str) -> dict:
                 await asyncio.wait_for(client.sign_in(password=password), timeout=30.0)
             except PasswordHashInvalidError:
                 return {"ok": False, "error": "wrong 2FA password"}
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return {"ok": False, "error": "timeout submitting 2FA password (>30s)"}
             except Exception as e:
                 return {"ok": False, "error": f"2FA sign-in failed: {type(e).__name__}: {e}"}
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"ok": False, "error": "timeout submitting code (>30s)"}
         except Exception as e:
             return {"ok": False, "error": f"sign_in failed: {type(e).__name__}: {e}"}
@@ -262,7 +262,7 @@ async def _async_verify_code(phone: str, code: str, password: str) -> dict:
         # Verify authorization
         try:
             is_auth = await asyncio.wait_for(client.is_user_authorized(), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             is_auth = False
         if not is_auth:
             return {"ok": False, "error": "client is not authorized after sign_in (unexpected)"}

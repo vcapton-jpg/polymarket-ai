@@ -26,8 +26,7 @@ should go through `OpenAIClient.chat_completion`.
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from openai import AsyncOpenAI
 from sqlalchemy import func as sa_func
@@ -82,7 +81,7 @@ def _compute_cost_usd(model: str, input_tokens: int, output_tokens: int) -> floa
 
 async def _fetch_24h_cost_from_db() -> float:
     """Sum of `llm_cost_log.cost_usd` over the last 24 hours."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
     async with get_session_factory()() as session:
         result = await session.execute(
             select(sa_func.coalesce(sa_func.sum(LLMCostLog.cost_usd), 0)).where(
@@ -145,7 +144,7 @@ CHAT_COMPLETION_TIMEOUT_SECONDS = 45.0
 
 
 class OpenAIClient:
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         # 45 s timeout on chat completions. The SDK default is 600 s,
         # which combined with `task_time_limit=600 s` and tenacity's
         # 3-attempt retry creates a 30-min worst-case hang. 45 s × 3
@@ -168,11 +167,11 @@ class OpenAIClient:
         self,
         messages: list[dict],
         call_type: str = "unknown",
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 400,
         temperature: float = 0.3,
-        response_format: Optional[dict] = None,
-    ) -> Optional[str]:
+        response_format: dict | None = None,
+    ) -> str | None:
         await _ensure_under_budget()
 
         model = model or settings.openai_llm_model
@@ -205,7 +204,7 @@ class OpenAIClient:
         model: str,
         input_tokens: int,
         output_tokens: int,
-    ) -> Optional[float]:
+    ) -> float | None:
         cost_usd = _compute_cost_usd(model, input_tokens, output_tokens)
 
         try:
@@ -224,7 +223,7 @@ class OpenAIClient:
         return cost_usd
 
 
-_openai_client: Optional[OpenAIClient] = None
+_openai_client: OpenAIClient | None = None
 
 
 def get_openai_client() -> OpenAIClient:

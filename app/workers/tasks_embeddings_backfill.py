@@ -9,13 +9,13 @@ Idempotent: never touches a row whose embedding_v2 is already populated.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from app.db.database import get_session_factory
-from app.db.models import Event, Market, News, NewsClean
+from app.db.models import Event, Market, NewsClean
 from app.processing.embedding_service import get_embedding
 from app.processing.text_composers import (
     compose_event_v2,
@@ -73,7 +73,7 @@ async def _run_backfill(surface: str, batch_size: int) -> dict:
                     continue
                 nc.embedding_v2 = emb
                 nc.embedding_v2_composition = composed.composition_version
-                nc.embedding_v2_computed_at = datetime.now(timezone.utc)
+                nc.embedding_v2_computed_at = datetime.now(UTC)
                 processed += 1
             remaining = (await session.execute(
                 select(func.count()).select_from(NewsClean).where(NewsClean.embedding_v2.is_(None))
@@ -98,7 +98,7 @@ async def _run_backfill(surface: str, batch_size: int) -> dict:
                     continue
                 m.embedding_v2 = emb
                 m.embedding_v2_composition = composed.composition_version
-                m.embedding_v2_computed_at = datetime.now(timezone.utc)
+                m.embedding_v2_computed_at = datetime.now(UTC)
                 processed += 1
             remaining = (await session.execute(
                 select(func.count()).select_from(Market).where(Market.embedding_v2.is_(None))
@@ -123,7 +123,7 @@ async def _run_backfill(surface: str, batch_size: int) -> dict:
                     continue
                 ev.embedding_v2 = emb
                 ev.embedding_v2_composition = composed.composition_version
-                ev.embedding_v2_computed_at = datetime.now(timezone.utc)
+                ev.embedding_v2_computed_at = datetime.now(UTC)
                 processed += 1
             remaining = (await session.execute(
                 select(func.count()).select_from(Event).where(Event.embedding_v2.is_(None))

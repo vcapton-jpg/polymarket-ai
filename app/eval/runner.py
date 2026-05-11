@@ -6,7 +6,7 @@ import json
 import logging
 import subprocess
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from sqlalchemy import select
@@ -92,7 +92,7 @@ async def run_eval(
         surface=surface,
         metrics=agg,
         per_source=per_source,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
         git_sha=_git_sha(),
         n_pairs=len(per_pair),
         n_skipped=n_skipped,

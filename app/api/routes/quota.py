@@ -10,7 +10,7 @@ optimistic updates. The mirror is reconciled on mount + on `consume`.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
@@ -28,7 +28,7 @@ FREE_DAILY_LIMIT = 5
 
 
 def _today_key(user_id: int) -> str:
-    day = datetime.now(timezone.utc).date().isoformat()
+    day = datetime.now(UTC).date().isoformat()
     return f"quota:{user_id}:{day}"
 
 
@@ -51,7 +51,7 @@ async def _get_redis() -> aioredis.Redis:
 
 def _next_reset_iso() -> str:
     """00:00 UTC tomorrow — matches the server's day boundary."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tomorrow = (now + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )

@@ -1,7 +1,6 @@
 """CLOB API client — microstructure enrichment (bid/ask/spread/last_trade)."""
 
 import logging
-from typing import Optional
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -13,7 +12,7 @@ CLOB_BASE_URL = "https://clob.polymarket.com"
 
 class ClobClient:
     def __init__(self):
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -29,7 +28,7 @@ class ClobClient:
             await self._client.aclose()
 
     @retry(stop=stop_after_attempt(2), wait=wait_exponential(min=1, max=5))
-    async def get_market(self, condition_id: str) -> Optional[dict]:
+    async def get_market(self, condition_id: str) -> dict | None:
         """GET /markets/{condition_id} on CLOB — returns accepting_orders, tokens, etc."""
         client = await self._get_client()
         resp = await client.get(f"/markets/{condition_id}")
@@ -69,7 +68,7 @@ class ClobClient:
             "accepting_orders": data.get("accepting_orders", True),
         }
 
-    async def get_price_yes(self, condition_id: str) -> Optional[float]:
+    async def get_price_yes(self, condition_id: str) -> float | None:
         """Quick helper: get current YES probability."""
         data = await self.get_market(condition_id)
         if not data:
@@ -80,7 +79,7 @@ class ClobClient:
         return None
 
     @retry(stop=stop_after_attempt(2), wait=wait_exponential(min=1, max=5))
-    async def get_price_24h_ago(self, yes_token_id: str) -> Optional[float]:
+    async def get_price_24h_ago(self, yes_token_id: str) -> float | None:
         """Fetch the YES price as of ~24h ago from /prices-history.
 
         Used by the measurement layer to enable `baseline_momentum`. We pull
@@ -116,7 +115,7 @@ class ClobClient:
         return _to_float(first.get("p"))
 
 
-def _to_float(val) -> Optional[float]:
+def _to_float(val) -> float | None:
     if val is None:
         return None
     try:

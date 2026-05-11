@@ -1,7 +1,6 @@
 """Risk Manager Agent — monitors positions and alerts on adverse moves."""
 
 import logging
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

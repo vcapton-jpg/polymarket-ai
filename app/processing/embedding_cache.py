@@ -29,7 +29,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Optional
 
 from app.core.config import get_settings
 
@@ -42,7 +41,7 @@ _NAMESPACE = "embcache"
 
 
 def _key(model: str, text: str) -> str:
-    digest = hashlib.sha256(f"{model}:{text}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{model}:{text}".encode()).hexdigest()
     return f"{_NAMESPACE}:{digest}"
 
 
@@ -67,7 +66,7 @@ def _get_client():
         return None
 
 
-async def get_cached(model: str, text: str) -> Optional[list[float]]:
+async def get_cached(model: str, text: str) -> list[float] | None:
     """Return the cached embedding for (model, text) or None on miss/error."""
     if not text or not text.strip():
         return None

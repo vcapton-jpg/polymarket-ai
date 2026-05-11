@@ -2,8 +2,8 @@
 
 import logging
 
-from app.workers.celery_app import celery_app
 from app.workers._async_helpers import run_async
+from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,8 @@ def generate_daily_brief():
 
 
 async def _generate_daily_async():
-    from app.db.database import get_session_factory
     from app.agents.reporter import reporter_agent
+    from app.db.database import get_session_factory
 
     async with get_session_factory()() as db:
         brief = await reporter_agent.generate_daily_brief(db)
@@ -34,6 +34,7 @@ def send_telegram_brief():
 async def _send_telegram_brief_async():
     import httpx
     from sqlalchemy import desc, select
+
     from app.core.config import get_settings
     from app.db.database import get_session_factory
     from app.db.models import DailyBrief
