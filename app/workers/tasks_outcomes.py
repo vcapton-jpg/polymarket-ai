@@ -354,10 +354,12 @@ async def _check_resolved_async() -> dict:
                 outcome.price_resolved = final_price
 
                 if signal.market_price_at_signal is not None:
-                    from app.signal.direction_eval import direction_matches_price_move
+                    # Tri-state: ties → NULL `direction_correct`, so aggregations
+                    # exclude them from the win/loss denominator.
+                    from app.signal.direction_eval import direction_correct_3state
 
                     base = float(signal.market_price_at_signal)
-                    outcome.direction_correct = direction_matches_price_move(
+                    outcome.direction_correct = direction_correct_3state(
                         signal.direction or "",
                         base,
                         float(final_price),
