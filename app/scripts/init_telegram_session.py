@@ -70,6 +70,21 @@ async def main() -> None:
     print(f"TELEGRAM_API_HASH={api_hash}")
     print(f"TELEGRAM_SESSION_STRING={session_string}")
     print("=" * 60)
+
+    # Also write to /tmp/tg-credentials.txt — useful when running inside a
+    # container via `docker compose exec` where the parent terminal may eat
+    # scrollback (Hetzner web console). Retrieve with:
+    #   docker compose exec worker-ingestion cat /tmp/tg-credentials.txt
+    creds_path = "/tmp/tg-credentials.txt"
+    try:
+        with open(creds_path, "w") as f:
+            f.write(f"TELEGRAM_API_ID={api_id}\n")
+            f.write(f"TELEGRAM_API_HASH={api_hash}\n")
+            f.write(f"TELEGRAM_SESSION_STRING={session_string}\n")
+        print(f"\nAlso written to {creds_path} (cat it if scrollback is lost).")
+    except OSError as e:
+        print(f"\n[warn] could not write {creds_path}: {e}")
+
     print()
     print("Next steps:")
     print("  1. SSH the VPS and paste the 3 lines into /opt/foresight/.env")
