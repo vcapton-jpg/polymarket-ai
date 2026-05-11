@@ -163,6 +163,26 @@ class SignalBuilder:
                         _eid, y, lo, hi, direction,
                     )
                     return None
+
+                # T-001: drop BUY_NO when the YES price is already low
+                # (<0.30 default). 30 d audit (2026-05-11): 211/698 signals
+                # were BUY_NO × YES<0.30 with avg move +17% AGAINST us,
+                # RTP −16% to −27% depending on score bucket. Pure tail
+                # short with no edge to capture. Backtest harness PR #95:
+                # this filter alone moves total RTP from −1.91% to +4.68%
+                # over the 30 d sample (n 699 → 488, 70% retention).
+                # Feature flag exists for emergency rollback; threshold
+                # configurable via `buyno_lowprice_filter_threshold`.
+                if (
+                    settings.enable_buyno_lowprice_filter
+                    and direction == "BUY_NO"
+                    and y < settings.buyno_lowprice_filter_threshold
+                ):
+                    logger.info(
+                        "[%s] REJECT BUY_NO × low YES price %.4f < %.2f (T-001 toxic zone)",
+                        _eid, y, settings.buyno_lowprice_filter_threshold,
+                    )
+                    return None
         else:
             logger.info("[%s] REJECT no LLM analysis", _eid)
             return None
