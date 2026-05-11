@@ -178,7 +178,7 @@ async def admin_stats_extended(
                    ELSE NULL END)::float AS avg_signed_move_pct
         FROM signals s
         JOIN signal_outcomes so ON so.signal_id = s.id
-        JOIN markets m ON m.id = s.market_id
+        JOIN markets m ON m.market_id = s.market_id
         WHERE s.created_at > NOW() - INTERVAL '{int(days)} days'
           AND so.move_t1h_pct IS NOT NULL
         GROUP BY 1
