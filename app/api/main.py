@@ -185,11 +185,15 @@ from app.api.routes.telegram_webhook import router as tg_webhook_router  # noqa:
 app.include_router(tg_webhook_router, prefix="/api")
 
 from app.api.routes.admin_telegram import router as admin_telegram_router  # noqa: E402
+from app.api.routes.admin_stats import router as admin_stats_router  # noqa: E402
 
 # Web admin form for Telegram session setup — gated behind
 # `settings.admin_token` (X-Admin-Token header). See
 # app/api/routes/admin_telegram.py docstring for the trust model.
 app.include_router(admin_telegram_router, prefix="/api")
+# Extended pipeline stats (winrate breakdowns + estimated RTP).
+# Same X-Admin-Token gate as admin_telegram_router.
+app.include_router(admin_stats_router, prefix="/api")
 
 # Mount /static so the operator can reach the admin HTML form at
 # https://yourforesight.com/static/admin-telegram.html. The directory
