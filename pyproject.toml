@@ -57,6 +57,11 @@ dependencies = [
     "email-validator>=2.0.0",
     "pywebpush>=2.0.0",
     "google-auth>=2.0.0",
+    # Observability — T-006 in docs/PLAN_30D_SIGNAL_QUALITY.md.
+    # Single SDK shared by FastAPI (api/main.py) and Celery
+    # (workers/celery_app.py). `sqlalchemy` integration captures slow
+    # query breadcrumbs without us instrumenting individual sessions.
+    "sentry-sdk[fastapi,celery,sqlalchemy]>=2.18.0",
 ]
 
 [project.optional-dependencies]
