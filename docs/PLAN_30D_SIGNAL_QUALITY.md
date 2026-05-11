@@ -508,10 +508,16 @@ python -m scripts.backtest.replay --rule rules.dirprice_filter --window-days 30
 | 2026-05-11 | Endpoint `/api/admin/stats/extended` | Métriques RTP/winrate/etc. par bucket |
 | 2026-05-11 | Audit 6-agents v2 (avec data RTP) | Plan 30j (ce fichier) |
 | 2026-05-11 | **PLAN_30D_SIGNAL_QUALITY.md créé** | Plan complet, traçable, cross-session |
-| ⬜ J0+1 | Démarrage Sprint 1 | — |
-| ⬜ J7 | Validation Sprint 1 | — |
-| ⬜ J14 | Validation Sprint 2 | — |
-| ⬜ J21 | Validation Sprint 3 | — |
+| 2026-05-11 | T-002 + T-003 — tri-state tie + Wilson CI95 (PR #94) | `direction_correct_3state` → None on ties, ties exclus du winrate ; CI95 sur tous les buckets de `/admin/stats/extended` |
+| 2026-05-11 | T-005 — backtest harness (PR #95) | `scripts/backtest/replay.py` read-only ; règles `baseline.py` + `dirprice_filter.py` ; rapport markdown + JSON ; tourne en docker container `app` |
+| 2026-05-11 | T-001 — drop BUY_NO × YES<0.30 (PR #96) | Filtre en prod via `enable_buyno_lowprice_filter` + `buyno_lowprice_filter_threshold=0.30` ; **backtest 30j: RTP −1.91 % → +4.68 %**, retention 86 % |
+| 2026-05-11 | T-007 — désact 5 sources toxiques + dédup 6 paires `source_name` | SQL direct VPS : 1 291 `news.source_id` migrées (139+49+13+22+6+1 062) ; 6 orphans + 5 sources toxiques `is_active=false` |
+| 2026-05-11 | T-004 — CI GitHub Actions (PR #97) | Workflow `lint + unit tests` : ruff (autofix legacy 690/745, ignore 22 règles cosmétiques), smoke imports FastAPI+Celery, pytest unit (`-m "not integration"`), schema-models import. Auto-marker dans `tests/conftest.py` skipe les tests DB-bound. **446 tests passent en CI ; 54 deselected.** |
+| 2026-05-11 | T-006 — Sentry SDK câblé (PR #98) | `app/core/sentry_init.py` partagé, idempotent, no-op sans `SENTRY_DSN`. Intégrations FastAPI + Starlette + Celery + SQLAlchemy. `traces_sample_rate=0.05` (≈6k spans/h, sous free-tier). PII désactivé par défaut. Roundtrip Sentry vérifié avec fake DSN. |
+| 2026-05-11 | T-008 — daily OpenAI cost watch (PR #99) | `app/workers/tasks_costs.py:emit_daily_cost` beat task (24h cadence, queue=default). Log greppable `openai.cost.daily` + alerte Telegram quand 24h ≥ 50% de `llm_cost_alert_usd`. 5 unit tests, no-DB. |
+| ✅ J7 | **Sprint 1 complet — fondations + filtre T-001 live** | 7 PRs (#94→#99), 451 tests verts, CI baseline en place, observabilité câblée. **Prochaine étape: laisser tourner 7j et mesurer RTP réel post-filtre.** |
+| ⬜ J14 | Validation Sprint 2 (prompt v2 + market_yes_price) | — |
+| ⬜ J21 | Validation Sprint 3 (scoring v2 + source quality) | — |
 | ⬜ J30 | Validation Sprint 4 + bilan | — |
 
 ---
