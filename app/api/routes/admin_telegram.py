@@ -30,12 +30,20 @@ from __future__ import annotations
 
 import hmac
 import logging
+import pathlib
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+
+# Path to the static HTML form, relative to this file:
+#   app/api/routes/admin_telegram.py  →  static/admin-telegram.html
+_HTML_FORM_PATH = (
+    pathlib.Path(__file__).resolve().parents[3] / "static" / "admin-telegram.html"
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/telegram", tags=["admin-telegram"])
@@ -137,3 +145,23 @@ async def admin_telegram_status(
     settings = get_settings()
     ss = settings.telegram_session_string or ""
     return {"configured": len(ss) > 100, "len": len(ss)}
+
+
+@router.get("/form", response_class=HTMLResponse, include_in_schema=False)
+async def admin_telegram_form() -> HTMLResponse:
+    """Serve the admin HTML form inline.
+
+    Hosting the form under /api/admin/telegram/* (a backend-only path
+    prefix) avoids the Caddy /static → frontend SPA route, which would
+    otherwise return the React index.html instead of our form.
+
+    The page itself is harmless without ADMIN_TOKEN — it just exposes a
+    couple of <input> fields. The token gate is enforced on the API
+    endpoints below.
+    """
+    try:
+        body = _HTML_FORM_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.exception("admin_telegram form file not found at %s", _HTML_FORM_PATH)
+        raise HTTPException(status_code=500, detail="form template not found")
+    return HTMLResponse(body)
