@@ -20,6 +20,21 @@ import pytest
 
 from app.core.config import get_settings
 from app.llm.impact_analyzer import ImpactAnalyzer
+from app.llm.openai_client import _reset_cost_state_for_tests
+
+
+@pytest.fixture(autouse=True)
+def _reset_cost_state():
+    """Reset the OpenAIClient module-level cost cache before AND after
+    every test in this module. Without this, mocking `chat_completion`
+    on the singleton OpenAIClient leaves a populated `_COST_STATE`
+    (TTL ~5 min) that breaks the next test file's breaker assertions
+    — `tests/unit/llm/test_openai_client_budget.py` was hit on CI
+    because pytest runs files in alphabetical order and our test runs
+    before it. Cf. PR #104 CI run 25700355529."""
+    _reset_cost_state_for_tests()
+    yield
+    _reset_cost_state_for_tests()
 
 
 @pytest.fixture
