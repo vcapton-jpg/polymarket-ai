@@ -31,6 +31,7 @@ from telethon.errors import (
     UsernameInvalidError,
     UsernameNotOccupiedError,
 )
+from telethon.network import ConnectionTcpObfuscated
 from telethon.sessions import StringSession
 from telethon.tl.types import Channel, MessageService
 
@@ -70,10 +71,15 @@ async def get_client() -> Optional[TelegramClient]:
     try:
         logger.info("Telegram: building client (api_id=%s, session_len=%d)",
                     settings.telegram_api_id, len(settings.telegram_session_string))
+        # Use ConnectionTcpObfuscated to look like generic TLS traffic — bypasses
+        # the deep-packet-inspection filtering some hosting providers (notably
+        # Hetzner) apply to MTProto flows, which manifests as a TCP handshake
+        # that completes but then hangs on the post-handshake auth roundtrip.
         _client = TelegramClient(
             StringSession(settings.telegram_session_string),
             int(settings.telegram_api_id),
             settings.telegram_api_hash,
+            connection=ConnectionTcpObfuscated,
         )
         logger.info("Telegram: connecting (timeout=15s)...")
         await asyncio.wait_for(_client.connect(), timeout=15.0)
