@@ -174,6 +174,11 @@ services:
       - ./tests:/app/tests
       - ./scripts:/app/scripts
       - ./pyproject.toml:/app/pyproject.toml
+      # `static/` is NOT COPYied in the image (see Dockerfile). Mounted
+      # here so the FastAPI `admin_telegram` route can `read_text()`
+      # `static/admin-telegram.html` and serve it inline at
+      # GET /api/admin/telegram/form.
+      - ./static:/app/static
 
   # ── Worker: ingestion (RSS, World News, X-scraper inbox) ─────────
   # `replicas: 2` (down from 4 on 2026-05-09) — incident 2026-05-09
