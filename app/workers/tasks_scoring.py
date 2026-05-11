@@ -209,6 +209,11 @@ def _build_llm_data(analysis) -> dict | None:
             if analysis.specificity_score is not None
             else None
         ),
+        # T-011: propagate the model that produced this row so the
+        # SignalBuilder can persist it on the resulting Signal. None
+        # on legacy rows that pre-date migration 032 — handled by the
+        # builder via `dict.get`.
+        "llm_model_version": getattr(analysis, "llm_model_version", None),
     }
 
 
@@ -801,6 +806,12 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                     catalysts=result.get("catalysts"),
                     risks=result.get("risks"),
                     reasoning=result.get("reasoning"),
+                    # T-011: pin the producing model so admin stats can
+                    # split RTP across model versions. `_model` is the
+                    # private attr because the analyzer doesn't expose
+                    # a public property — fall back to None on legacy
+                    # objects that pre-date this convention.
+                    llm_model_version=getattr(analyzer, "_model", None),
                 ))
                 return {"market_id": mid, "analysis": result}
 

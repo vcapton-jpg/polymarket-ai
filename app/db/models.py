@@ -309,6 +309,11 @@ class EventMarketAnalysis(Base):
     risks: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
     llm_cost_usd: Mapped[float | None] = mapped_column(Numeric(8, 6), nullable=True)
+    # T-011: the model that produced this row (e.g. "gpt-4o-mini"). Lets
+    # us split RTP by model version when we A/B a new tier. Migration
+    # 032_event_market_analysis_model_version backfills NULL for the ~17k
+    # legacy rows; new inserts in tasks_scoring._analyze_one fill it.
+    llm_model_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

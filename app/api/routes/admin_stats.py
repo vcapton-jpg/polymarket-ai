@@ -257,6 +257,39 @@ async def admin_stats_extended(
         for r in (await session.execute(q_cat)).mappings().all()
     ]
 
+    # ── Model version breakdown (T+1h) — T-011 ──────────────────────────
+    # Lets us A/B prompts and model swaps on prod traffic: when we ship
+    # gpt-4o-mini-v2 alongside gpt-4o-mini, this section splits winrate
+    # and signed move by version so we can read the delta directly.
+    # NULL = legacy signals from before migration 032 (no llm_model_version
+    # column existed). Skip the NULL bucket — it's not actionable.
+    q_model = text(f"""
+        SELECT
+          COALESCE(s.llm_model_version, 'unknown') AS llm_model_version,
+          COUNT(*) FILTER (WHERE so.move_t1h_pct IS NOT NULL AND so.move_t1h_pct <> 0) AS n,
+          COUNT(*) FILTER (WHERE so.move_t1h_pct = 0) AS ties,
+          COUNT(*) FILTER (
+            WHERE (so.move_t1h_pct > 0 AND s.direction IN ('BUY_YES','YES','UP'))
+               OR (so.move_t1h_pct < 0 AND s.direction IN ('BUY_NO','NO','DOWN'))
+          ) AS wins,
+          AVG(CASE WHEN s.direction IN ('BUY_YES','YES','UP') THEN  so.move_t1h_pct
+                   WHEN s.direction IN ('BUY_NO','NO','DOWN') THEN -so.move_t1h_pct
+                   ELSE NULL END)::float AS avg_signed_move_pct
+        FROM signals s
+        JOIN signal_outcomes so ON so.signal_id = s.id
+        WHERE s.created_at > NOW() - INTERVAL '{int(days)} days'
+          AND so.move_t1h_pct IS NOT NULL
+        GROUP BY 1
+        ORDER BY n DESC
+    """)
+    by_model = [
+        {"llm_model_version": r["llm_model_version"], **_bucket_with_ci(
+            n=r["n"] + r["ties"], wins=r["wins"], ties=r["ties"],
+            avg_signed_move=r["avg_signed_move_pct"],
+        )}
+        for r in (await session.execute(q_model)).mappings().all()
+    ]
+
     # Global block with Wilson CI95 + ties on every horizon.
     def _horizon(n_key: str, ties_key: str, wins_key: str) -> dict:
         n = g[n_key]
@@ -293,7 +326,8 @@ async def admin_stats_extended(
             "rtp_t1h_pct":  round(g["avg_signed_move_t1h_pct"]  or 0, 3),
             "rtp_t24h_pct": round(g["avg_signed_move_t24h_pct"] or 0, 3),
         },
-        "by_direction": by_dir,
-        "by_score":     by_score,
-        "by_category":  by_cat,
+        "by_direction":         by_dir,
+        "by_score":             by_score,
+        "by_category":          by_cat,
+        "by_llm_model_version": by_model,
     }
