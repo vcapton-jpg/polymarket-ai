@@ -181,6 +181,19 @@ class Settings(BaseSettings):
     # Below this, the semantic link is too weak — the match is generic/tangential.
     signal_min_cosine_score: float = Field(default=0.52)
 
+    # ── T-001 BUY_NO low-price filter ────────────────────────────────────
+    # 30 d audit 2026-05-11: 211/698 signals were BUY_NO × YES<0.30 with
+    # avg move +17% AGAINST us and RTP between −16% and −27% depending on
+    # score. Backtest (PR #95): rejecting that cohort lifts global RTP
+    # from −1.91% to +4.68% at the cost of 30% volume retention. The
+    # mechanism is structural — Polymarket already prices "no" into
+    # markets sitting below 30%, so BUY_NO there is a short-tail bet with
+    # negative expected value once spread + execution cost are included.
+    # Toggle off if a backtest in a future regime shows the bucket is
+    # profitable again.
+    enable_buyno_lowprice_filter: bool = Field(default=True)
+    buyno_lowprice_filter_threshold: float = Field(default=0.30)
+
     # ── LLM cost guardrails ───────────────────────────────────────────────
     llm_cost_alert_usd: float = Field(default=30.0)
 
