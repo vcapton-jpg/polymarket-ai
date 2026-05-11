@@ -20,7 +20,12 @@ RATE_LIMIT_WINDOW = 60
 # limiter in dev. Re-tune once we move to per-user accounting.
 RATE_LIMIT_MAX_REQUESTS = 600
 PUBLIC_PATHS = {"/api/health", "/docs", "/openapi.json", "/ws/signals"}
-PUBLIC_PREFIXES = ("/api/analytics/track-record",)
+# `/api/admin/telegram/*` carries its own `X-Admin-Token` gate (see
+# app/api/routes/admin_telegram.py). Exempting it from the global
+# `SIGNAL_API_KEY` header check lets the static admin form (served at
+# /static/admin-telegram.html) hit the endpoints without making the
+# operator juggle two distinct secrets.
+PUBLIC_PREFIXES = ("/api/analytics/track-record", "/api/admin/telegram")
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

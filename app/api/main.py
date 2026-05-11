@@ -184,6 +184,26 @@ from app.api.routes.telegram_webhook import router as tg_webhook_router  # noqa:
 
 app.include_router(tg_webhook_router, prefix="/api")
 
+from app.api.routes.admin_telegram import router as admin_telegram_router  # noqa: E402
+
+# Web admin form for Telegram session setup — gated behind
+# `settings.admin_token` (X-Admin-Token header). See
+# app/api/routes/admin_telegram.py docstring for the trust model.
+app.include_router(admin_telegram_router, prefix="/api")
+
+# Mount /static so the operator can reach the admin HTML form at
+# https://yourforesight.com/static/admin-telegram.html. The directory
+# already exists in the repo (apple-pay verification file is there).
+import pathlib as _pathlib  # noqa: E402
+
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+_static_dir = _pathlib.Path(__file__).parent.parent.parent / "static"
+if _static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+else:
+    logger.warning("static dir %s missing — /static/* will 404", _static_dir)
+
 
 @app.get("/.well-known/apple-developer-merchantid-domain-association")
 async def apple_pay_domain_verification():
