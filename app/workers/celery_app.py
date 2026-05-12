@@ -305,6 +305,18 @@ _beat_schedule["cost-watch-daily"] = {
     "options": {"queue": "default"},
 }
 
+# ── Shadow capture catch-up — every 10 min, same cadence as the
+# live signals' catchup_outcomes. Picks up shadow_signals whose
+# scheduled `capture_shadow_price` countdown was dropped (worker
+# restart, broker hiccup, etc.) and re-dispatches the missing
+# captures. Cheap read-only sweep — limited to 200 rows over the
+# last 48 h, see `_catchup_shadow_outcomes_async`.
+_beat_schedule["catchup-shadow-outcomes"] = {
+    "task": "app.workers.tasks_shadow.catchup_shadow_outcomes",
+    "schedule": 600.0,
+    "options": {"queue": "default"},
+}
+
 celery_app.conf.beat_schedule = _beat_schedule
 
 celery_app.autodiscover_tasks([
@@ -321,6 +333,7 @@ celery_app.autodiscover_tasks([
     "app.workers.tasks_diagnostics",
     "app.workers.tasks_retention",
     "app.workers.tasks_costs",
+    "app.workers.tasks_shadow",
 ])
 
 
