@@ -227,6 +227,22 @@ class Settings(BaseSettings):
     enable_buyno_highprice_filter: bool = Field(default=False)
     buyno_highprice_filter_threshold: float = Field(default=0.70)
 
+    # ── Toxic category blacklist (T-LIQUID) ───────────────────────────
+    # Comma-separated list of market `category` values to hard-reject
+    # at signal emission. Origin: 2026-05-12 audit found that 2 / 60+
+    # categories were dragging the global RTP from +3.57 % → −1.53 %:
+    #   - Hezbollah     : n=11, RTP −191.9 %
+    #   - Iran Ceasefire: n=9,  RTP −155.5 %
+    # These are markets where the price moved sharply against our
+    # directional bets (typical of fast-moving geopolitical events:
+    # the market re-prices in seconds and our signal arrives late).
+    #
+    # The blacklist is operator-managed via .env so we can react to
+    # the news cycle without redeploying. Empty = no filter.
+    # Future T-LIQUID-2: derive this list automatically from a
+    # rolling 30 d lookback on `signals × markets.category`.
+    toxic_categories_blacklist: str = Field(default="")
+
     # ── Shadow capture (ML training data) ─────────────────────────────
     # T-ML in docs/PLAN_30D_SIGNAL_QUALITY.md. When True, filter rejects
     # (T-001 BUY_NO×YES<0.30, T-013 BUY_NO×YES≥0.70) ALSO trigger an

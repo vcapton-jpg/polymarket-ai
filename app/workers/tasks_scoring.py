@@ -178,6 +178,11 @@ def _build_market_data(market) -> dict:
             if market.last_trade_price is not None
             else None
         ),
+        # T-LIQUID — used by signal_builder to apply the toxic-category
+        # blacklist gate. `getattr` defensively because the unit tests
+        # use `SimpleNamespace` mocks that pre-date this column. None
+        # downstream means "not blacklisted".
+        "category": getattr(market, "category", None),
     }
 
 

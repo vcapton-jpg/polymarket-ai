@@ -269,6 +269,34 @@ class SignalBuilder:
                         llm_analysis=llm_analysis,
                     )
                     return None
+
+            # T-LIQUID: drop signals on operator-blacklisted categories.
+            # 2026-05-12 audit: 2 categories (Hezbollah, Iran Ceasefire)
+            # dragged global RTP from +3.57 % → −1.53 % over 30 d (40 / 740
+            # signals = 5 % volume, but −150 to −190 % RTP each). The
+            # blacklist is configurable via TOXIC_CATEGORIES_BLACKLIST
+            # (CSV) so an operator can react to fast-moving news cycles
+            # without a redeploy. Sits AFTER the price-band checks so
+            # the shadow capture has access to the real `y` we'd have
+            # entered at.
+            blacklist_raw = (settings.toxic_categories_blacklist or "").strip()
+            if blacklist_raw:
+                blocked = {c.strip() for c in blacklist_raw.split(",") if c.strip()}
+                mkt_category = market_data.get("category")
+                if mkt_category and mkt_category in blocked:
+                    logger.info(
+                        "[%s] REJECT toxic category %r (T-LIQUID blacklist)",
+                        _eid, mkt_category,
+                    )
+                    _log_shadow_rejection(
+                        event_id=event_id,
+                        market_id=market_id,
+                        direction=direction,
+                        market_price=y if yes_p is not None else 0.0,
+                        rejection_reason=f"toxic_category:{mkt_category}",
+                        llm_analysis=llm_analysis,
+                    )
+                    return None
         else:
             logger.info("[%s] REJECT no LLM analysis", _eid)
             return None
