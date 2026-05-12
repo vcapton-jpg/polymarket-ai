@@ -212,7 +212,7 @@ async def _try_instant_event_async(clean_id: int) -> dict:
     from app.core.config import get_settings
     from app.db.database import get_session_factory
     async_session_factory = get_session_factory()
-    from app.db.models import Event, EventNewsLink, NewsClean
+    from app.db.models import Event, EventNewsLink, News, NewsClean
     from app.processing.freshness import is_fresh_enough
 
     settings = get_settings()
@@ -236,14 +236,27 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         if already_linked:
             return {"status": "already_linked", "clean_id": clean_id}
 
-        # Find recent unlinked articles in the same bucket.
-        # NOTE: time-bucket filtering is currently applied at the
-        # per-candidate level via `is_fresh_enough(cand_news, ...)` below
-        # (line ~276), not via SQL WHERE. The `_cutoff` value is kept
-        # for symmetry with the comment and future SQL-level filtering;
-        # see T-022 (fragmentation clustering) in the 30d plan.
+        # Find recent unlinked articles in the same temporal bucket.
+        #
+        # T-022a (2026-05-12 docs/measurements/clustering_diagnosis_2026-05-12.md):
+        # Pre-fix this query had no temporal WHERE and no ORDER BY. Under
+        # ingestion bursts the unlinked queue exceeds 200, and the .limit(200)
+        # returned Postgres physical order (≈ oldest-first on append-only
+        # tables). The anchor's actual temporal neighbour, ingested 5 min
+        # ago, could be stranded at position 250+ in the queue and never
+        # land in the candidate set — guaranteeing a singleton.
+        #
+        # Diagnosis surfaced 97.6 % of events were singletons on 30 d
+        # prod. The SQL fix (this commit) addresses cause #1 of T-022:
+        # we now apply the `clustering_time_window_minutes` cutoff at
+        # the WHERE clause AND order by ingestion_date DESC so the
+        # newest articles always win the 200-slot budget.
+        #
+        # The Python-level `is_fresh_enough(...)` filter remains for
+        # defense-in-depth: it cross-checks `publish_date` vs
+        # `ingestion_date` (which the cutoff alone cannot do).
         from datetime import datetime, timedelta
-        _cutoff = datetime.now(UTC) - timedelta(
+        cutoff = datetime.now(UTC) - timedelta(
             minutes=settings.clustering_time_window_minutes
         )
 
@@ -254,12 +267,15 @@ async def _try_instant_event_async(clean_id: int) -> dict:
         q = (
             select(NewsClean)
             .options(selectinload(NewsClean.news), selectinload(NewsClean.entities))
+            .join(News, News.id == NewsClean.news_id)
             .outerjoin(EventNewsLink)
             .where(
                 EventNewsLink.id.is_(None),
                 NewsClean.embedding.is_not(None),
                 NewsClean.id != clean_id,
+                News.ingestion_date >= cutoff,   # T-022a — SQL-level temporal filter
             )
+            .order_by(News.ingestion_date.desc())  # T-022a — newest neighbours first
         )
 
         candidates = (await session.execute(q.limit(200))).scalars().all()
