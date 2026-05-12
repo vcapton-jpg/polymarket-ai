@@ -32,13 +32,17 @@ def test_build_market_data_keeps_zero_price_and_spread_and_liquidity():
 def test_build_market_data_returns_none_for_actually_missing_values():
     from app.workers.tasks_scoring import _build_market_data
 
+    # T-LIQUID added `category` — keep this exhaustive equality check
+    # so any future column addition forces a deliberate test update.
     m = SimpleNamespace(
-        liquidity=None, spread=None, end_date=None, last_trade_price=None,
+        liquidity=None, spread=None, end_date=None,
+        last_trade_price=None, category=None,
     )
     out = _build_market_data(m)
     assert out == {
         "liquidity": None, "spread": None,
         "end_date": None, "last_trade_price": None,
+        "category": None,
     }
 
 
