@@ -227,6 +227,19 @@ class Settings(BaseSettings):
     enable_buyno_highprice_filter: bool = Field(default=False)
     buyno_highprice_filter_threshold: float = Field(default=0.70)
 
+    # ── Shadow capture (ML training data) ─────────────────────────────
+    # T-ML in docs/PLAN_30D_SIGNAL_QUALITY.md. When True, filter rejects
+    # (T-001 BUY_NO×YES<0.30, T-013 BUY_NO×YES≥0.70) ALSO trigger an
+    # asynchronous record in `shadow_signals` + the same 4-checkpoint
+    # capture (t+5min / t+15min / t+1h / t+24h) so the rejected
+    # candidates get LABELED outcomes. Survivor-bias mitigation for the
+    # future ML scoring model — see PR audit 2026-05-12.
+    #
+    # Default OFF — flip via `.env` after migration 033 has been applied
+    # and the worker-default queue is confirmed healthy under the new
+    # load.
+    enable_shadow_capture: bool = Field(default=False)
+
     # ── LLM cost guardrails ───────────────────────────────────────────────
     llm_cost_alert_usd: float = Field(default=30.0)
 

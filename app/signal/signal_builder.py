@@ -13,6 +13,54 @@ logger = logging.getLogger(__name__)
 MIN_SIGNAL_STRENGTH = 45
 
 
+def _log_shadow_rejection(
+    *,
+    event_id: int,
+    market_id: str,
+    direction: str,
+    market_price: float,
+    rejection_reason: str,
+    llm_analysis: dict | None,
+) -> None:
+    """Dispatch a Celery task to record this filter-rejection in the
+    shadow tables. Gated behind `settings.enable_shadow_capture` so the
+    pre-Sprint-3 prod baseline keeps the same behavior.
+
+    Failures (Celery broker unreachable, task module not importable on
+    a slim worker, etc.) are swallowed — the user-facing reject path is
+    the source of truth, the shadow record is best-effort.
+    """
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    if not settings.enable_shadow_capture:
+        return
+
+    try:
+        from app.workers.tasks_shadow import record_shadow_signal
+
+        record_shadow_signal.apply_async(
+            kwargs={
+                "event_id": event_id,
+                "market_id": market_id,
+                "direction": direction,
+                "market_price_at_signal": float(market_price),
+                "rejection_reason": rejection_reason,
+                "llm_model_version": (llm_analysis or {}).get("llm_model_version"),
+                # signal_score is not yet computed at the T-001/T-013
+                # rejection site — that's why the column is nullable.
+                "signal_score": None,
+            },
+            queue="default",
+        )
+    except Exception:
+        logger.warning(
+            "shadow rejection dispatch failed for market=%s reason=%s",
+            market_id, rejection_reason,
+            exc_info=True,
+        )
+
+
 def _build_score_explanation(
     score: int, strength: int, trade_q: int,
     features: dict, llm_analysis: dict | None,
@@ -182,6 +230,14 @@ class SignalBuilder:
                         "[%s] REJECT BUY_NO × low YES price %.4f < %.2f (T-001 toxic zone)",
                         _eid, y, settings.buyno_lowprice_filter_threshold,
                     )
+                    _log_shadow_rejection(
+                        event_id=event_id,
+                        market_id=market_id,
+                        direction=direction,
+                        market_price=y,
+                        rejection_reason="t001_low_price",
+                        llm_analysis=llm_analysis,
+                    )
                     return None
 
                 # T-013: mirror of T-001 — drop BUY_NO when YES is already
@@ -203,6 +259,14 @@ class SignalBuilder:
                     logger.info(
                         "[%s] REJECT BUY_NO × high YES price %.4f >= %.2f (T-013 mirror zone)",
                         _eid, y, settings.buyno_highprice_filter_threshold,
+                    )
+                    _log_shadow_rejection(
+                        event_id=event_id,
+                        market_id=market_id,
+                        direction=direction,
+                        market_price=y,
+                        rejection_reason="t013_high_price",
+                        llm_analysis=llm_analysis,
                     )
                     return None
         else:

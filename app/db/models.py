@@ -482,6 +482,63 @@ class SignalOutcome(Base):
 
 
 # ---------------------------------------------------------------------------
+# shadow_signals + shadow_signal_outcomes  (migration 033, T-ML in plan)
+# Records signals that were filter-rejected (T-001, T-013, future gates)
+# so we can label them and use them as ML training data. Never surfaced
+# to users — only consumed by the modelling pipeline.
+# ---------------------------------------------------------------------------
+class ShadowSignal(Base):
+    __tablename__ = "shadow_signals"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    event_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=True
+    )
+    market_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("markets.market_id", ondelete="CASCADE"), nullable=False
+    )
+    direction: Mapped[str] = mapped_column(String(20), nullable=False)
+    market_price_at_signal: Mapped[float] = mapped_column(Numeric(6, 4), nullable=False)
+    # "t001_low_price" | "t013_high_price" | future reasons.
+    rejection_reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Same shape as Signal.llm_model_version so we can group ML by prompt.
+    llm_model_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # The signal_score the candidate would have had (NULL when rejected
+    # before scoring runs — that's the common case for T-001/T-013).
+    signal_score: Mapped[float | None] = mapped_column(Numeric(5, 1), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    outcome: Mapped[Optional["ShadowSignalOutcome"]] = relationship(
+        back_populates="shadow_signal", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class ShadowSignalOutcome(Base):
+    __tablename__ = "shadow_signal_outcomes"
+
+    shadow_signal_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("shadow_signals.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    price_t5min:  Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_t15min: Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_t1h:    Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    price_t24h:   Mapped[float | None] = mapped_column(Numeric(6, 4), nullable=True)
+    move_t5min_pct:  Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    move_t15min_pct: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    move_t1h_pct:    Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    move_t24h_pct:   Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    shadow_signal: Mapped["ShadowSignal"] = relationship(back_populates="outcome")
+
+
+# ---------------------------------------------------------------------------
 # signal_predictions  (one row per signal × variant — measurement layer)
 # ---------------------------------------------------------------------------
 class SignalPrediction(Base):
