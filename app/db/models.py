@@ -314,6 +314,12 @@ class EventMarketAnalysis(Base):
     # 032_event_market_analysis_model_version backfills NULL for the ~17k
     # legacy rows; new inserts in tasks_scoring._analyze_one fill it.
     llm_model_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # T-DATA (migration 034): the LLM's own estimate of P(YES) after the
+    # news. v1 prompt does not emit this field — column will be NULL for
+    # all v1 rows. v2 emits it as the key signal-vs-market comparator.
+    implied_yes_probability: Mapped[float | None] = mapped_column(
+        Numeric(4, 3), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -434,6 +440,20 @@ class Signal(Base):
     tradability_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
     market_price_at_signal: Mapped[float | None] = mapped_column(
         Numeric(6, 4), nullable=True
+    )
+    # T-DATA (migration 034): bid-ask spread captured at emission, in
+    # price points (0.0250 = 2.5 pp). Used by `realistic_replay.py` to
+    # compute realized PnL per-signal instead of a flat 3 pp average.
+    # NULL when bid/ask weren't available on the market at the time.
+    spread_at_signal: Mapped[float | None] = mapped_column(
+        Numeric(5, 4), nullable=True
+    )
+    # T-DATA: the LLM's own estimate of P(YES) after the news (v2 prompt
+    # emits this in `implied_yes_probability`). Persisting it enables
+    # calibration metrics — Brier score, reliability diagram — to answer
+    # "is the LLM systematically over/under-confident on its forecasts?".
+    implied_yes_probability: Mapped[float | None] = mapped_column(
+        Numeric(4, 3), nullable=True
     )
     cosine_score: Mapped[float | None] = mapped_column(
         Numeric(5, 4), nullable=True

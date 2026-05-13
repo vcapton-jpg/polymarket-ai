@@ -364,6 +364,17 @@ class SignalBuilder:
             direction, market_data.get("last_trade_price"),
         )
 
+        # T-DATA (migration 034): derive the bid-ask spread at emission.
+        # `markets.spread` is NULL on 100 % of prod rows, so we compute
+        # it from the live best_bid / best_ask snapshot that flowed in
+        # through `_build_market_data`. None whenever either side of
+        # the book is missing — the column is nullable end-to-end.
+        bid = market_data.get("best_bid")
+        ask = market_data.get("best_ask")
+        spread_at_signal: float | None = None
+        if bid is not None and ask is not None and ask >= bid:
+            spread_at_signal = round(float(ask) - float(bid), 4)
+
         sig = Signal(
             event_id=event_id,
             market_id=market_id,
@@ -381,6 +392,13 @@ class SignalBuilder:
             # migration-032 legacy `analysis` rows are NULL — the column
             # is nullable end-to-end, so this is safe on every path.
             llm_model_version=(llm_analysis or {}).get("llm_model_version"),
+            # T-DATA (migration 034): per-signal trade-cost snapshot
+            # (needed by realistic_replay to split RTP by liquidity
+            # tier) and the LLM's own P(YES) estimate (needed for
+            # calibration metrics). NULL acceptable on both — only v2
+            # prompts emit implied_yes_probability anyway.
+            spread_at_signal=spread_at_signal,
+            implied_yes_probability=(llm_analysis or {}).get("implied_yes_probability"),
         )
         sig._score_label = score_label
         sig._score_explanation = score_explanation
