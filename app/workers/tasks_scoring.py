@@ -183,6 +183,21 @@ def _build_market_data(market) -> dict:
         # use `SimpleNamespace` mocks that pre-date this column. None
         # downstream means "not blacklisted".
         "category": getattr(market, "category", None),
+        # T-DATA (migration 034): surface bid/ask so SignalBuilder can
+        # compute and persist `spread_at_signal` per signal. The static
+        # `markets.spread` column is NULL in 100 % of prod rows so we
+        # derive on the fly from bid/ask. Both fall back to None when
+        # the market doesn't currently have a quoted order book.
+        "best_bid": (
+            float(market.best_bid)
+            if getattr(market, "best_bid", None) is not None
+            else None
+        ),
+        "best_ask": (
+            float(market.best_ask)
+            if getattr(market, "best_ask", None) is not None
+            else None
+        ),
     }
 
 
@@ -219,6 +234,12 @@ def _build_llm_data(analysis) -> dict | None:
         # on legacy rows that pre-date migration 032 — handled by the
         # builder via `dict.get`.
         "llm_model_version": getattr(analysis, "llm_model_version", None),
+        # T-DATA (migration 034): propagate the LLM's own estimate of
+        # P(YES) so the builder can persist it on the Signal. v1 prompt
+        # does NOT emit this field — v1 rows pass None and the Signal
+        # column stays NULL, which is fine for downstream calibration
+        # queries (`WHERE implied_yes_probability IS NOT NULL`).
+        "implied_yes_probability": getattr(analysis, "implied_yes_probability", None),
     }
 
 
@@ -829,6 +850,13 @@ async def _run_full_scoring_pipeline(event_id: int) -> dict:
                     # a public property — fall back to None on legacy
                     # objects that pre-date this convention.
                     llm_model_version=getattr(analyzer, "_model", None),
+                    # T-DATA (migration 034): persist the LLM's own
+                    # P(YES) estimate so we can compute calibration
+                    # metrics (Brier, reliability). v1 prompt does not
+                    # emit this — column stays NULL for v1 rows.
+                    implied_yes_probability=_safe_float(
+                        result.get("implied_yes_probability")
+                    ),
                 ))
                 return {"market_id": mid, "analysis": result}
 
