@@ -328,11 +328,15 @@ export default function Signals() {
               <p className="mb-1 font-mono text-eyebrow uppercase text-brand-400">{t("signals.header.eyebrow")}</p>
               <h1 id="signals-h1" className="font-display text-[1.75rem] font-semibold tracking-tight text-ink md:text-[2.125rem]">
                 {filtered.length > 0
-                  ? `${filtered.length} opportunit${filtered.length > 1 ? "és" : "é"} détect${filtered.length > 1 ? "ées" : "ée"}`
+                  ? `${filtered.length} opportunit${filtered.length > 1 ? "és" : "é"} active${filtered.length > 1 ? "s" : ""}`
                   : "Aucun signal actif"}
               </h1>
               <p className="mt-1 text-[0.9375rem] text-ink-muted">
-                <span className="num text-ink">{filtered.length}</span> opportunité{filtered.length > 1 ? "s" : ""} · triée{filtered.length > 1 ? "s" : ""} par{" "}
+                {/* UX feedback 2026-05-13: "détectées" implied the engine
+                    only found N signals, but the Free tier caps the
+                    visible feed. "actives · affichées" is honest about
+                    the display being a filtered view. */}
+                <span className="num text-ink">{filtered.length}</span> affichée{filtered.length > 1 ? "s" : ""} · triée{filtered.length > 1 ? "s" : ""} par{" "}
                 <span className="text-ink">{SORTS.find((s) => s.key === sort) ? t(SORTS.find((s) => s.key === sort)!.labelKey).toLowerCase() : ""}</span>. Tu décides, toujours.
               </p>
             </div>

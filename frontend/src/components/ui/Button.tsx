@@ -43,11 +43,20 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
   }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild, ...props }, ref) => {
+  ({ className, variant, size, asChild, type, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    // Default to type="button". A bare <button> inside a <form> defaults
+    // to type="submit", so any design-system Button rendered inside a
+    // form (e.g. the WalletSetupModal close/CTA buttons, which live
+    // inside OrderForm's <motion.form>) would silently submit the form
+    // instead of running its onClick. All 4 intentional submits in the
+    // app declare type="submit" explicitly, so this default is safe.
+    // `asChild` (Slot) renders a non-button element — don't inject type.
+    const resolvedType = asChild ? type : (type ?? "button")
     return (
       <Comp
         ref={ref}
+        type={resolvedType}
         className={cn(buttonVariants({ variant, size, className }))}
         {...props}
       />

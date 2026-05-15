@@ -181,13 +181,24 @@ export default function SignalDetail() {
     }, 1500)
   }
 
-  // Simulated detection timeline
+  // Simulated detection timeline. UX feedback 2026-05-13: the source
+  // line in "Pourquoi on t'a sorti ce signal" must be clickable like
+  // the ones in the SOURCES section. The legacy `Source` type has no
+  // URL, so we look it up in `detailedSources` by source name and
+  // attach the article URL when we find a match.
+  const urlBySourceName = new Map<string, string>()
+  for (const ds of signal.detailedSources ?? []) {
+    if (ds.sourceName && ds.url && !urlBySourceName.has(ds.sourceName)) {
+      urlBySourceName.set(ds.sourceName, ds.url)
+    }
+  }
   const timeline = signal.sources.map((s, i) => ({
     at: s.minutesAgo,
     label: `T-${s.minutesAgo}min`,
     text: `${s.name} · ${s.detail}`,
     tier: s.tier,
     isFirst: i === 0,
+    url: urlBySourceName.get(s.name) ?? null,
   }))
 
   return (
@@ -477,7 +488,20 @@ export default function SignalDetail() {
                         </span>
                       )}
                     </div>
-                    <p className="text-[0.875rem] text-ink/90">{e.text}</p>
+                    <p className="text-[0.875rem] text-ink/90">
+                      {e.url ? (
+                        <a
+                          href={e.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline decoration-line-strong underline-offset-2 transition-colors hover:text-brand-300 hover:decoration-brand-400"
+                        >
+                          {e.text}
+                        </a>
+                      ) : (
+                        e.text
+                      )}
+                    </p>
                   </div>
                 </li>
               ))}
