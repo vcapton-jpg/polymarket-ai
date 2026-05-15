@@ -9,8 +9,11 @@ export function LivePill({ className, label = "LIVE" }: { className?: string; la
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-signal-no/30 bg-signal-no/10 px-1.5 py-0.5",
-        "text-label-xs font-mono font-medium tracking-[0.18em] text-signal-no",
+        "inline-flex items-center gap-1 rounded-full border border-signal-no/25 bg-signal-no/[0.07] px-1.5 py-0.5",
+        // UX feedback 2026-05-13: "LIVE" looked too heavy. Drop the
+        // weight (medium→normal) and tighten the letter-spacing so it
+        // reads as a quiet status indicator, not a shouting badge.
+        "text-label-xs font-mono font-normal tracking-[0.12em] text-signal-no/90",
         className,
       )}
     >

@@ -88,6 +88,7 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
               className="relative w-full max-w-sm rounded-2xl border border-line-strong bg-obsidian-900 p-6 shadow-2xl"
             >
               <button
+                type="button"
                 onClick={close}
                 className="absolute right-4 top-4 rounded-md p-1 text-ink-dim hover:text-ink transition-colors"
                 aria-label="Fermer"
