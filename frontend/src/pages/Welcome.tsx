@@ -275,9 +275,10 @@ export default function Welcome() {
           <Logo />
           <button
             onClick={skip}
-            className="text-body-sm text-ink-muted hover:text-ink transition-premium cursor-pointer"
+            className="group flex items-center gap-1.5 rounded-full border border-line-strong px-3.5 py-1.5 text-body-sm text-ink-muted hover:border-brand-400/50 hover:text-ink transition-premium cursor-pointer"
           >
-            Passer
+            Passer l’intro
+            <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
           </button>
         </header>
 
@@ -412,6 +413,22 @@ export default function Welcome() {
                 )}
               </Button>
             </div>
+
+            {/* Secondary escape hatch near the CTA — UX feedback
+                2026-05-18: the header "Passer" alone was missed. A
+                second, low-emphasis link where the eye already rests
+                (right under the primary action) makes skipping
+                discoverable without competing with "Continuer". */}
+            {!isRecap && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={skip}
+                  className="text-label-sm text-ink-dim underline decoration-line-strong underline-offset-2 hover:text-ink-muted transition-premium cursor-pointer"
+                >
+                  Passer et voir les signaux directement
+                </button>
+              </div>
+            )}
           </div>
         </main>
 

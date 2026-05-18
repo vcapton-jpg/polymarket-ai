@@ -430,7 +430,7 @@ export default function Signup() {
             {", la "}
             <a href="/risques" target="_blank" className="underline">politique de risque</a>
             {" et la "}
-            <a href="/confidentialite" target="_blank" className="underline">politique de confidentialit\u00e9</a>
+            <a href="/confidentialite" target="_blank" className="underline">politique de confidentialité</a>
             {"."}
           </span>
         </label>
