@@ -243,6 +243,24 @@ class Settings(BaseSettings):
     signal_max_spread_pp: float = Field(default=0.02)
     reject_unknown_spread: bool = Field(default=False)
 
+    # ── LLM recalibration (LEVIER-2) ──────────────────────────────────
+    # H+168 calibration measurement (T-DATA implied_yes_probability):
+    # the v2 model is systematically over-confident — predicts 0.17 when
+    # reality is ~0.32, predicts 0.83 when reality is ~0.65. The fitted
+    # shrink-to-0.5 factor that maps predictions onto reality is ~0.45-
+    # 0.55. We shrink the LLM's P(YES) toward 0.5, then re-test the edge
+    # vs the market price; if the calibrated estimate no longer clears
+    # `min_calibrated_edge` the signal only existed because of the
+    # exaggeration and is dropped.
+    #   enable_llm_recalibration : master switch (default OFF)
+    #   llm_calibration_shrink   : 1.0 = no change, 0.55 = fitted value
+    #   min_calibrated_edge      : min |calibrated − market| to keep the
+    #                              signal (0.05 = the v2 prompt's own
+    #                              5 pp edge floor)
+    enable_llm_recalibration: bool = Field(default=False)
+    llm_calibration_shrink: float = Field(default=0.55)
+    min_calibrated_edge: float = Field(default=0.05)
+
     # ── Toxic category blacklist (T-LIQUID) ───────────────────────────
     # Comma-separated list of market `category` values to hard-reject
     # at signal emission. Origin: 2026-05-12 audit found that 2 / 60+
