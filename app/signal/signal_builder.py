@@ -297,6 +297,59 @@ class SignalBuilder:
                         llm_analysis=llm_analysis,
                     )
                     return None
+
+            # LEVIER-1 — Spread gate. H+168 backtest (2026-05-18) proved
+            # the directional edge is real (RTP +7.35 %, t=1.98, sig@95
+            # at spread 0) but is entirely eaten by transaction cost:
+            # ≤2 pp spread is profitable, ≥3 pp bleeds. On prod the
+            # bid/ask book is bimodal — markets are either tight (<1 pp,
+            # RTP +0.54 %) or have no quoted book at all (RTP −0.67 %).
+            # Two knobs:
+            #   * signal_max_spread_pp     — reject when a *known* spread
+            #                                exceeds the threshold
+            #   * reject_unknown_spread    — also reject markets with no
+            #                                bid/ask book (the −0.67 %
+            #                                illiquid bucket). Bigger
+            #                                volume cut, bigger RTP gain.
+            # Default OFF — flip after the shadow capture confirms the
+            # avoided rows would indeed have bled.
+            if settings.enable_max_spread_filter:
+                bid = market_data.get("best_bid")
+                ask = market_data.get("best_ask")
+                has_book = bid is not None and ask is not None
+                if has_book:
+                    # Round to 4 dp (matches the NUMERIC(5,4) column) so
+                    # float noise like 0.52-0.50=0.020000000000000018
+                    # doesn't reject a market sitting exactly on the gate.
+                    mkt_spread = round(float(ask) - float(bid), 4)
+                    if mkt_spread > settings.signal_max_spread_pp:
+                        logger.info(
+                            "[%s] REJECT spread %.4f > %.4f (LEVIER-1 spread gate)",
+                            _eid, mkt_spread, settings.signal_max_spread_pp,
+                        )
+                        _log_shadow_rejection(
+                            event_id=event_id,
+                            market_id=market_id,
+                            direction=direction,
+                            market_price=y if yes_p is not None else 0.0,
+                            rejection_reason="spread_too_wide",
+                            llm_analysis=llm_analysis,
+                        )
+                        return None
+                elif settings.reject_unknown_spread:
+                    logger.info(
+                        "[%s] REJECT no bid/ask book (LEVIER-1 unknown-spread gate)",
+                        _eid,
+                    )
+                    _log_shadow_rejection(
+                        event_id=event_id,
+                        market_id=market_id,
+                        direction=direction,
+                        market_price=y if yes_p is not None else 0.0,
+                        rejection_reason="spread_unknown",
+                        llm_analysis=llm_analysis,
+                    )
+                    return None
         else:
             logger.info("[%s] REJECT no LLM analysis", _eid)
             return None

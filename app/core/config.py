@@ -227,6 +227,22 @@ class Settings(BaseSettings):
     enable_buyno_highprice_filter: bool = Field(default=False)
     buyno_highprice_filter_threshold: float = Field(default=0.70)
 
+    # ── Spread gate (LEVIER-1) ────────────────────────────────────────
+    # H+168 backtest (2026-05-18): directional edge proven (RTP +7.35 %,
+    # t=1.98, sig@95 at 0 spread) but eaten by transaction cost. The
+    # realised RTP is positive only on tight-book markets. Gate at
+    # emission so we stop paying spread we can't overcome.
+    #   enable_max_spread_filter : master switch (default OFF)
+    #   signal_max_spread_pp     : reject when known spread > this
+    #                              (0.02 = 2 pp, the break-even point)
+    #   reject_unknown_spread    : also reject markets with NO bid/ask
+    #                              book (the −0.67 % illiquid bucket).
+    #                              Bigger volume cut, bigger RTP gain —
+    #                              flip only after shadow confirms.
+    enable_max_spread_filter: bool = Field(default=False)
+    signal_max_spread_pp: float = Field(default=0.02)
+    reject_unknown_spread: bool = Field(default=False)
+
     # ── Toxic category blacklist (T-LIQUID) ───────────────────────────
     # Comma-separated list of market `category` values to hard-reject
     # at signal emission. Origin: 2026-05-12 audit found that 2 / 60+
