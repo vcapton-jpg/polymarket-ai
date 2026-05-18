@@ -350,6 +350,41 @@ class SignalBuilder:
                         llm_analysis=llm_analysis,
                     )
                     return None
+
+            # LEVIER-2 — recalibrate the LLM's over-confident P(YES).
+            # H+168 calibration measurement (T-DATA): the v2 model
+            # exaggerates conviction —
+            #   says 0.17 → reality 0.32   (under-estimates lows)
+            #   says 0.83 → reality 0.65   (over-estimates highs)
+            # The direction decision rides on the gap between
+            # implied_yes and the market price. An inflated implied_yes
+            # manufactures phantom edge. We shrink towards 0.5 and
+            # re-check: if the calibrated estimate no longer clears the
+            # minimum edge vs the market, the signal only existed
+            # because of the exaggeration → drop it.
+            if settings.enable_llm_recalibration and yes_p is not None:
+                raw_implied = (llm_analysis or {}).get("implied_yes_probability")
+                if raw_implied is not None:
+                    raw_implied = float(raw_implied)
+                    shrink = settings.llm_calibration_shrink
+                    calibrated = 0.5 + (raw_implied - 0.5) * shrink
+                    edge = abs(calibrated - float(yes_p))
+                    if edge < settings.min_calibrated_edge:
+                        logger.info(
+                            "[%s] REJECT post-calibration edge %.3f < %.2f "
+                            "(LEVIER-2 raw=%.3f calib=%.3f mkt=%.3f)",
+                            _eid, edge, settings.min_calibrated_edge,
+                            raw_implied, calibrated, float(yes_p),
+                        )
+                        _log_shadow_rejection(
+                            event_id=event_id,
+                            market_id=market_id,
+                            direction=direction,
+                            market_price=float(yes_p),
+                            rejection_reason="calibrated_no_edge",
+                            llm_analysis=llm_analysis,
+                        )
+                        return None
         else:
             logger.info("[%s] REJECT no LLM analysis", _eid)
             return None
