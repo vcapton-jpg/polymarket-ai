@@ -21,6 +21,11 @@ type UseWalletSetupReturn = {
   walletConnected: boolean
   safeAddress: string | null
   eoaAddress: string | null
+  /** Backend can deploy a Safe. When false, callers must NOT open the
+   *  setup modal — the deploy step would fail after the user already
+   *  signed. Defaults to true so a transient status fetch failure
+   *  doesn't hide a feature that does work. */
+  nativeTradingAvailable: boolean
   step: SetupStep
   error: string | null
   startSetup: () => Promise<void>
@@ -129,6 +134,10 @@ export function useWalletSetup(): UseWalletSetupReturn {
     walletConnected: status.connected,
     safeAddress: status.safe_address,
     eoaAddress: status.eoa_address,
+    // Default true: only treat native trading as unavailable when the
+    // backend explicitly says so. A missing field (older backend) or a
+    // failed status fetch must not hide a working feature.
+    nativeTradingAvailable: status.native_trading_available !== false,
     step,
     error,
     startSetup,

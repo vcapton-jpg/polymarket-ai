@@ -4,6 +4,10 @@ export type WalletStatus = {
   connected: boolean
   eoa_address: string | null
   safe_address: string | null
+  /** Backend can actually deploy a Safe (builder key configured).
+   *  When false, the native-trading CTA must be gated so the user
+   *  never signs a MetaMask tx that's guaranteed to fail at deploy. */
+  native_trading_available?: boolean
 }
 
 export type ConnectResponse = {

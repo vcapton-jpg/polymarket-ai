@@ -90,6 +90,11 @@ class WalletStatusResponse(BaseModel):
     connected: bool
     eoa_address: str | None
     safe_address: str | None
+    # True only when the backend can actually deploy a Safe (a builder
+    # key is configured). The frontend uses this to gate the
+    # "Active le trading natif" CTA so a user never signs a MetaMask
+    # transaction that is guaranteed to fail at the deploy step.
+    native_trading_available: bool = False
 
 
 class ConnectResponse(BaseModel):
@@ -100,10 +105,13 @@ class ConnectResponse(BaseModel):
 async def wallet_status(
     user: UserProfile = Depends(get_current_user),
 ):
+    from app.core.config import get_settings
+
     return WalletStatusResponse(
         connected=bool(user.polymarket_safe_address),
         eoa_address=user.wallet_address,
         safe_address=user.polymarket_safe_address,
+        native_trading_available=bool(get_settings().builder_private_key),
     )
 
 
