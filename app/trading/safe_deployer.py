@@ -39,6 +39,51 @@ _PROXY_CREATION_CODE = bytes.fromhex(
 )
 
 
+# USDC.e (bridged USDC) on Polygon — the token Polymarket settles in.
+# 6 decimals. Reading a balance is a free `eth_call`, no gas, no key.
+_USDC_E_POLYGON = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
+_USDC_E_DECIMALS = 6
+_ERC20_BALANCEOF_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    }
+]
+
+
+def _usdce_units_to_float(raw: int) -> float:
+    """Convert on-chain USDC.e base units (6 decimals) to a float.
+
+    Pure — unit-tested without a network. Kept separate so the RPC
+    call and the arithmetic can't drift apart.
+    """
+    return raw / (10**_USDC_E_DECIMALS)
+
+
+async def read_usdce_balance(address: str) -> float:
+    """Read the USDC.e balance of `address` on Polygon. Free eth_call —
+    no gas, no key, no deploy needed (works on a counterfactual Safe
+    that hasn't been deployed yet: an undeployed address simply holds
+    0, and tokens sent there are recoverable once it deploys)."""
+    w3 = Web3(Web3.HTTPProvider(get_settings().polygon_rpc_url))
+    contract = w3.eth.contract(
+        address=Web3.to_checksum_address(_USDC_E_POLYGON),
+        abi=_ERC20_BALANCEOF_ABI,
+    )
+    loop = asyncio.get_running_loop()
+    raw = await loop.run_in_executor(
+        None,
+        lambda: contract.functions.balanceOf(
+            Web3.to_checksum_address(address)
+        ).call(),
+    )
+    return _usdce_units_to_float(int(raw))
+
+
 def _build_setup_data(owner_eoa: str) -> bytes:
     """Build the initializer bytes for a 1-of-1 Safe owned by owner_eoa."""
     zero = "0x0000000000000000000000000000000000000000"

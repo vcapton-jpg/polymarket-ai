@@ -142,6 +142,40 @@ async def deposit_address(
     return DepositAddressResponse(deposit_address=safe_addr, deployed=False)
 
 
+class DepositBalanceResponse(BaseModel):
+    # USDC.e balance on the deposit address. Lets the DepositModal show
+    # a live "funds received ✓" the moment a Polymarket tip lands —
+    # the betmoar "funds arrive within ~1 min ⚡" confirmation loop.
+    usdce_balance: float
+
+
+@router.get("/deposit-balance", response_model=DepositBalanceResponse)
+async def deposit_balance(
+    address: str,
+    user: UserProfile = Depends(get_current_user),
+):
+    """Live USDC.e balance of a deposit address. Free eth_call — no
+    gas, no key. Used by the DepositModal poll loop to confirm a tip
+    arrived. RPC hiccup → 502 so the frontend just retries on its
+    next poll tick (no fake 0 that would look like 'nothing received').
+    """
+    try:
+        checksummed = Web3.to_checksum_address(address.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid address") from exc
+
+    from app.trading.safe_deployer import read_usdce_balance
+
+    try:
+        bal = await read_usdce_balance(checksummed)
+    except Exception as exc:
+        logger.warning("deposit-balance RPC failed for %s: %s", checksummed, exc)
+        raise HTTPException(
+            status_code=502, detail="Balance check temporarily unavailable"
+        ) from exc
+    return DepositBalanceResponse(usdce_balance=bal)
+
+
 @router.get("/status", response_model=WalletStatusResponse)
 async def wallet_status(
     user: UserProfile = Depends(get_current_user),
