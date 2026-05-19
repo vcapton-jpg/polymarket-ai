@@ -137,6 +137,15 @@ class Settings(BaseSettings):
     # validate the end-to-end relayer deploy on their OWN wallet before
     # the frontend flow ships. Never used on behalf of a real user.
     operator_test_private_key: str | None = Field(default=None)
+    # USER-FACING gate for the P2b browser relayer onboarding (the
+    # WalletSetupModal). Default False: the plumbing ships built &
+    # correct, but the modal stays gated OFF until the operator has
+    # live-verified the browser→relayer call works (CORS is unconfirmed
+    # — the SDK is Node-first). Flipping this before that check would
+    # recreate the "user signs an EIP-712 then it fails" dead-end this
+    # whole effort exists to remove. native_trading_available is True
+    # only when this is set AND builder HMAC creds exist.
+    enable_native_relayer_onboarding: bool = Field(default=False)
 
     # Polygon RPC for Safe deployment
     polygon_rpc_url: str = Field(

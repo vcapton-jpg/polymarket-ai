@@ -19,7 +19,7 @@ type Props = {
 const STEPS = [
   { id: "connecting_wallet", label: "Connecte ton wallet (MetaMask)" },
   { id: "signing_challenge", label: "Signe la preuve de propriété" },
-  { id: "deploying_safe", label: "Déploiement de ton Safe Polymarket" },
+  { id: "deploying_safe", label: "Déploiement gasless via Polymarket (1 signature)" },
   { id: "done", label: "Dépose des USDC dans ton Safe" },
 ] as const
 
@@ -116,7 +116,7 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
               >
                 {step === "done"
                   ? "Ton Safe Polymarket est prêt. Dépose des USDC pour commencer."
-                  : "Connecte ton wallet MetaMask une seule fois. Tous tes ordres suivants seront exécutés automatiquement."}
+                  : "Connecte MetaMask + 2 signatures. Aucun gas à payer — Polymarket couvre le déploiement. Tes ordres suivants s'exécutent automatiquement."}
               </p>
 
               <ol className="mb-5 space-y-2">
