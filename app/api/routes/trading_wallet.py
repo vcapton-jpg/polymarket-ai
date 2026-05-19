@@ -34,12 +34,10 @@ from app.api.routes.auth import get_current_user
 from app.core.config import get_settings
 from app.db.database import get_db_session
 from app.db.models import UserProfile
-from app.trading.safe_deployer import SafeDeployer
+from app.trading.safe_deployer import compute_safe_address, is_contract_deployed
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trading/wallet", tags=["trading-wallet"])
-
-_deployer = SafeDeployer()
 
 # Nonce TTL: 5 minutes. Long enough for a slow human + wallet UX, short
 # enough that a stolen nonce expires before it's useful.
@@ -131,8 +129,6 @@ async def deposit_address(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid EOA address") from exc
 
-    from app.trading.safe_deployer import compute_safe_address
-
     # Polymarket-relayer-compatible counterfactual address. The factory
     # / init-code-hash are pinned inside compute_safe_address (mirrored
     # from Polymarket's SDK) — intentionally not driven by the stock
@@ -179,13 +175,24 @@ async def deposit_balance(
 async def wallet_status(
     user: UserProfile = Depends(get_current_user),
 ):
-    from app.core.config import get_settings
-
+    s = get_settings()
+    # P2b: native trading = gasless browser relayer deploy + attributed
+    # CLOB orders. Available only when (a) the operator has explicitly
+    # enabled the user-facing relayer onboarding AFTER live-verifying
+    # the browser→relayer call works, and (b) builder HMAC creds exist
+    # (orders can't be attributed/placed without them). builder_private_key
+    # is dead post-#124 — the relayer pays gas, not a builder wallet.
+    native_trading = bool(
+        s.enable_native_relayer_onboarding
+        and s.builder_api_key
+        and s.builder_api_secret
+        and s.builder_api_passphrase
+    )
     return WalletStatusResponse(
         connected=bool(user.polymarket_safe_address),
         eoa_address=user.wallet_address,
         safe_address=user.polymarket_safe_address,
-        native_trading_available=bool(get_settings().builder_private_key),
+        native_trading_available=native_trading,
     )
 
 
@@ -221,7 +228,15 @@ async def connect_wallet(
     user: UserProfile = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Verify the user controls `eoa_address`, then deploy a Safe.
+    """Verify the user controls `eoa_address`, then RECORD their Safe.
+
+    P2b: the Safe is deployed gaslessly in the user's browser via the
+    Polymarket relayer (the user signs one CreateProxy EIP-712) BEFORE
+    this call. This endpoint no longer deploys anything — it (1) proves
+    EOA control via the one-shot nonce signature, (2) derives the Safe
+    with our triple-verified `compute_safe_address`, (3) confirms that
+    Safe actually has on-chain bytecode (never persist a phantom Safe
+    the relayer didn't deploy), then (4) persists it.
 
     The signature must be over the exact message returned by
     `/wallet/nonce` for this user. Pre-fix this endpoint accepted any
@@ -276,15 +291,28 @@ async def connect_wallet(
             detail="Signature does not match the supplied EOA.",
         )
 
-    # 3. Only now deploy the Safe.
+    # 3. Derive the Safe (triple-verified vs Polymarket's SDK) and
+    #    confirm the browser actually completed the gasless relayer
+    #    deploy. We never persist a Safe that isn't on-chain — a phantom
+    #    address would make every later CLOB order fail with an opaque
+    #    funder error.
+    safe_address = compute_safe_address(eoa)
     try:
-        safe_address = await _deployer.deploy_safe(eoa)
+        deployed = await is_contract_deployed(safe_address)
     except Exception as exc:
-        logger.exception("Safe deployment failed for %s", eoa)
+        logger.warning("connect: deploy-check RPC failed for %s: %s", safe_address, exc)
         raise HTTPException(
-            status_code=500,
-            detail="Safe deployment failed. Please try again or contact support.",
+            status_code=502,
+            detail="Could not verify Safe deployment (RPC). Please retry.",
         ) from exc
+    if not deployed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Safe not deployed yet. Complete the gasless deployment "
+                "in your wallet, then retry."
+            ),
+        )
 
     user.wallet_address = eoa
     user.polymarket_safe_address = safe_address

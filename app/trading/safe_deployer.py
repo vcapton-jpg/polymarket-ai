@@ -116,6 +116,24 @@ async def read_usdce_balance(address: str) -> float:
     return _usdce_units_to_float(int(raw))
 
 
+async def is_contract_deployed(address: str) -> bool:
+    """True iff `address` has on-chain bytecode on Polygon.
+
+    Used by /connect to verify the browser actually completed the
+    gasless relayer deploy (P2b) before we persist the Safe — we never
+    record a phantom Safe the relayer never deployed. Free eth_call:
+    no gas, no key.
+    """
+    w3 = Web3(Web3.HTTPProvider(get_settings().polygon_rpc_url))
+    loop = asyncio.get_running_loop()
+    code = await loop.run_in_executor(
+        None,
+        lambda: w3.eth.get_code(Web3.to_checksum_address(address)),
+    )
+    # An undeployed counterfactual address returns b"" / b"\x00".
+    return bool(code) and code not in (b"", b"\x00")
+
+
 class SafeDeployer:
     """Polymarket proxy-Safe deployment.
 
