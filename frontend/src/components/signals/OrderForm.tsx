@@ -30,9 +30,11 @@ import {
 } from "@/lib/api/clobTrading"
 import { useIsFreePlan } from "@/hooks/useAuth"
 import { hasToken } from "@/lib/api/auth"
+import { useAccount } from "wagmi"
 import { useClobClient } from "@/hooks/useClobClient"
 import { useWalletSetup } from "@/hooks/useWalletSetup"
 import { WalletSetupModal } from "@/components/trading/WalletSetupModal"
+import { DepositModal } from "@/components/trading/DepositModal"
 
 type Direction = "YES" | "NO"
 const DIRECTIONS: readonly Direction[] = ["YES", "NO"] as const
@@ -208,6 +210,12 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     startSetup,
   } = useWalletSetup()
   const [showWalletModal, setShowWalletModal] = useState(false)
+  // P1 deposit (betmoar-inspired): the "tip from Polymarket" path works
+  // with NO builder key, NO signature, NO Safe deploy — it just shows
+  // the counterfactual address. Always available as an escape hatch,
+  // independent of the native-trading gate.
+  const [showDepositModal, setShowDepositModal] = useState(false)
+  const { address: connectedEoa } = useAccount()
   // CLOB client — null until wallet+safe ready. The hook recreates on
   // safeAddress change so we never hold a stale funder.
   const { client: clobClient, ready: clobReady, reason: clobReason } = useClobClient({
@@ -801,6 +809,14 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
           Voir le marché sur Polymarket
           <ArrowUpRight className="h-3.5 w-3.5" />
         </a>
+        <button
+          type="button"
+          onClick={() => setShowDepositModal(true)}
+          className="inline-flex items-center gap-1 text-body-sm text-ink-muted hover:text-ink underline-offset-4 hover:underline transition-premium cursor-pointer"
+        >
+          Déposer des fonds
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
         {onManualEntry && (
           <button
             type="button"
@@ -836,6 +852,11 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
         step={walletStep}
         error={walletError}
         startSetup={startSetup}
+      />
+      <DepositModal
+        open={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        eoa={connectedEoa ?? null}
       />
     </motion.form>
   )

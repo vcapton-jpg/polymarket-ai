@@ -36,6 +36,20 @@ export async function getWalletNonce(): Promise<WalletNonce> {
   return apiGet<WalletNonce>("/trading/wallet/nonce")
 }
 
+/** Counterfactual deposit address — funds can be sent here BEFORE the
+ *  Safe is deployed (no gas, no signature, no builder key). P1 of the
+ *  betmoar-inspired onboarding. */
+export type DepositAddress = {
+  deposit_address: string
+  deployed: boolean
+}
+
+export async function getDepositAddress(eoa: string): Promise<DepositAddress> {
+  return apiGet<DepositAddress>(
+    `/trading/wallet/deposit-address?eoa=${encodeURIComponent(eoa)}`,
+  )
+}
+
 export async function connectWallet(args: {
   eoa_address: string
   nonce: string

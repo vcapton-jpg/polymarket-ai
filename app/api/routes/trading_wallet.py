@@ -101,6 +101,47 @@ class ConnectResponse(BaseModel):
     safe_address: str
 
 
+class DepositAddressResponse(BaseModel):
+    # The address the user funds. When the Safe is already deployed
+    # it's the live Safe; otherwise it's the deterministic CREATE2
+    # address (counterfactual) — funds sent there are safe and the
+    # Safe is deployed lazily at first trade. The betmoar.fun model:
+    # no gas, no signature, no builder key needed just to RECEIVE.
+    deposit_address: str
+    deployed: bool
+
+
+@router.get("/deposit-address", response_model=DepositAddressResponse)
+async def deposit_address(
+    eoa: str,
+    user: UserProfile = Depends(get_current_user),
+):
+    """Counterfactual Safe address for `eoa` — no deploy, no gas, no
+    builder key. Lets the user fund their wallet (e.g. via a Polymarket
+    tip) before the Safe is ever deployed. P1 of the betmoar-inspired
+    onboarding (docs/PLAN_30D_SIGNAL_QUALITY.md).
+    """
+    # Already-deployed Safe wins — that's the authoritative target.
+    if user.polymarket_safe_address:
+        return DepositAddressResponse(
+            deposit_address=user.polymarket_safe_address, deployed=True
+        )
+    try:
+        checksummed = Web3.to_checksum_address(eoa.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid EOA address") from exc
+
+    from app.trading.safe_deployer import compute_safe_address
+
+    settings = get_settings()
+    safe_addr = compute_safe_address(
+        checksummed,
+        settings.gnosis_safe_singleton,
+        factory=settings.gnosis_safe_proxy_factory,
+    )
+    return DepositAddressResponse(deposit_address=safe_addr, deployed=False)
+
+
 @router.get("/status", response_model=WalletStatusResponse)
 async def wallet_status(
     user: UserProfile = Depends(get_current_user),
