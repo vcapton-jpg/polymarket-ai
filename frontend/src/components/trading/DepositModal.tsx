@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import FocusLock from "react-focus-lock"
 import { Check, Copy, ExternalLink, Gift, Loader2, Wallet, X } from "lucide-react"
 import { Button } from "@/components/ui/Button"
-import { getDepositAddress } from "@/lib/api/wallet"
+import { getDepositAddress, getDepositBalance } from "@/lib/api/wallet"
 import { useToasts } from "@/lib/useToasts"
 
 type Props = {
@@ -33,6 +33,7 @@ export function DepositModal({ open, onClose, eoa }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [balance, setBalance] = useState<number | null>(null)
 
   const close = useCallback(() => onClose(), [onClose])
 
@@ -65,6 +66,30 @@ export function DepositModal({ open, onClose, eoa }: Props) {
       cancelled = true
     }
   }, [open, eoa])
+
+  // Poll the on-chain USDC.e balance every 10 s while the modal is
+  // open and we have an address — the betmoar "funds arrive within
+  // ~1 min ⚡" confirmation. RPC hiccups (502) are swallowed; the next
+  // tick retries. Stops as soon as the modal closes.
+  useEffect(() => {
+    if (!open || !address) return
+    let cancelled = false
+    const tick = () => {
+      getDepositBalance(address)
+        .then((r) => {
+          if (!cancelled) setBalance(r.usdce_balance)
+        })
+        .catch(() => {
+          /* transient RPC error — keep last known, retry next tick */
+        })
+    }
+    tick()
+    const id = setInterval(tick, 10_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [open, address])
 
   const copy = async () => {
     if (!address) return
@@ -199,10 +224,21 @@ export function DepositModal({ open, onClose, eoa }: Props) {
                 </p>
               )}
 
+              {balance !== null && balance > 0 && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-signal-yes/40 bg-signal-yes/10 px-3 py-2.5 text-sm text-signal-yes">
+                  <Check className="h-4 w-4 shrink-0" />
+                  <span>
+                    <strong className="num">{balance.toFixed(2)} USDC.e</strong>{" "}
+                    reçus sur ton wallet ⚡
+                  </span>
+                </div>
+              )}
+
               <p className="mt-3 text-label-xs leading-relaxed text-ink-dim">
                 Cette adresse est déterministe et t'appartient — tu peux
-                y envoyer des fonds même avant le premier trade. Bridge
-                depuis d'autres chaînes : bientôt.
+                y envoyer des fonds même avant le premier trade. On
+                vérifie l'arrivée des fonds en direct. Bridge depuis
+                d'autres chaînes : bientôt.
               </p>
 
               <Button
