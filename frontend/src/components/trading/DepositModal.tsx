@@ -176,7 +176,7 @@ export function DepositModal({ open, onClose, eoa }: Props) {
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ duration: 0.15 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md rounded-2xl border border-line-strong bg-obsidian-900 p-6 shadow-2xl"
+              className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line-strong bg-obsidian-900 p-6 shadow-2xl"
             >
               <button
                 type="button"
@@ -195,51 +195,72 @@ export function DepositModal({ open, onClose, eoa }: Props) {
                 id="deposit-title"
                 className="mb-1 font-display text-lg font-semibold text-ink"
               >
-                Déposer sur ton wallet
+                Déposer des fonds
               </h2>
               <p className="mb-5 text-sm text-ink-muted">
-                Le plus simple si tu as déjà un compte Polymarket : tippe
-                ton propre wallet. 1 minute, zéro gas, zéro MetaMask.
+                Tu as déjà un compte Polymarket&nbsp;? Envoie-toi un tip.{" "}
+                <span className="text-ink">
+                  ~1&nbsp;min, aucun frais, aucune signature.
+                </span>
               </p>
 
-              {/* Polymarket tip — the easy path */}
+              {/* Recommended path — Polymarket self-tip. Clean numbered
+                  steps. (An annotated real Polymarket screenshot for
+                  step 2 is a deliberate follow-up — see PR.) */}
               <div className="mb-5 rounded-xl border border-brand-500/25 bg-brand-500/[0.04] p-4">
                 <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-brand-300">
                   <Gift className="h-4 w-4" />
-                  Tip via Polymarket — recommandé
+                  Recommandé&nbsp;: tip depuis Polymarket
                 </div>
-                <ol className="space-y-1.5 text-sm text-ink-muted">
-                  <li>
-                    <span className="text-brand-300">1.</span> Ouvre ton
-                    profil Polymarket
+
+                <ol className="space-y-3 text-sm">
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-label-xs font-bold text-brand-300">
+                      1
+                    </span>
+                    <span className="text-ink-muted">
+                      Ouvre ton profil Polymarket.
+                    </span>
                   </li>
-                  <li>
-                    <span className="text-brand-300">2.</span> Clique le
-                    bouton 🎁 <span className="text-ink">Send Tip</span>
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-label-xs font-bold text-brand-300">
+                      2
+                    </span>
+                    <span className="text-ink-muted">
+                      Clique{" "}
+                      <span className="font-medium text-ink">Send&nbsp;tip</span>
+                      , colle{" "}
+                      <span className="font-medium text-ink">
+                        ton adresse ci-dessous
+                      </span>
+                      , choisis le montant, confirme.
+                    </span>
                   </li>
-                  <li>
-                    <span className="text-brand-300">3.</span> Colle
-                    l'adresse ci-dessous, entre le montant, confirme
-                  </li>
-                  <li>
-                    <span className="text-brand-300">4.</span> Les fonds
-                    arrivent en ~1 min ⚡
+                  <li className="flex gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-label-xs font-bold text-brand-300">
+                      3
+                    </span>
+                    <span className="text-ink-muted">
+                      Les fonds arrivent en ~1&nbsp;min — détectés
+                      automatiquement ci-dessous ⚡
+                    </span>
                   </li>
                 </ol>
+
                 <a
                   href="https://polymarket.com/profile"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors"
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors"
                 >
-                  Ouvrir mon profil Polymarket
+                  Ouvrir Polymarket
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
 
-              {/* Safe address */}
+              {/* The address to paste into Polymarket */}
               <p className="mb-1.5 text-label-xs uppercase tracking-wide text-ink-dim">
-                Ton adresse de dépôt
+                Ton adresse de dépôt — copie-la dans Polymarket
               </p>
               {loading ? (
                 <div className="flex items-center gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-3 text-sm text-ink-muted">
@@ -254,23 +275,35 @@ export function DepositModal({ open, onClose, eoa }: Props) {
                   {error}
                 </p>
               ) : address ? (
-                <button
-                  type="button"
-                  onClick={copy}
-                  className="group flex w-full items-center justify-between gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-3 text-left transition-colors hover:border-brand-400/40"
-                >
-                  <span className="num truncate font-mono text-sm text-ink">
-                    {address}
-                  </span>
-                  {copied ? (
-                    <Check className="h-4 w-4 shrink-0 text-signal-yes" />
-                  ) : (
-                    <Copy className="h-4 w-4 shrink-0 text-ink-dim group-hover:text-ink" />
-                  )}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={copy}
+                    className="group flex w-full items-center justify-between gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-3 text-left transition-colors hover:border-brand-400/40"
+                  >
+                    <span className="num truncate font-mono text-sm text-ink">
+                      {address}
+                    </span>
+                    {copied ? (
+                      <span className="flex shrink-0 items-center gap-1 text-label-xs font-semibold text-signal-yes">
+                        <Check className="h-4 w-4" /> Copié
+                      </span>
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-1 text-label-xs font-medium text-ink-dim group-hover:text-ink">
+                        <Copy className="h-4 w-4" /> Copier
+                      </span>
+                    )}
+                  </button>
+                  <p className="mt-1.5 text-label-xs text-ink-dim">
+                    {copied
+                      ? "Adresse copiée — colle-la dans Polymarket."
+                      : "Appuie pour copier, puis colle dans Polymarket."}
+                  </p>
+                </>
               ) : (
                 <p className="rounded-lg border border-line-strong bg-obsidian-850 px-3 py-3 text-sm text-ink-dim">
-                  Connecte ton wallet d'abord pour générer ton adresse.
+                  Connecte d'abord ton wallet — ton adresse de dépôt
+                  s'affichera ici.
                 </p>
               )}
 
@@ -288,23 +321,31 @@ export function DepositModal({ open, onClose, eoa }: Props) {
                   Opt-in: only hits the bridge host on click. Hidden
                   until we have a Safe address to forward into. */}
               {address && (
-                <div className="mt-4 border-t border-line/60 pt-4">
+                <div className="mt-5 border-t border-line/60 pt-4">
                   {!bridgeAddr && !bridgeFailed && (
-                    <button
-                      type="button"
-                      onClick={openBridge}
-                      disabled={bridgeLoading}
-                      className="group flex w-full items-center justify-between gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-2.5 text-left text-sm text-ink-muted transition-colors hover:border-brand-400/40 hover:text-ink disabled:opacity-60"
-                    >
-                      <span className="flex items-center gap-2">
+                    <>
+                      <p className="mb-2 text-label-xs uppercase tracking-wide text-ink-dim">
+                        Pas de compte Polymarket&nbsp;?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openBridge}
+                        disabled={bridgeLoading}
+                        className="group flex w-full items-center gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-2.5 text-left text-sm text-ink-muted transition-colors hover:border-brand-400/40 hover:text-ink disabled:opacity-60"
+                      >
                         {bridgeLoading ? (
                           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-400" />
                         ) : (
                           <ArrowLeftRight className="h-4 w-4 shrink-0 text-brand-400" />
                         )}
-                        Bridge depuis une autre chaîne (ETH, Base, Arbitrum, Solana, BTC…)
-                      </span>
-                    </button>
+                        <span>
+                          Envoie depuis une autre chaîne{" "}
+                          <span className="text-ink-dim">
+                            (ETH, Base, Arbitrum, Solana, BTC…)
+                          </span>
+                        </span>
+                      </button>
+                    </>
                   )}
 
                   {bridgeAddr && (
@@ -352,10 +393,10 @@ export function DepositModal({ open, onClose, eoa }: Props) {
                 </div>
               )}
 
-              <p className="mt-3 text-label-xs leading-relaxed text-ink-dim">
-                Cette adresse est déterministe et t'appartient — tu peux
-                y envoyer des fonds même avant le premier trade. On
-                vérifie l'arrivée des fonds en direct.
+              <p className="mt-4 flex items-start gap-1.5 text-label-xs leading-relaxed text-ink-dim">
+                <Check className="mt-0.5 h-3 w-3 shrink-0 text-signal-yes" />
+                Cette adresse t'appartient. Tu peux l'utiliser même avant
+                ton premier trade — on détecte les fonds automatiquement.
               </p>
 
               <Button
