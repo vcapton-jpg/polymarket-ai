@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import FocusLock from "react-focus-lock"
-import { Check, Copy, ExternalLink, Gift, Loader2, Wallet, X } from "lucide-react"
+import {
+  ArrowLeftRight,
+  Check,
+  Copy,
+  ExternalLink,
+  Gift,
+  Loader2,
+  Wallet,
+  X,
+} from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { getDepositAddress, getDepositBalance } from "@/lib/api/wallet"
+import { createBridgeDeposit } from "@/lib/api/bridge"
 import { useToasts } from "@/lib/useToasts"
 
 type Props = {
@@ -34,6 +44,14 @@ export function DepositModal({ open, onClose, eoa }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [balance, setBalance] = useState<number | null>(null)
+  // P3 bridge (Polymarket first-party, any chain → USDC.e). Lazy: only
+  // hit the bridge host when the user opts in. Degrades gracefully if
+  // the host is unreachable (CORS unverified) — the Polymarket-tip
+  // path above + the live balance poll remain the robust funded path.
+  const [bridgeAddr, setBridgeAddr] = useState<string | null>(null)
+  const [bridgeLoading, setBridgeLoading] = useState(false)
+  const [bridgeFailed, setBridgeFailed] = useState(false)
+  const [bridgeCopied, setBridgeCopied] = useState(false)
 
   const close = useCallback(() => onClose(), [onClose])
 
@@ -97,6 +115,38 @@ export function DepositModal({ open, onClose, eoa }: Props) {
       await navigator.clipboard.writeText(address)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
+    } catch {
+      addToast({
+        type: "info",
+        title: "Copie impossible",
+        description: "Sélectionne et copie l'adresse manuellement.",
+      })
+    }
+  }
+
+  // Opt-in: ask Polymarket's first-party bridge for a deposit address
+  // that forwards into THIS Safe as USDC.e. On any failure (incl. the
+  // unverified browser CORS) we surface a fallback, never block.
+  const openBridge = async () => {
+    if (!address || bridgeLoading) return
+    setBridgeLoading(true)
+    setBridgeFailed(false)
+    try {
+      const addrs = await createBridgeDeposit(address)
+      setBridgeAddr(addrs.evm)
+    } catch {
+      setBridgeFailed(true)
+    } finally {
+      setBridgeLoading(false)
+    }
+  }
+
+  const copyBridge = async () => {
+    if (!bridgeAddr) return
+    try {
+      await navigator.clipboard.writeText(bridgeAddr)
+      setBridgeCopied(true)
+      setTimeout(() => setBridgeCopied(false), 1500)
     } catch {
       addToast({
         type: "info",
@@ -234,11 +284,78 @@ export function DepositModal({ open, onClose, eoa }: Props) {
                 </div>
               )}
 
+              {/* P3 — bridge from any chain (Polymarket first-party).
+                  Opt-in: only hits the bridge host on click. Hidden
+                  until we have a Safe address to forward into. */}
+              {address && (
+                <div className="mt-4 border-t border-line/60 pt-4">
+                  {!bridgeAddr && !bridgeFailed && (
+                    <button
+                      type="button"
+                      onClick={openBridge}
+                      disabled={bridgeLoading}
+                      className="group flex w-full items-center justify-between gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-2.5 text-left text-sm text-ink-muted transition-colors hover:border-brand-400/40 hover:text-ink disabled:opacity-60"
+                    >
+                      <span className="flex items-center gap-2">
+                        {bridgeLoading ? (
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-400" />
+                        ) : (
+                          <ArrowLeftRight className="h-4 w-4 shrink-0 text-brand-400" />
+                        )}
+                        Bridge depuis une autre chaîne (ETH, Base, Arbitrum, Solana, BTC…)
+                      </span>
+                    </button>
+                  )}
+
+                  {bridgeAddr && (
+                    <>
+                      <p className="mb-1.5 text-label-xs uppercase tracking-wide text-ink-dim">
+                        Adresse de bridge (n'importe quel token → USDC.e)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={copyBridge}
+                        className="group flex w-full items-center justify-between gap-2 rounded-lg border border-line-strong bg-obsidian-850 px-3 py-3 text-left transition-colors hover:border-brand-400/40"
+                      >
+                        <span className="num truncate font-mono text-sm text-ink">
+                          {bridgeAddr}
+                        </span>
+                        {bridgeCopied ? (
+                          <Check className="h-4 w-4 shrink-0 text-signal-yes" />
+                        ) : (
+                          <Copy className="h-4 w-4 shrink-0 text-ink-dim group-hover:text-ink" />
+                        )}
+                      </button>
+                      <p className="mt-2 text-label-xs leading-relaxed text-ink-dim">
+                        Envoie n'importe quel token depuis 10+ chaînes à
+                        cette adresse — il arrive en USDC.e sur ton wallet
+                        (confirmation en direct ci-dessus).
+                      </p>
+                    </>
+                  )}
+
+                  {bridgeFailed && (
+                    <div className="rounded-lg border border-line-strong bg-obsidian-850 px-3 py-2.5 text-label-xs leading-relaxed text-ink-dim">
+                      Le bridge n'est pas joignable pour l'instant. Le plus
+                      simple reste le tip Polymarket ci-dessus, ou{" "}
+                      <a
+                        href="https://polymarket.com/deposit"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-400 hover:text-brand-300 underline-offset-2 hover:underline"
+                      >
+                        déposer via Polymarket
+                      </a>
+                      .
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="mt-3 text-label-xs leading-relaxed text-ink-dim">
                 Cette adresse est déterministe et t'appartient — tu peux
                 y envoyer des fonds même avant le premier trade. On
-                vérifie l'arrivée des fonds en direct. Bridge depuis
-                d'autres chaînes : bientôt.
+                vérifie l'arrivée des fonds en direct.
               </p>
 
               <Button

@@ -10,8 +10,8 @@ traders).
 | Phase | What | Status |
 |---|---|---|
 | **P1** | Polymarket-tip deposit (counterfactual addr + on-chain confirm) | ✅ **SHIPPED** (PR #121/#123) — derivation **fixed** 2026-05-19 |
-| **P2** | Gasless Safe deploy via Polymarket relayer | 🟡 **P2a backend + operator self-test SHIPPED** (gated off); P2b frontend user-sign next |
-| **P3** | Bridge (any token/chain → USDC.e) | 🟢 **first-party** `bridge.polymarket.com` (not a 3rd-party widget) |
+| **P2** | Gasless Safe deploy via Polymarket relayer | ✅ **SHIPPED** — P2a operator self-test (#125) + P2b browser user-sign (#126). Gated OFF (`enable_native_relayer_onboarding`) until live CORS check |
+| **P3** | Bridge (any token/chain → USDC.e) | ✅ **SHIPPED** — first-party `bridge.polymarket.com` panel in DepositModal, opt-in, graceful CORS fallback |
 | **P4** | API-key trading (no per-order signature) | 🟡 buildable; depends on P2 at runtime |
 
 The "blocked on external docs" status was wrong: Polymarket's relayer
@@ -168,20 +168,27 @@ docker compose exec app python -m scripts.relayer_selftest
 
 Estimate P2b: ~3–4 days (spec known, P2a proved the integration).
 
-## P3 — Bridge (first-party, NOT a 3rd-party widget)
+## P3 — Bridge (first-party) — ✅ SHIPPED (#127)
 
 Earlier note recommended LI.FI — **superseded**. Polymarket runs its
-own first-party bridge: `bridge.polymarket.com`, `POST /deposit
-{address}` returns a per-user deposit address that auto-swaps inbound
-tokens/chains → USDC.e on Polygon to the target address. Destination =
-the P1 counterfactual Safe address (we already derive it). No
-3rd-party SDK, no provider account, no extra fee model to accept.
+own first-party bridge: `bridge.polymarket.com` (a Polymarket-hosted
+proxy over fun.xyz), **no auth** (`security: []`):
+`POST /deposit {address}` → `{address:{evm,svm,btc,tvm}, note}`;
+`GET /status/{depositAddr}`. Source: docs.polymarket.com/api-reference/bridge.
 
-Backend: surface the bridge deposit address (small proxy through the
-existing HMAC route or a thin server call). Frontend: a panel in the
-deposit modal alongside the Polymarket-tip path. ~3–4 days. Can
-proceed independently of the edge verdict (low-risk, mostly
-frontend).
+Shipped: `frontend/src/lib/api/bridge.ts` (direct browser→bridge, 12 s
+timeout) + an **opt-in** "Bridge depuis une autre chaîne" panel in
+`DepositModal` that submits the user's proxy-Safe as the destination
+(funds settle as USDC.e on Polygon → the existing on-chain balance
+poll is the authoritative "arrived ✓"). **Zero backend change** (no
+auth ⇒ no HMAC proxy, no allow-list change). Graceful degradation: any
+failure (incl. the unverified browser CORS) shows a fallback +
+Polymarket-deposit deep-link; the P1 tip path is never blocked.
+
+Live gate before relying on it: confirm `bridge.polymarket.com`
+browser-origin CORS in a spike (same class of unknown as P2b). If
+blocked, a thin no-HMAC backend pass-through is the documented
+fallback. Independent of the edge verdict (low-risk, frontend-only).
 
 ## P4 — API-key trading (buildable; P2 at runtime)
 
