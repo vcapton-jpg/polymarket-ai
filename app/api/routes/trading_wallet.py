@@ -133,12 +133,11 @@ async def deposit_address(
 
     from app.trading.safe_deployer import compute_safe_address
 
-    settings = get_settings()
-    safe_addr = compute_safe_address(
-        checksummed,
-        settings.gnosis_safe_singleton,
-        factory=settings.gnosis_safe_proxy_factory,
-    )
+    # Polymarket-relayer-compatible counterfactual address. The factory
+    # / init-code-hash are pinned inside compute_safe_address (mirrored
+    # from Polymarket's SDK) — intentionally not driven by the stock
+    # Gnosis settings, which derive a different, unusable address.
+    safe_addr = compute_safe_address(checksummed)
     return DepositAddressResponse(deposit_address=safe_addr, deployed=False)
 
 
