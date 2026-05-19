@@ -37,6 +37,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 68,
     polymarketUrl: "https://polymarket.com/event/israel-lebanon-2027",
+    marketId: "0xmock-israel-lebanon-2027",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/china-x-india-military-clash-by-december-31-eggJM4CWN6Un.jpg",
   },
   {
@@ -74,6 +75,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 30,
     polymarketUrl: "https://polymarket.com/event/trump-pope-2026",
+    marketId: "0xmock-trump-pope-2026",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/macron-out-in-2025-qFUc7czZE3Ev.jpg",
   },
   {
@@ -112,6 +114,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 15,
     polymarketUrl: "https://polymarket.com/event/hormuz-china-end-2026",
+    marketId: "0xmock-hormuz-china-end-2026",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/will-china-blockade-taiwan-by-december-31-nh3_qlz0Ip6r.jpg",
   },
   {
@@ -150,6 +153,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 92,
     polymarketUrl: "https://polymarket.com/event/fed-rate-september-2026",
+    marketId: "0xmock-fed-rate-september-2026",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/how-many-fed-rate-cuts-in-2025-9qstZkSL1dn0.jpg",
   },
   {
@@ -187,6 +191,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 48,
     polymarketUrl: "https://polymarket.com/event/psg-ucl-2026",
+    marketId: "0xmock-psg-ucl-2026",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/2026-fifa-world-cup-winner-595-8rgoVIZnbKgL.png",
   },
   {
@@ -214,6 +219,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 71,
     polymarketUrl: "https://polymarket.com/event/btc-120k-2026",
+    marketId: "0xmock-btc-120k-2026",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/BTC+fullsize.png",
   },
   {
@@ -241,6 +247,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 38,
     polymarketUrl: "https://polymarket.com/event/eu-ai-package-2026",
+    marketId: "0xmock-eu-ai-package-2026",
     image: "https://polymarket-upload.s3.us-east-2.amazonaws.com/will-openai-launch-a-consumer-hardware-product-by-qKhPl0zZsOEJ.jpg",
   },
   {
@@ -268,6 +275,7 @@ export const MOCK_SIGNALS: Signal[] = [
     ],
     lifePercent: 62,
     polymarketUrl: "https://polymarket.com/event/us-unemployment-july-2026",
+    marketId: "0xmock-us-unemployment-july-2026",
   },
 ]
 

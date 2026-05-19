@@ -76,6 +76,10 @@ class SignalCardOut(BaseModel):
     sourcesCount: int = 0
     lifePercent: int
     polymarketUrl: str
+    # Polymarket condition_id. The frontend places CLOB orders with
+    # this — it must NOT parse it from `polymarketUrl` (that's now the
+    # human /event/<slug> page, not /market/<conditionId>).
+    marketId: str
     image: str | None = None
     createdAt: datetime
 

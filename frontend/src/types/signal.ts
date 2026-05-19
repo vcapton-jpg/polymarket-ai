@@ -89,6 +89,10 @@ export type Signal = {
   sourcesCount?: number
   lifePercent: number
   polymarketUrl: string
+  /** Polymarket condition_id — used to place CLOB orders. Distinct from
+   *  `polymarketUrl` (now the human /event/<slug> page). Never parse the
+   *  id out of the URL: that coupling broke links + trading. */
+  marketId: string
   /** Market thumbnail from Polymarket Gamma API (image field on event/market). */
   image?: string
   reasoning?: string | null

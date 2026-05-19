@@ -98,8 +98,15 @@ class GammaClient:
             or event.get("icon")
         )
 
+        # Polymarket web pages live at /event/<event-slug> (200). The
+        # event slug is the canonical, always-resolvable deep link;
+        # market slug is a fallback. NEVER build /market/<conditionId>
+        # — it 307s to /404 (the "broken links" bug, fixed 2026-05-19).
+        slug = event.get("slug") or m.get("slug")
+
         return {
             "market_id": condition_id,
+            "slug": slug,
             "question": question,
             "description": (m.get("description") or event.get("description") or "")[:2000],
             "category": event.get("category") or (tags[0] if tags else None),

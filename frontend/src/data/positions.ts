@@ -22,6 +22,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/ue-mercosur-2026",
+    marketId: "0xmock-ue-mercosur-2026",
   },
   {
     id: "SIG-2815",
@@ -42,6 +43,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/trump-putin-2026",
+    marketId: "0xmock-trump-putin-2026",
   },
   {
     id: "SIG-2801",
@@ -62,6 +64,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/fed-rate-march-2026",
+    marketId: "0xmock-fed-rate-march-2026",
   },
   {
     id: "SIG-2790",
@@ -82,6 +85,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/eth-4k-april-2026",
+    marketId: "0xmock-eth-4k-april-2026",
   },
   {
     id: "SIG-2772",
@@ -102,6 +106,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/israel-lebanon-prisoners-2026",
+    marketId: "0xmock-israel-lebanon-prisoners-2026",
   },
   {
     id: "SIG-2755",
@@ -122,6 +127,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/ufc-309-makhachev",
+    marketId: "0xmock-ufc-309-makhachev",
   },
   {
     id: "SIG-2740",
@@ -142,6 +148,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/trump-pope-leon-2026",
+    marketId: "0xmock-trump-pope-leon-2026",
   },
   {
     id: "SIG-2720",
@@ -162,6 +169,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/artemis-iii-2026",
+    marketId: "0xmock-artemis-iii-2026",
   },
   {
     id: "SIG-2700",
@@ -182,6 +190,7 @@ const RESOLVED_SIGNAL_STUBS: Signal[] = [
     sources: [],
     lifePercent: 0,
     polymarketUrl: "https://polymarket.com/event/btc-100k-may-2026",
+    marketId: "0xmock-btc-100k-may-2026",
   },
 ]
 
