@@ -10,7 +10,7 @@ traders).
 | Phase | What | Status |
 |---|---|---|
 | **P1** | Polymarket-tip deposit (counterfactual addr + on-chain confirm) | ✅ **SHIPPED** (PR #121/#123) — derivation **fixed** 2026-05-19 |
-| **P2** | Gasless Safe deploy via Polymarket relayer | 🟢 **UNBLOCKED** — public SDK spec verified, buildable |
+| **P2** | Gasless Safe deploy via Polymarket relayer | 🟡 **P2a backend + operator self-test SHIPPED** (gated off); P2b frontend user-sign next |
 | **P3** | Bridge (any token/chain → USDC.e) | 🟢 **first-party** `bridge.polymarket.com` (not a 3rd-party widget) |
 | **P4** | API-key trading (no per-order signature) | 🟡 buildable; depends on P2 at runtime |
 
@@ -106,21 +106,67 @@ Use Polymarket's public client, do **not** hand-roll the meta-tx.
   P1 `compute_safe_address` derivation (now that it's fixed they
   match; that match is the whole point of the fix).
 
-### Implementation sketch
+### Architecture decision (2026-05-19): signer location
 
-- New `app/trading/relayer_deployer.py`: thin wrapper that builds the
-  relayer meta-tx via the SDK pattern, POSTs through the existing
-  HMAC-signed proxy (`/api/polymarket/sign` → `/relayer-rpc/…`,
-  already allow-listed in `polymarket_signing.py`), polls
-  `getDeployed()` for the receipt.
+The gasless deploy is signed by **whoever holds the signer key**. Two
+paths, deliberately split:
+
+- **P2b — user-facing (the real one):** the deploy is signed in the
+  **user's own browser wallet** (wagmi + `@polymarket/builder-relayer-client`).
+  The backend NEVER holds a user key. Backend only adds builder-HMAC
+  attribution headers via the existing `/api/polymarket/sign` →
+  `/relayer-rpc/…` proxy. **Not yet built — next PR.**
+- **P2a — operator self-test (SHIPPED, gated off):** signs with an
+  operator-held key so the operator can validate the end-to-end deploy
+  on their OWN wallet before P2b ships. Never acts for a real user.
+
+### P2a — SHIPPED (gated off by default)
+
+- `app/trading/relayer_deployer.py` — `RelayerDeployer` wrapping the
+  official `py-builder-relayer-client==0.0.2rc1` (`RelayClient`).
+  Three independent gates, all required: `enable_relayer_deploy`
+  (master switch, default **False**), `operator_test_private_key`,
+  builder HMAC creds. Idempotent (returns the address if already
+  deployed). Polls the relayer's authoritative `get_deployed()` rather
+  than trust an opaque response.
+- **Defense-in-depth:** `_cross_check` aborts the deploy unless the
+  SDK's `get_expected_safe()` equals our `compute_safe_address()` —
+  the #124 bug class can never recur silently.
+- **Triple-verified derivation:** our `compute_safe_address` now
+  provably equals (1) Polymarket's published SDK test vector
+  (`test_derive.py`) and (2) Polymarket's **live** SDK code
+  (`RelayClient.get_expected_safe`, asserted in CI by
+  `tests/unit/test_relayer_deployer.py::test_real_sdk_matches_our_derivation`).
 - `safe_deployer.deploy_safe` stays a hard-fail (incompatible
-  stock-Gnosis path was removed). The relayer path is the only deploy.
+  stock-Gnosis path removed in #124). The relayer path is the only
+  deploy.
+- Settings added: `relayer_url` (default `https://relayer-v2.polymarket.com`),
+  `enable_relayer_deploy` (False), `operator_test_private_key` (None).
+
+#### Operator self-test runbook
+
+Host env (all three or the run is refused):
+`ENABLE_RELAYER_DEPLOY=true`, `OPERATOR_TEST_PRIVATE_KEY=0x…` (your
+test EOA), `BUILDER_API_KEY/SECRET/PASSPHRASE`. Then:
+
+```
+# dry run — derive + cross-check + is-deployed, NO deploy:
+docker compose exec app python -m scripts.relayer_selftest --check
+# actually deploy (gasless, mainnet, idempotent):
+docker compose exec app python -m scripts.relayer_selftest
+```
+
+### P2b — frontend user-sign (next PR)
+
+- `@polymarket/builder-relayer-client` in the browser with the wagmi
+  signer; user signs the `CreateProxy` EIP-712 once.
 - `WalletSetupModal`: replace the MetaMask ownership-proof tx with the
-  single relayer EIP-712 ownership signature.
+  single relayer EIP-712 signature; builder headers from the backend
+  proxy.
 - `native_trading_available` (PR #119) flips True off **relayer
   reachability**, not off a builder key.
 
-Estimate: ~1 week (spec is known; risk is integration + live verify).
+Estimate P2b: ~3–4 days (spec known, P2a proved the integration).
 
 ## P3 — Bridge (first-party, NOT a 3rd-party widget)
 

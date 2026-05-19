@@ -120,6 +120,24 @@ class Settings(BaseSettings):
         description="Builder attribution code — 66-char hex bytes32",
     )
 
+    # ── Polymarket gasless relayer (P2) ────────────────────────────────
+    # Production relayer base URL. The SDK does not hardcode it; this is
+    # the documented prod host (NOT relayer.polymarket.com, NOT the
+    # *-staging.polymarket.dev host). Confirm GET /deployed responds
+    # before wiring real funds.
+    relayer_url: str = Field(default="https://relayer-v2.polymarket.com")
+    # MASTER GATE for the gasless deploy path. False = the relayer
+    # deployer refuses to act at all (prod default — onboarding plumbing
+    # is built but the money switch stays off until the H+72 edge
+    # verdict + live-RPC verification, see docs/ONBOARDING_BETMOAR_PORT.md).
+    enable_relayer_deploy: bool = Field(default=False)
+    # OPERATOR SELF-TEST ONLY signing key. The user-facing deploy is
+    # signed in the user's own browser wallet (wagmi) — the backend
+    # NEVER holds a user key. This key, if set, lets the operator
+    # validate the end-to-end relayer deploy on their OWN wallet before
+    # the frontend flow ships. Never used on behalf of a real user.
+    operator_test_private_key: str | None = Field(default=None)
+
     # Polygon RPC for Safe deployment
     polygon_rpc_url: str = Field(
         default="https://polygon-rpc.com",
