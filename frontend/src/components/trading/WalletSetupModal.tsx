@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import FocusLock from "react-focus-lock"
-import { CheckCircle, Loader2, Wallet, X } from "lucide-react"
+import { CheckCircle, Loader2, ShieldCheck, Wallet, X } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import type { SetupStep } from "@/hooks/useWalletSetup"
 import { cn } from "@/lib/utils"
@@ -16,11 +16,29 @@ type Props = {
   startSetup: () => Promise<void>
 }
 
+// Plain-language steps — no "Safe" / "gasless" / "preuve de propriété"
+// jargon. Each line: what happens + why it's safe/free.
 const STEPS = [
-  { id: "connecting_wallet", label: "Connecte ton wallet (MetaMask)" },
-  { id: "signing_challenge", label: "Signe la preuve de propriété" },
-  { id: "deploying_safe", label: "Déploiement gasless via Polymarket (1 signature)" },
-  { id: "done", label: "Dépose des USDC dans ton Safe" },
+  {
+    id: "connecting_wallet",
+    label: "Connecte MetaMask",
+    sub: "Ton portefeuille crypto — un seul clic",
+  },
+  {
+    id: "signing_challenge",
+    label: "Confirme que c'est bien toi",
+    sub: "Une signature gratuite — ce n'est pas une transaction",
+  },
+  {
+    id: "deploying_safe",
+    label: "Active ton wallet de trading",
+    sub: "Polymarket paie les frais — 0 € pour toi",
+  },
+  {
+    id: "done",
+    label: "Prêt — tu peux déposer & trader",
+    sub: "Tes prochains ordres partent en 1 clic",
+  },
 ] as const
 
 const STEP_ORDER = [
@@ -85,7 +103,7 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ duration: 0.15 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-sm rounded-2xl border border-line-strong bg-obsidian-900 p-6 shadow-2xl"
+              className="relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-line-strong bg-obsidian-900 p-6 shadow-2xl"
             >
               <button
                 type="button"
@@ -108,39 +126,53 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
                 id="wallet-setup-title"
                 className="mb-1 font-display text-lg font-semibold text-ink"
               >
-                {step === "done" ? "Wallet connecté !" : "Active le trading natif"}
+                {step === "done"
+                  ? "Tout est prêt !"
+                  : "Configure ton wallet de trading"}
               </h2>
               <p
                 id="wallet-setup-description"
                 className="mb-5 text-sm text-ink-muted"
               >
                 {step === "done"
-                  ? "Ton Safe Polymarket est prêt. Dépose des USDC pour commencer."
-                  : "Connecte MetaMask + 2 signatures. Aucun gas à payer — Polymarket couvre le déploiement. Tes ordres suivants s'exécutent automatiquement."}
+                  ? "Ton wallet de trading est actif. Dépose des fonds et passe ton premier ordre."
+                  : "Une configuration unique (~30 s). Polymarket paie les frais, ton argent reste 100 % à toi. Ensuite, chaque ordre part en 1 clic."}
               </p>
 
-              <ol className="mb-5 space-y-2">
-                {STEPS.map(({ id, label }) => {
+              <ol className="mb-5 space-y-3">
+                {STEPS.map(({ id, label, sub }) => {
                   const thisIdx = STEP_ORDER.indexOf(id)
                   const isActive = step === id
                   const isDone = currentIdx > thisIdx && step !== "error"
 
                   return (
-                    <li
-                      key={id}
-                      className={cn(
-                        "flex items-center gap-2.5 text-sm",
-                        isDone ? "text-signal-yes" : isActive ? "text-ink" : "text-ink-dim",
-                      )}
-                    >
-                      {isDone ? (
-                        <CheckCircle className="h-4 w-4 shrink-0 text-signal-yes" />
-                      ) : isActive ? (
-                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-400" />
-                      ) : (
-                        <span className="h-4 w-4 shrink-0 rounded-full border border-line-strong" />
-                      )}
-                      {label}
+                    <li key={id} className="flex items-start gap-2.5">
+                      <span className="mt-0.5 shrink-0">
+                        {isDone ? (
+                          <CheckCircle className="h-4 w-4 text-signal-yes" />
+                        ) : isActive ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-brand-400" />
+                        ) : (
+                          <span className="block h-4 w-4 rounded-full border border-line-strong" />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={cn(
+                            "block text-sm font-medium",
+                            isDone
+                              ? "text-signal-yes"
+                              : isActive
+                                ? "text-ink"
+                                : "text-ink-muted",
+                          )}
+                        >
+                          {label}
+                        </span>
+                        <span className="block text-label-xs leading-snug text-ink-dim">
+                          {sub}
+                        </span>
+                      </span>
                     </li>
                   )
                 })}
@@ -152,6 +184,14 @@ export function WalletSetupModal({ open, onSuccess, onClose, step, error, startS
                   className="mb-4 rounded-md border border-signal-no/40 bg-signal-no/10 px-3 py-2 text-sm text-signal-no"
                 >
                   {error}
+                </p>
+              )}
+
+              {step !== "done" && (
+                <p className="mb-4 flex items-start gap-1.5 rounded-md border border-line/60 bg-obsidian-850 px-3 py-2 text-label-xs leading-relaxed text-ink-dim">
+                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signal-yes" />
+                  Foresight ne touche jamais à tes fonds. Tout reste dans
+                  ton wallet — tu signes chaque action toi-même.
                 </p>
               )}
 
