@@ -202,6 +202,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
   const {
     walletConnected,
     safeAddress,
+    nativeTradingAvailable,
     step: walletStep,
     error: walletError,
     startSetup,
@@ -244,6 +245,26 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
    *      "ordre en local uniquement" silent-fallback that wrote a fake
    *      Position to localStorage).
    */
+  // A — native-trading pre-check. Opening the setup modal when the
+  // backend can't deploy a Safe makes the user sign a MetaMask tx
+  // that's guaranteed to fail at the deploy step (the bug reproduced
+  // 2026-05-18). Gate every modal entry point through here: if native
+  // trading isn't available, explain instead of trapping the user.
+  const openWalletSetup = (): boolean => {
+    if (!nativeTradingAvailable) {
+      addToast({
+        type: "info",
+        title: "Trading natif bientôt disponible",
+        description:
+          "L'exécution automatique n'est pas encore activée. Tu peux suivre le signal manuellement sur Polymarket en attendant.",
+        duration: 6000,
+      })
+      return false
+    }
+    setShowWalletModal(true)
+    return true
+  }
+
   const executeTrade = async () => {
     // Free plan guard: Score 90+ signals are Pro-only. Send users with
     // a reachable /signup flow to /pricing instead of the Stripe path.
@@ -270,7 +291,11 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       // Most likely the wallet is connected but the Safe isn't ready
       // yet, OR walletClient is still rehydrating. Re-open the wallet
       // modal — it covers all of those cases (deploy, reconnect, etc.).
-      setShowWalletModal(true)
+      // Gated: if native trading is unavailable, `openWalletSetup`
+      // shows the explanatory toast and does NOT open the modal.
+      if (!openWalletSetup()) {
+        return
+      }
       addToast({
         type: "info",
         title: "Wallet pas prêt",
@@ -466,7 +491,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
     if (!amountValid) return
 
     if (!walletConnected) {
-      setShowWalletModal(true)
+      openWalletSetup()
       return
     }
 
