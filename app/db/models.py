@@ -145,6 +145,10 @@ class Market(Base):
     __tablename__ = "markets"
 
     market_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    # Polymarket event slug → the only web URL that resolves
+    # (https://polymarket.com/event/<slug>). Nullable: legacy rows are
+    # backfilled on the next ingest cycle. See signal_mapper.polymarket_url.
+    slug: Mapped[str | None] = mapped_column(Text, nullable=True)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)

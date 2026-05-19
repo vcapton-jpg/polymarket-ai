@@ -88,6 +88,7 @@ async def _fetch_markets_async() -> dict:
                     else:
                         new_market = Market(
                             market_id=market_id,
+                            slug=mkt.get("slug"),
                             question=mkt["question"],
                             description=mkt.get("description"),
                             category=mkt.get("category"),
@@ -177,6 +178,10 @@ async def _enrich_top_markets_clob(clob) -> int:
 
 
 def _update_market(existing, data: dict):
+    # Backfill slug for legacy rows on the next ingest cycle (active
+    # markets are continuously re-fetched). `or existing` so a transient
+    # missing slug never nulls a good one.
+    existing.slug = data.get("slug") or existing.slug
     existing.active = data.get("active", existing.active)
     existing.closed = data.get("closed", existing.closed)
     existing.accepting_orders = data.get("accepting_orders", existing.accepting_orders)

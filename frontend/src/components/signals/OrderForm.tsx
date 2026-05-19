@@ -228,13 +228,10 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
   // now the only stake-input path. Free-plan paywalls + Pro-tier
   // gating remain enforced — only the per-signal stake cap is gone.
 
-  /** Extract the `market_id` path segment from a Polymarket URL so the
-   *  trade request can reach the right CLOB market. URL shape is
-   *  `https://polymarket.com/market/<id>` or `.../event/<id>`. */
-  const extractMarketId = (url: string): string | null => {
-    const match = url.match(/\/(?:market|event)\/([^/?#]+)/i)
-    return match ? match[1] : null
-  }
+  // marketId is the Polymarket condition_id, served explicitly by the
+  // API (`signal.marketId`). It used to be parsed out of polymarketUrl
+  // — that coupling broke both the links and trading when the URL was
+  // fixed to the /event/<slug> form. Use the field, never the URL.
 
   /**
    * Non-custodial trade execution (Polymarket Builder pattern, post-2026-05-08
@@ -313,7 +310,7 @@ export function OrderForm({ signal, onManualEntry, onSubmit, className }: OrderF
       return
     }
 
-    const marketId = extractMarketId(signal.polymarketUrl)
+    const marketId = signal.marketId
     if (!marketId) {
       addToast({
         type: "info",

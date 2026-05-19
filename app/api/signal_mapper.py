@@ -316,8 +316,20 @@ def estimate_opportunity_window_hours(signal: Signal) -> float:
 
 
 # ── Polymarket URL + image ───────────────────────────────────────────
-def polymarket_url(market_id: str) -> str:
-    return f"https://polymarket.com/market/{market_id}"
+def polymarket_url(market: Market | None) -> str:
+    """Canonical Polymarket web URL for a market.
+
+    `https://polymarket.com/event/<slug>` is the ONLY form that
+    resolves (HTTP 200). The old `/market/<conditionId>` 307-redirects
+    to `/404` — that was the "all Polymarket links broken" bug. When a
+    row's slug isn't ingested yet we return the Polymarket home (never
+    a 404) rather than a dead deep link; slugs backfill within one
+    ingest cycle.
+    """
+    slug = getattr(market, "slug", None) if market is not None else None
+    if slug:
+        return f"https://polymarket.com/event/{slug}"
+    return "https://polymarket.com"
 
 
 def market_image_url(market: Market | None) -> str | None:
@@ -509,7 +521,8 @@ def _common_fields(signal: Signal) -> dict:
         tradability=tradability_fr(signal.tradability_label),
         catalyst=_catalyst_for(signal),
         lifePercent=life_percent(signal.created_at, window_h),
-        polymarketUrl=polymarket_url(signal.market_id),
+        polymarketUrl=polymarket_url(signal.market),
+        marketId=signal.market_id,
         image=market_image_url(signal.market),
         createdAt=signal.created_at,
     )
