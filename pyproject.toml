@@ -62,6 +62,7 @@ dependencies = [
     # (workers/celery_app.py). `sqlalchemy` integration captures slow
     # query breadcrumbs without us instrumenting individual sessions.
     "sentry-sdk[fastapi,celery,sqlalchemy]>=2.18.0",
+    "py-builder-relayer-client==0.0.2rc1",
 ]
 
 [project.optional-dependencies]

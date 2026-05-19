@@ -1097,6 +1097,7 @@ dependencies = [
     { name = "pgvector" },
     { name = "playwright" },
     { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "py-builder-relayer-client" },
     { name = "py-builder-signing-sdk" },
     { name = "py-clob-client-v2" },
     { name = "py-order-utils" },
@@ -1154,6 +1155,7 @@ requires-dist = [
     { name = "pgvector", specifier = ">=0.2.0" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.0" },
+    { name = "py-builder-relayer-client", specifier = "==0.0.2rc1" },
     { name = "py-builder-signing-sdk", specifier = ">=0.0.2" },
     { name = "py-clob-client-v2", specifier = ">=0.1.0" },
     { name = "py-order-utils", specifier = ">=0.1.0" },
@@ -2174,6 +2176,24 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/56/9a/9470d013d0d50af0da9c4251614aeb3c1823635cab3edc211e3839db0bcf/psycopg_pool-3.3.0.tar.gz", hash = "sha256:fa115eb2860bd88fce1717d75611f41490dec6135efb619611142b24da3f6db5", size = 31606, upload-time = "2025-12-01T11:34:33.11Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/c3/26b8a0908a9db249de3b4169692e1c7c19048a9bc41a4d3209cee7dbb758/psycopg_pool-3.3.0-py3-none-any.whl", hash = "sha256:2e44329155c410b5e8666372db44276a8b1ebd8c90f1c3026ebba40d4bc81063", size = 39995, upload-time = "2025-12-01T11:34:29.761Z" },
+]
+
+[[package]]
+name = "py-builder-relayer-client"
+version = "0.0.2rc1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "eth-abi" },
+    { name = "eth-account" },
+    { name = "eth-utils" },
+    { name = "hexbytes" },
+    { name = "py-builder-signing-sdk" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a5/be/684aa2febfbf3f2daa9132b1f6c1e931a53a9f6c7841a23f1d27111d23ef/py_builder_relayer_client-0.0.2rc1.tar.gz", hash = "sha256:ecda79aeda0db2083e2e5710c299c70452627871057ab1c928c271b11d944a23", size = 19476, upload-time = "2026-05-01T21:24:40.124Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b4/2f/6860be17c6dfedfa634f04e880bd795cf29410db17d58fff0318716c356a/py_builder_relayer_client-0.0.2rc1-py3-none-any.whl", hash = "sha256:6a0bacf86635f4f87edfb4f46ca8b59a0de3844c9b7cb1de6904a43b3e98e09a", size = 30073, upload-time = "2026-05-01T21:24:38.603Z" },
 ]
 
 [[package]]
