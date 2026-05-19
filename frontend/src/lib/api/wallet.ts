@@ -50,6 +50,20 @@ export async function getDepositAddress(eoa: string): Promise<DepositAddress> {
   )
 }
 
+/** Live USDC.e balance of the deposit address — used by DepositModal
+ *  to confirm a Polymarket tip landed ("funds received ✓"). */
+export type DepositBalance = {
+  usdce_balance: number
+}
+
+export async function getDepositBalance(
+  address: string,
+): Promise<DepositBalance> {
+  return apiGet<DepositBalance>(
+    `/trading/wallet/deposit-balance?address=${encodeURIComponent(address)}`,
+  )
+}
+
 export async function connectWallet(args: {
   eoa_address: string
   nonce: string
